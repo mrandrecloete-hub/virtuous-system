@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Form</title><meta name="robots" content="noindex">
+<style>
+:root{--page:#f3f6fb;--form:#ffffff;--fg:#14202a;--inbg:#ffffff;--accent:#0b3fb5;--line:#cfd8e6;--bad:#b3261e;--radius:8px;--gap:18px;--w:640px;--fs:16px;--ff:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font-family:var(--ff);font-size:var(--fs);line-height:1.5}
+.wrap{max-width:var(--w);margin:0 auto;padding:24px 16px 48px}
+.embed .wrap{padding:8px}
+.card{background:var(--form);border-radius:calc(var(--radius) + 4px);padding:28px 24px;box-shadow:0 2px 14px rgba(0,0,0,.08)}
+h1{font-size:1.6em;margin:0 0 6px;line-height:1.25}
+.desc{margin:0 0 18px;opacity:.8;white-space:pre-wrap}
+.f{margin-bottom:var(--gap)}
+.left .f.row{display:grid;grid-template-columns:200px 1fr;gap:12px;align-items:start}
+@media(max-width:560px){.left .f.row{display:block}}
+label,.lbl{display:block;font-weight:600;margin-bottom:6px}
+.req{color:var(--bad);margin-left:2px}
+.help{font-size:.85em;opacity:.7;margin-top:4px}
+input[type=text],input[type=email],input[type=tel],input[type=number],input[type=date],select,textarea{width:100%;font:inherit;color:inherit;background:var(--inbg);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;min-height:44px}
+textarea{min-height:96px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:1px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:6px 0}
+.opt input{margin-top:5px;width:18px;height:18px;flex:none}
+h2.sec{font-size:1.15em;margin:26px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent)}
+.para{margin:0 0 var(--gap);white-space:pre-wrap}
+.err{color:var(--bad);font-size:.9em;margin-top:4px}
+.bad input,.bad select,.bad textarea{border-color:var(--bad)}
+.sig{border:1px dashed var(--line);border-radius:var(--radius);background:var(--inbg);touch-action:none;display:block;width:100%;max-width:480px;height:150px}
+button{font:inherit;cursor:pointer;border-radius:var(--radius);border:1px solid var(--line);background:transparent;color:inherit;padding:8px 14px;min-height:40px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;padding:12px 22px;min-height:48px}
+button:disabled{opacity:.6;cursor:default}
+.banner{background:#fff4d6;color:#4a3800;border-radius:var(--radius);padding:10px 12px;margin-bottom:14px}
+.hp{position:absolute;left:-9999px;height:0;overflow:hidden}
+.center{text-align:center;padding:40px 8px}
+.foot{margin-top:18px;text-align:center;font-size:.8em;opacity:.6}
+</style></head>
+<body><div class="wrap"><div class="card" id="root"><p>Loading…</p></div><p class="foot" id="foot"></p></div>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="public-form.js"></script>
+</body></html>

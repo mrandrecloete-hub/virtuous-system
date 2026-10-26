@@ -5,6 +5,8 @@
 (function(){
   const E=window.VIRTUOSO_ENGINE;if(!E||!E.addIntent)return;
   const ctx={formId:null,lastQuiz:null};
+  /* When a form is saved it gets its permanent id: keep "the current form" pointing at it. */
+  if(window.VIRTUOSO_SYNC)window.VIRTUOSO_SYNC.renamed.push((o,n)=>{if(ctx.formId===o)ctx.formId=n});
   const COMPANY='Virtuous Accounting Solutions CC';
   const sc=s=>{s=String(s).replace(/\s+/g,' ').trim();return s.charAt(0).toUpperCase()+s.slice(1)};
   const list=(rows,max=14)=>rows.slice(0,max).map(r=>'- '+r).join('\n')+(rows.length>max?'\n- and '+(rows.length-max)+' more':'');

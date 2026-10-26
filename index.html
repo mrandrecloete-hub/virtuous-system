@@ -453,7 +453,7 @@ const ICON={
  cash:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.7c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.9-2.5.9-2.5 1.9 1 1.8 2.5 1.8 2.5-.8 2.5-1.8"/>'};
 const NAV={
  emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['loans','Loans'],['slip','Payslips'],['stationery','Stationery list'],['cash','Petty cash']]]],
- adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['employees','Employees'],['kyc','Client KYC'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['payroll','Payroll'],['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Clients & billing']]],['Office',[['stationery','Stationery list']]]]};
+ adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['employees','Employees'],['kyc','Client KYC'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['payroll','Payroll'],['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Timesheet']]],['Office',[['stationery','Stationery list']]]]};
 function pending(){return state.approvals.filter(a=>a.status==='Pending').length}
 function paintTabs(){
   const cur=state.tab[state.role];let title='Dashboard';
@@ -535,7 +535,7 @@ function vClients(){
   const st=clientStats(),th=st.reduce((s,x)=>s+x.hrs,0),ta=st.reduce((s,x)=>s+x.amt,0);
   const bh=st.filter(x=>x.c.bill).reduce((s,x)=>s+x.hrs,0);
   const all=[];st.forEach(x=>x.rows.forEach(r=>all.push({...r,c:x.c})));
-  return `<h2>Clients & billing</h2><p class="sub">Add the clients staff can log time against, set the hourly rate you charge, and see hours spent and the amount billable.</p>
+  return `<h2>Timesheet</h2><p class="sub">Add the clients staff can log time against, set the hourly rate you charge, and see hours spent and the amount billable.</p>
   <div class="stack"><div class="tiles"><div class="tile"><b>${th.toFixed(1)}</b><span>Hours logged</span></div><div class="tile"><b>${bh.toFixed(1)}</b><span>Billable hours</span></div><div class="tile"><b>${NAD(ta)}</b><span>Amount billable</span></div></div>
   <div class="panel"><h3>Add client</h3><form class="form" id="clientForm" novalidate>
     <label>Client name<input id="cName" required></label>
@@ -1623,6 +1623,7 @@ render();
 <script src="live-leave.js"></script>
 <script src="live-payroll.js"></script>
 <script src="live-forms.js"></script>
+<script src="live-timesheet.js"></script>
 <script src="assistant-engine.js"></script>
 <script src="assistant-forms.js"></script>
 <script src="form-builder.js"></script>

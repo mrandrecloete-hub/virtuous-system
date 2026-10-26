@@ -131,10 +131,11 @@
       <label>Date<input id="ltDate" type="date" value="${tod}" max="${tod}" required></label>
       <label>Task<input id="ltTask" placeholder="e.g. Management accounts" maxlength="200" required></label>
       <label>Hours<input id="ltHrs" type="number" min="0.25" max="24" step="0.25" value="1"></label>
+      <label class="wide">Notes (optional)<input id="ltNotes" type="text" maxlength="500" placeholder="Anything the approver should know"></label>
       <button class="btn" type="submit">Add entry</button></form><div class="err" id="ltErr" role="alert"></div>`
       :`<p class="note">${S.clients===null?'Loading…':'No clients have been set up yet. Ask your administrator to add one.'}</p>`}</div>
     <div class="panel"><div class="tbl"><table><thead><tr><th>Day</th><th>Client</th><th>Task</th><th class="n">Hours</th><th>Status</th><th></th></tr></thead><tbody>
-    ${rows.length?rows.map(e=>`<tr><td>${esc(dayLbl(e.work_date))}</td><td>${esc(cname(e.client_id))}</td><td>${esc(e.task)}</td><td class="n">${(+e.hours).toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td>
+    ${rows.length?rows.map(e=>`<tr><td>${esc(dayLbl(e.work_date))}</td><td>${esc(cname(e.client_id))}</td><td>${esc(e.task)}${e.notes?`<div class="note">${esc(e.notes)}</div>`:''}</td><td class="n">${(+e.hours).toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td>
       <td>${e.status==='Draft'?`<button class="btn ghost sm" data-act="ltDelEntry" data-id="${esc(e.id)}">Remove</button>`:''}</td></tr>`).join('')
       :`<tr><td colspan="6" class="note">${S.mine===null?'Loading…':'No time logged for this week. Add your first entry above.'}</td></tr>`}
     </tbody></table></div></div></div>`;
@@ -186,7 +187,7 @@
     if(!(hrs>=0.25&&hrs<=24))return err('ltErr','Hours must be between 0.25 and 24.');
     if(!date||date>iso(new Date()))return err('ltErr','Choose a date that is not in the future.');
     if(!task)return err('ltErr','Say what you worked on.');
-    act(async()=>must(await sb().from('time_entries').insert({client_id:client,work_date:date,task,hours:hrs})),()=>{S.mine=null;toast('Entry added')});
+    act(async()=>must(await sb().from('time_entries').insert({client_id:client,work_date:date,task,hours:hrs,notes:($('#ltNotes').value||'').trim()||null})),()=>{S.mine=null;toast('Entry added')});
   },true);
 
   document.addEventListener('change',e=>{

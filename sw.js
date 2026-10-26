@@ -1,4 +1,4 @@
-const C='virtuous-v21',A=['./','index.html','form.html','public-form.js','config.js','auth.js','live-employees.js','live-time.js','live-petty.js','live-leave.js','live-payroll.js','live-forms.js','assistant-engine.js','assistant-forms.js','form-builder.js','assistant.js','icon.png','icon-192.png','icon-512.png','logo.png','logo-dark.png','manifest.webmanifest'];
+const C='virtuous-v23',A=['./','index.html','form.html','public-form.js','config.js','auth.js','live-employees.js','live-time.js','live-petty.js','live-leave.js','live-payroll.js','live-forms.js','assistant-engine.js','assistant-forms.js','form-builder.js','assistant.js','icon.png','icon-192.png','icon-512.png','logo.png','logo-dark.png','manifest.webmanifest'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(A)));self.skipWaiting()});
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;

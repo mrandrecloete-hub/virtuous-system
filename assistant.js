@@ -11,6 +11,7 @@
   css.textContent=`
   #aiBtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;border:0;border-radius:999px;padding:12px 18px;font:600 14px/1 inherit;background:var(--accent);color:var(--accent-fg);box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;display:none}
   #aiBtn.on{display:block}
+  body.ai-on #view{padding-bottom:88px}
   #aiPanel{position:fixed;right:16px;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:31;width:min(400px,calc(100vw - 32px));height:min(560px,calc(100vh - 120px));display:none;flex-direction:column;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);overflow:hidden}
   #aiPanel.on{display:flex}
   #aiPanel .ah{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-weight:600}
@@ -62,7 +63,7 @@
   let was=false;
   setInterval(()=>{
     const inn=typeof state!=='undefined'&&!!state.user&&!state.user.mustChange;
-    btn.classList.toggle('on',inn);
+    btn.classList.toggle('on',inn);document.body.classList.toggle('ai-on',inn);
     if(was&&!inn){history.length=0;log.innerHTML='';panel.classList.remove('on')}
     was=inn;
   },800);

@@ -1613,5 +1613,6 @@ setInterval(()=>{if(state.user&&state.online)state.user.beat=Date.now();if(state
 render();
 </script>
 <script src="config.js"></script>
+<script src="auth.js"></script>
 <script src="assistant.js"></script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body></html>

@@ -17,6 +17,7 @@
   const css=document.createElement('style');
   css.textContent=`
   #aiBtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;border:0;border-radius:999px;padding:6px 18px 6px 6px;font:700 14px/1 inherit;background:#0a1b3f;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer;display:none;align-items:center;gap:8px;min-height:52px}
+  body.open #aiBtn{display:none!important}
   #aiBtn.on{display:flex}#aiBtn:hover{transform:translateY(-2px)}#aiBtn:focus-visible{outline:3px solid #e6b422;outline-offset:2px}
   #aiBtn .face{width:42px;height:42px;border-radius:50%;background:linear-gradient(180deg,#fff7e0,#f3d9a0);border:2px solid #e6b422;display:grid;place-items:center;overflow:hidden;flex:none}
   body.ai-on #view{padding-bottom:96px}

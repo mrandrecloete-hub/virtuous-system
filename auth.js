@@ -31,7 +31,7 @@
   bar.style.cssText='display:none;position:sticky;top:0;z-index:12;background:#fff4d6;color:#4a3800;border-bottom:1px solid #e3c870;padding:6px 12px;font-size:13px;text-align:center';
   bar.textContent='Signed in to the live system. Pages other than sign-in still show sample data until they are connected.';
   document.body.prepend(bar);
-  const showBar=()=>{bar.style.display=state.user?'block':'none'};
+  const showBar=()=>{bar.style.display=state.user&&!state.user.mustChange?'block':'none'};
   setInterval(showBar,800);
 
   function userFromProfile(p){

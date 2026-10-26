@@ -71,7 +71,7 @@
   /* Show only when signed in; clear the conversation on sign-out. */
   let was=false;
   setInterval(()=>{
-    const inn=typeof state!=='undefined'&&!!state.user;
+    const inn=typeof state!=='undefined'&&!!state.user&&!state.user.mustChange;
     btn.classList.toggle('on',inn);
     if(was&&!inn){history.length=0;log.innerHTML='';panel.classList.remove('on')}
     was=inn;

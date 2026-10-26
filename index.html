@@ -1206,7 +1206,7 @@ function kBuild(){
   const f=kForm(state.kyc.formId),F=f.fields;
   const ctl=(i)=>F.slice(0,i).filter(x=>['select','radio','yesno','check','short'].includes(x.type));
   return `<div class="row" style="justify-content:space-between;margin-bottom:10px"><div>${kBack('Forms')}</div><div class="row"><button class="btn ghost" data-k="fill" data-id="${f.id}">Preview and fill</button><button class="btn" data-k="saveForm">Save form</button></div></div>
-  <h2>Form builder</h2><div class="stack">
+  <h2>Edit form</h2><div class="stack">
   <div class="panel"><h3>Form settings</h3><div class="form" style="grid-template-columns:1fr">
    <label>Form title<input data-kp="title" value="${esc(f.title)}"></label>
    <label>Description shown to the client<textarea data-kp="desc">${esc(f.desc)}</textarea></label>
@@ -1624,5 +1624,6 @@ render();
 <script src="live-payroll.js"></script>
 <script src="assistant-engine.js"></script>
 <script src="assistant-forms.js"></script>
+<script src="form-builder.js"></script>
 <script src="assistant.js"></script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body></html>

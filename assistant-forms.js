@@ -104,17 +104,18 @@
     [/\b(contract|agreement|engagement letter|service level)\b/,'agreement'],[/\b(job application|application form|recruitment)\b/,'job'],[/\bincident|accident report\b/,'incident']];
 
   /* ---------- locating a form and a field ---------- */
+  const GENERIC=/^(the|this|that|my|our|your|current|new|last|same|a|an|all|every|each|any|these|those|some)$/;
   function findForm(t){
     const fs=forms();
     const m=t.match(/\b(?:in|on|to|for|of|from)\s+(?:the\s+)?["“]?([a-z0-9][a-z0-9 \-']{2,50}?)["”]?\s+(?:form|survey|quiz|questionnaire)\b/);
-    if(m){const q=m[1].trim(),f=fs.find(x=>x.title.toLowerCase()===q)||fs.find(x=>x.title.toLowerCase().includes(q));if(f)return f}
+    if(m&&!GENERIC.test(m[1].trim())){const q=m[1].trim(),f=fs.find(x=>x.title.toLowerCase()===q)||fs.find(x=>x.title.toLowerCase().includes(q));if(f)return f}
     for(const f of fs.slice().reverse()){if(f.title.length>3&&t.includes(f.title.toLowerCase()))return f}
     return fs.find(f=>f.id===ctx.formId)||null;
   }
   function findFormExplicit(t){
     const fs=forms();
     const m=t.match(/\b(?:in|on|to|for|of|from)\s+(?:the\s+)?["“]?([a-z0-9][a-z0-9 \-']{2,50}?)["”]?\s+(?:form|survey|quiz|questionnaire|responses|submissions)\b/);
-    if(m){const q=m[1].trim(),f=fs.find(x=>x.title.toLowerCase()===q)||fs.find(x=>x.title.toLowerCase().includes(q));if(f)return f}
+    if(m&&!GENERIC.test(m[1].trim())){const q=m[1].trim(),f=fs.find(x=>x.title.toLowerCase()===q)||fs.find(x=>x.title.toLowerCase().includes(q));if(f)return f}
     for(const f of fs.slice().reverse()){if(f.title.length>3&&t.includes(f.title.toLowerCase()))return f}
     if(/\bkyc\b/.test(t)){const k=fs.filter(x=>/kyc/i.test(x.title)||x.category==='KYC');const w=k.filter(x=>(state.subs||[]).some(s=>s.formId===x.id));if(w.length===1)return w[0]}
     return null;
@@ -171,7 +172,7 @@
     const f=newForm(spec,aud);
     const real=f.fields.filter(x=>!['head','para'].includes(x.type));
     return `Created **${f.title}** (${aud==='staff'?'staff':'client'} form) with ${real.length} question${real.length===1?'':'s'}:\n`+list(f.fields.map(x=>{const lab=KLAB[x.type]||x.type;return x.type==='head'?`Section: ${x.label}`:x.type==='para'?'Text block':`${x.label} (${lab.toLowerCase()}${x.req?', required':''})`}),24)
-      +'\n\nOpen **Client KYC** to preview, share or print it. To change it just tell me, for example: "make phone required", "add a dropdown called Source of funds (Salary, Business, Savings)", "show Details only if PEP is Yes", "rename the form to Client intake".'
+      +'\n\nOpen **Form builder** to refine it, or **Client KYC** to preview, share or print it. To change it just tell me, for example: "make phone required", "add a dropdown called Source of funds (Salary, Business, Savings)", "show Details only if PEP is Yes", "rename the form to Client intake".'
       +(tplKey&&['waiver','agreement'].includes(tplKey)?'\n\nThis is template wording, not legal advice. Have it reviewed before use.':'')
       +'\n\nNote: forms are kept for this session only until the forms module is saved to the database.';
   }
@@ -293,7 +294,7 @@
     const title='Quiz: '+sc(text.split(/\s+/).slice(0,5).join(' ').replace(/[^\w\s'-]/g,'').trim());
     const spec={title,desc:'Choose the best answer for each question.',thanks:'Thank you. Your answers have been recorded.',category:'Quiz',fields:[kF('short','Your name',{req:true}),...qs.map((x,i)=>Object.assign(kF('radio','Q'+(i+1)+'. '+x.q,{req:true,opts:x.opts}),{answer:x.ans}))]};
     const f=newForm(spec,'client');ctx.lastQuiz={id:f.id,key:qs.map((x,i)=>`Q${i+1}: ${x.ans}`)};
-    return `Created **${f.title}** with ${qs.length} multiple-choice question${qs.length===1?'':'s'}. Open **Client KYC** to preview and share it.\n\n**Answer key (keep private):**\n`+list(ctx.lastQuiz.key,15)
+    return `Created **${f.title}** with ${qs.length} multiple-choice question${qs.length===1?'':'s'}. Open **Form builder** to refine it, or **Client KYC** to preview and share it.\n\n**Answer key (keep private):**\n`+list(ctx.lastQuiz.key,15)
       +'\n\nQuestions are made by blanking out a fact in a sentence, so read them over and edit any that sound odd. Automatic marking is not built yet: compare responses to the key above.'
       +(qs.length<n?`\n\nI could only build ${qs.length} of the ${n} you asked for from that text.`:'');
   }
@@ -376,5 +377,15 @@
     {id:'forms-help',test:t=>/\b(what|which)\b.*\b(forms?|templates?)\b.*\b(can|do)\b|form builder|what can you build/.test(t)||/^how\b.*\b(form|forms|quiz|survey|waiver|template|templates)\b/.test(t),
       run:async()=>{const fs=forms();return 'I can build and change forms from plain language:\n- **Create:** "Create a client onboarding form with name, email, phone and a copy of ID", or ask for a waiver, permission slip, exit ticket, survey, service agreement, job application or incident report.\n- **Change:** "add a dropdown called Source of funds (Salary, Business, Savings)", "make phone required", "show Details only if PEP is Yes", "move X to the top", "rename the form to Client intake", "close the form".\n- **Quiz:** "Make a 5 question quiz from this text: …"\n- **Emails:** "Draft a confirmation email for the KYC form".\n- **Analyse:** "Summarise the KYC responses".\n\nYou have '+fs.length+' form'+(fs.length===1?'':'s')+' now. Not available: chat and phone agents, WhatsApp, app builder.'}}
   ].reverse().forEach(E.addIntent);
+  const TEMPLATES=[['ind','Individual client KYC','Personal details, source of funds, ID and address documents, declaration and signature.'],['co','Company client KYC','Entity details, ownership, turnover, registration documents and an authorised signature.'],
+    ['waiver','Waiver and release','Participant details, waiver wording to adapt, acceptance and signature.'],['permission','Permission slip','Participant, guardian, activity, medical notes, emergency contact and consent.'],
+    ['exit','Exit ticket','Three quick questions: what stuck, what is unclear, how well it was understood.'],['survey','Feedback survey','Satisfaction rating, recommendation and two open comments.'],
+    ['agreement','Service agreement','Parties, services, fees, term and confidentiality skeleton with a signature.'],['job','Job application','Contact details, position, experience, CV upload and motivation.'],['incident','Incident report','Date, place, people, what happened, action taken and a photo.']];
+  function useTemplate(key){
+    const spec=(key==='ind'||key==='co')?Object.assign({category:'KYC'},kTemplate(key)):T[key]();
+    const f=newForm(spec,spec.audience||'client');
+    return `Created **${f.title}** from the template with ${f.fields.filter(x=>!['head','para'].includes(x.type)).length} questions.`+(['waiver','agreement'].includes(key)?'\n\nThis is template wording, not legal advice. Have it reviewed before use.':'');
+  }
+  window.VIRTUOSO_FORMS={ctx,forms,TEMPLATES,createFromPrompt,useTemplate,editForm,makeQuiz,draftEmail,analyse,findFormExplicit};
   E.addHints(['Create a client onboarding form with name, email, phone and a copy of ID','Create a waiver form','Summarise the KYC responses','Draft a confirmation email for the KYC form','What can you build with forms?']);
 })();

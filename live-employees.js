@@ -4,7 +4,7 @@
 (function(){
   const cfg=window.VIRTUOSO||{};
   if(!(cfg.supabaseUrl&&cfg.anonKey)||/[?&]demo\b/.test(location.search))return;
-  const LV={users:null,bal:null,loading:false,cred:null,msg:'',busy:false,balMsg:''};
+  const LV={users:null,bal:null,pay:null,payMsg:'',loading:false,cred:null,msg:'',busy:false,balMsg:''};
 
   async function call(payload){
     const token=await cfg.getAccessToken();
@@ -22,6 +22,7 @@
     LV.loading=true;
     const {data,error}=await sb.from('profiles').select('*').order('name');
     const bl=await sb.from('leave_balances').select('user_id,leave_type,days');LV.bal=bl.error?[]:bl.data;
+    const pp=await sb.from('pay_profiles').select('user_id,base_salary,allowance,other_deduction,effective_from').is('effective_to',null);LV.pay=pp.error?[]:pp.data;
     LV.loading=false;
     if(error){LV.msg='Could not load employees.';LV.users=[]}else LV.users=data;
     render();
@@ -54,6 +55,18 @@
       <td><div class="row"><button class="btn sm ghost" data-act="lvReset" data-id="${esc(u.id)}" ${LV.busy?'disabled':''}>Reset password</button>${u.id===me.id?'':`<button class="btn sm ${u.access_enabled?'bad':''}" data-act="lvToggle" data-id="${esc(u.id)}" ${LV.busy?'disabled':''}>${u.access_enabled?'Disable':'Enable'}</button>`}</div></td></tr>`).join('')
       :`<tr><td colspan="6" class="note">${LV.loading||LV.users===null?'Loading…':'No accounts yet.'}</td></tr>`}
     </tbody></table></div></div>
+    <div class="panel"><h3>Pay details</h3>
+      <p class="note" style="margin-top:0">Monthly pay used to build each payroll run. Saving starts a new record from the date you choose; the previous record ends the day before, and finalised payroll is never changed. Payroll here is non-tax.</p>
+      <form class="form" id="lvPayForm" novalidate>
+        <label>Employee<select id="lvPayWho">${rows.filter(u=>u.access_enabled&&u.role==='emp').map(u=>`<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('')}</select></label>
+        <label>Basic salary (N$ / month)<input id="lvPayBase" type="number" min="0" step="100" value="15000"></label>
+        <label>Allowances (N$ / month)<input id="lvPayAllow" type="number" min="0" step="50" value="0"></label>
+        <label>Other deductions (N$ / month)<input id="lvPayOther" type="number" min="0" step="10" value="0"></label>
+        <label>Effective from<input id="lvPayFrom" type="date" value="${new Date().toISOString().slice(0,8)}01"></label>
+        <button class="btn" type="submit">Save pay details</button></form><div class="err" id="lvPayErr" role="alert">${esc(LV.payMsg)}</div>
+      <div class="tbl" style="margin-top:10px"><table style="min-width:620px"><thead><tr><th>Employee</th><th class="n">Basic</th><th class="n">Allowances</th><th class="n">Other deductions</th><th>Since</th></tr></thead><tbody>
+      ${rows.filter(u=>u.access_enabled&&u.role==='emp').map(u=>{const p=(LV.pay||[]).find(x=>x.user_id===u.id);return `<tr><td>${esc(u.name)}</td>${p?`<td class="n">${(+p.base_salary).toFixed(2)}</td><td class="n">${(+p.allowance).toFixed(2)}</td><td class="n">${(+p.other_deduction).toFixed(2)}</td><td class="note">${esc(String(p.effective_from))}</td>`:'<td colspan="4" class="note">No pay details yet. They will be left out of payroll.</td>'}</tr>`}).join('')||'<tr><td colspan="5" class="note">No employees yet.</td></tr>'}
+      </tbody></table></div></div>
     <div class="panel"><h3>Leave balances</h3>
       <p class="note" style="margin-top:0">Starting balances are placeholders (Annual 15, Sick 10, Family responsibility 3). Set each person's real entitlement here. Approved leave is deducted automatically.</p>
       <form class="form" id="lvBalForm" novalidate>
@@ -78,6 +91,18 @@
     if(LV.users===null)render();
   }
   document.addEventListener('submit',e=>{
+    if(e.target.id==='lvPayForm'){
+      e.preventDefault();e.stopImmediatePropagation();
+      const who=$('#lvPayWho').value,b=parseFloat($('#lvPayBase').value),a=parseFloat($('#lvPayAllow').value)||0,o=parseFloat($('#lvPayOther').value)||0,from=$('#lvPayFrom').value;
+      const er=m=>{LV.payMsg=m;const x=$('#lvPayErr');if(x)x.textContent=m};
+      if(!who)return er('Choose an employee.');if(!(b>=0))return er('Enter the basic salary.');if(a<0||o<0)return er('Amounts cannot be negative.');if(!from)return er('Choose the date this starts.');
+      er('');if(LV.busy)return;LV.busy=true;lock(true);
+      window.VIRTUOSO.client.rpc('set_pay_profile',{p_user:who,p_base:b,p_allow:a,p_other:o,p_from:from}).then(r=>{
+        LV.busy=false;lock(false);
+        if(r.error)return er(/not permitted|row-level|policy|permission/i.test(r.error.message)?'You are not allowed to do that.':r.error.message);
+        LV.users=null;LV.payMsg='';toast('Pay details saved');render()});
+      return;
+    }
     if(e.target.id==='lvBalForm'){
       e.preventDefault();e.stopImmediatePropagation();
       const who=$('#lvBalWho').value,type=$('#lvBalType').value.trim(),days=parseFloat($('#lvBalDays').value);

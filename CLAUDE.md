@@ -16,7 +16,7 @@ Single-file demo app: `index.html` (vanilla JS, no build step). PWA files: `mani
 
 ## Backend (in progress)
 - `supabase/migrations/` 0001-0007: schema, RLS, audit, payroll lock, storage, assistant usage cap. Tested locally on Postgres with stubbed auth only.
-- `supabase/functions/assistant/`: read-only AI assistant (Edge Function). Panel in `assistant.js`, config in `config.js`. Needs `ANTHROPIC_API_KEY` as a Supabase secret, never in front-end files.
+- Assistant: `assistant.js` (panel) + `assistant-engine.js` (built-in keyword brain, no AI service or key; reads live data through RLS, or sample data in `?demo`). `supabase/functions/assistant/` is an optional AI version (needs `ANTHROPIC_API_KEY` as a Supabase secret) and is currently not used by the panel.
 - `auth.js`: live Supabase sign-in (replaces demo login when `config.js` is filled; `?demo` forces the sample-data demo). Tested only against a fake Supabase in a browser. `live-employees.js` + `supabase/functions/admin-users/`: live Employees screen (invite, reset password, disable) via an admin-only Edge Function; the service-role key is used only there, as an auto-injected secret. Other modules still run on demo `state` behind a yellow banner; wiring modules to Supabase is not done.
 
 ## Next step

@@ -2,13 +2,9 @@
    queries data as the signed-in user. Nothing sensitive is stored in the browser. */
 (function(){
   const cfg=()=>window.VIRTUOSO||{};
-  const ready=()=>!!(cfg().supabaseUrl&&cfg().getAccessToken);
+  const ready=()=>!!window.VIRTUOSO_ENGINE;
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const md=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^[-*] (.+)$/gm,'• $1').replace(/\n/g,'<br>');
-  const HINTS={
-    adm:['What is blocking payroll this month?','Who has unapproved timesheets?','Any overdue cash advances or low stock?','Summarise petty cash for the current month'],
-    emp:['How much leave do I have left?','What is the status of my requests?','How many hours have I logged this week?','What stationery is running low?']
-  };
   const history=[];let busy=false,introFor=null;
 
   const css=document.createElement('style');
@@ -33,7 +29,7 @@
 
   const btn=document.createElement('button');btn.id='aiBtn';btn.type='button';btn.textContent='Ask Virtuoso';btn.setAttribute('aria-expanded','false');
   const panel=document.createElement('div');panel.id='aiPanel';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Virtuoso assistant');
-  panel.innerHTML=`<div class="ah"><span>Virtuoso assistant</span><small>read-only</small></div><div id="aiLog" aria-live="polite"></div><form id="aiForm"><input id="aiIn" placeholder="Ask about payroll, leave, cash, stock…" autocomplete="off" maxlength="1000" aria-label="Your question"><button id="aiSend">Send</button></form>`;
+  panel.innerHTML=`<div class="ah"><span>Virtuoso assistant</span><small>built-in, read-only</small></div><div id="aiLog" aria-live="polite"></div><form id="aiForm"><input id="aiIn" placeholder="Ask about leave, hours, payroll, stock…" autocomplete="off" maxlength="1000" aria-label="Your question"><button id="aiSend">Send</button></form>`;
   document.body.append(btn,panel);
   const log=panel.querySelector('#aiLog'),inp=panel.querySelector('#aiIn'),send=panel.querySelector('#aiSend');
 
@@ -42,9 +38,8 @@
   function intro(){
     log.innerHTML='';introFor=ready();
     if(!ready()){add('a','The assistant needs the live backend, which is not connected yet. In this demo it cannot answer. Once Supabase is configured (see <code>config.js</code>), ask me about payroll, timesheets, leave, petty cash, stationery and KYC. I can read and analyse your data but never change it.');return}
-    add('a','Hi. Ask me anything about the data you have access to. I look things up and calculate, I do not guess, and I never change records.');
-    const role=(typeof state!=='undefined'&&state.role==='adm')?'adm':'emp';
-    HINTS[role].forEach(t=>{const b=document.createElement('button');b.type='button';b.className='h';b.textContent=t;b.onclick=()=>ask(t);log.appendChild(b)});
+    add('a','Hi. I can look up your leave, hours, requests and (for admins) approvals, stock and cash, and explain how to do things. I never change records. Pick a question or type your own.');
+    window.VIRTUOSO_ENGINE.hints().forEach(t=>{const b=document.createElement('button');b.type='button';b.className='h';b.textContent=t;b.onclick=()=>ask(t);log.appendChild(b)});
   }
   async function ask(text){
     text=(text||'').trim();if(!text||busy||!ready())return;
@@ -53,15 +48,10 @@
     add('u',esc(text));history.push({role:'user',content:text});
     const wait=note('Looking into it…');
     try{
-      const token=await cfg().getAccessToken();
-      if(!token)throw new Error('Please sign in again.');
-      const r=await fetch(cfg().supabaseUrl.replace(/\/$/,'')+'/functions/v1/assistant',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,apikey:cfg().anonKey||''},body:JSON.stringify({messages:history.slice(-20)})});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(j.error||'The assistant is unavailable right now.');
+      const j=await window.VIRTUOSO_ENGINE.answer(text);
       history.push({role:'assistant',content:j.reply});
       wait.remove();add('a',md(j.reply));
-      if(j.looked_at&&j.looked_at.length)note('Checked: '+[...new Set(j.looked_at.map(x=>x.split(':')[1]||x))].join(', '));
-    }catch(e){wait.remove();history.pop();add('a',esc(e instanceof TypeError?'I could not reach the assistant service. It may not be deployed yet or you may be offline. Ask your administrator to check that the assistant function is deployed.':(e.message||'Something went wrong.')))}
+          }catch(e){wait.remove();history.pop();add('a',esc(e.message||'Something went wrong.'))}
     busy=false;send.disabled=false;inp.focus();
   }
   btn.onclick=()=>{const on=panel.classList.toggle('on');btn.setAttribute('aria-expanded',on);if(on){if(!log.children.length||introFor!==ready())intro();inp.focus()}};

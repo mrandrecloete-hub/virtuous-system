@@ -239,6 +239,13 @@ th{background:rgba(11,63,181,.07);color:var(--fg)}
 .cols .c i{background:linear-gradient(180deg,#1553d6,#0a2e8a);border-radius:6px 6px 0 0}
 .lcard{border-radius:20px;border:1px solid rgba(246,213,106,.7);box-shadow:0 20px 50px rgba(3,10,40,.45)}
 body.auth-out{background:radial-gradient(800px 400px at 80% 0,rgba(246,213,106,.25),transparent 60%),linear-gradient(160deg,#040d2b,#0b2a78);background-attachment:fixed}
+.auth-out .wm{display:none}
+body.auth-out::before{display:block;content:"";position:fixed;inset:0;height:auto;background:url(logo-dark.png) center/min(90vw,1040px) no-repeat;opacity:.62;z-index:0;pointer-events:none}
+.auth-out #login{position:relative;z-index:1;overflow:auto;align-items:flex-start;min-height:100dvh}
+.auth-out .lcard{margin:auto}
+.lcard{background:rgba(255,255,255,.93);backdrop-filter:blur(6px)}
+.lcard .logo{display:none}
+.lcard::before{content:"Sign in to Virtuous System";font-size:22px;font-weight:700;color:var(--fg);text-align:center}
 .foot{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;padding:14px 28px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,#0b2a78,#040d2b);border-top:2px solid var(--gold2);color:#cfd9f7;font-size:12.5px}
 .foot b{color:var(--gold1);letter-spacing:.04em}
 .wm{left:272px;right:0}

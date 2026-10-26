@@ -398,6 +398,7 @@
   const people=NAV.adm.find(g=>g[0]==='People');
   if(people&&!people[1].some(x=>x[0]==='formbuilder')){const i=people[1].findIndex(x=>x[0]==='kyc');people[1].splice(i+1,0,['formbuilder','Form builder'])}
   VIEWS.formbuilder=vFormBuilder;
+  window.VIRTUOSO_FB={open:(id,mode)=>openEditor(id,mode)};
 
   /* ---------- model changes ---------- */
   const redrawCanvas=()=>{const f=cur(),c=document.getElementById('fbCanvas');if(f&&c)c.innerHTML=canvasHTML(f)};

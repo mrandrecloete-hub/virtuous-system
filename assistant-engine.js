@@ -162,7 +162,7 @@
     for(const [re,txt] of HOW)if(re.test(t))return {reply:txt,looked_at:[]};
     return {reply:'I did not catch that. I am a simple built-in assistant, so try one of these:\n'+hintsFor().map(h=>'- '+h).join('\n'),looked_at:[]};
   }
-  const EXTRA_HINTS=[];
-  window.VIRTUOSO_ENGINE={answer,hints:()=>hintsFor().concat(isAdmin()?EXTRA_HINTS:[]),
-    addIntent:i=>INTENTS.unshift(i),addHints:h=>EXTRA_HINTS.push(...h),today:()=>today(),isAdmin};
+  const EXTRA_HINTS=[],EXTRA_ALL=[];
+  window.VIRTUOSO_ENGINE={answer,hints:()=>hintsFor().concat(isAdmin()?EXTRA_HINTS:[]).concat(EXTRA_ALL),
+    addIntent:i=>INTENTS.unshift(i),addHints:h=>EXTRA_HINTS.push(...h),addHintsAll:h=>EXTRA_ALL.push(...h),today:()=>today(),isAdmin};
 })();

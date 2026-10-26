@@ -4,7 +4,7 @@
 (function(){
   const cfg=window.VIRTUOSO||{};
   if(!(cfg.supabaseUrl&&cfg.anonKey)||/[?&]demo\b/.test(location.search))return;
-  const LV={users:null,loading:false,cred:null,msg:'',busy:false};
+  const LV={users:null,bal:null,loading:false,cred:null,msg:'',busy:false,balMsg:''};
 
   async function call(payload){
     const token=await cfg.getAccessToken();
@@ -21,6 +21,7 @@
     const sb=window.VIRTUOSO.client;if(!sb||LV.loading)return;
     LV.loading=true;
     const {data,error}=await sb.from('profiles').select('*').order('name');
+    const bl=await sb.from('leave_balances').select('user_id,leave_type,days');LV.bal=bl.error?[]:bl.data;
     LV.loading=false;
     if(error){LV.msg='Could not load employees.';LV.users=[]}else LV.users=data;
     render();
@@ -52,7 +53,17 @@
       <td class="note">${u.last_login_at?fmtDT(new Date(u.last_login_at)):'Never'}</td>
       <td><div class="row"><button class="btn sm ghost" data-act="lvReset" data-id="${esc(u.id)}" ${LV.busy?'disabled':''}>Reset password</button>${u.id===me.id?'':`<button class="btn sm ${u.access_enabled?'bad':''}" data-act="lvToggle" data-id="${esc(u.id)}" ${LV.busy?'disabled':''}>${u.access_enabled?'Disable':'Enable'}</button>`}</div></td></tr>`).join('')
       :`<tr><td colspan="6" class="note">${LV.loading||LV.users===null?'Loading…':'No accounts yet.'}</td></tr>`}
-    </tbody></table></div></div></div>`;
+    </tbody></table></div></div>
+    <div class="panel"><h3>Leave balances</h3>
+      <p class="note" style="margin-top:0">Starting balances are placeholders (Annual 15, Sick 10, Family responsibility 3). Set each person's real entitlement here. Approved leave is deducted automatically.</p>
+      <form class="form" id="lvBalForm" novalidate>
+        <label>Employee<select id="lvBalWho">${rows.filter(u=>u.access_enabled).map(u=>`<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('')}</select></label>
+        <label>Leave type<input id="lvBalType" list="lvBalTypes" value="Annual" maxlength="60"><datalist id="lvBalTypes">${[...new Set(['Annual','Sick','Family responsibility',...(LV.bal||[]).map(b=>b.leave_type)])].map(t=>`<option value="${esc(t)}">`).join('')}</datalist></label>
+        <label>Days available<input id="lvBalDays" type="number" min="0" max="366" step="0.5" value="15"></label>
+        <button class="btn" type="submit">Save balance</button></form><div class="err" id="lvBalErr" role="alert">${esc(LV.balMsg)}</div>
+      <div class="tbl" style="margin-top:10px"><table style="min-width:520px"><thead><tr><th>Employee</th><th>Leave balances (days)</th></tr></thead><tbody>
+      ${rows.filter(u=>u.access_enabled).map(u=>`<tr><td>${esc(u.name)}</td><td>${(LV.bal||[]).filter(b=>b.user_id===u.id).map(b=>`${esc(b.leave_type)}: <b>${+b.days}</b>`).join(' &middot; ')||'<span class="note">None</span>'}</td></tr>`).join('')}
+      </tbody></table></div></div></div>`;
   }
   VIEWS.employees=vLive;
 
@@ -67,6 +78,18 @@
     if(LV.users===null)render();
   }
   document.addEventListener('submit',e=>{
+    if(e.target.id==='lvBalForm'){
+      e.preventDefault();e.stopImmediatePropagation();
+      const who=$('#lvBalWho').value,type=$('#lvBalType').value.trim(),days=parseFloat($('#lvBalDays').value);
+      const er=m=>{LV.balMsg=m;const x=$('#lvBalErr');if(x)x.textContent=m};
+      if(!who)return er('Choose an employee.');if(type.length<2)return er('Enter the leave type.');if(!(days>=0&&days<=366))return er('Days must be between 0 and 366.');
+      er('');if(LV.busy)return;LV.busy=true;lock(true);
+      window.VIRTUOSO.client.rpc('set_leave_balance',{p_user:who,p_type:type,p_days:days}).then(r=>{
+        LV.busy=false;lock(false);
+        if(r.error)return er(/not permitted|row-level|policy|permission/i.test(r.error.message)?'You are not allowed to do that.':r.error.message);
+        LV.users=null;LV.balMsg='';toast('Balance saved');render()});
+      return;
+    }
     if(e.target.id!=='lvEmpForm')return;
     e.preventDefault();e.stopImmediatePropagation();
     const name=$('#lvName').value.trim(),email=$('#lvEmail').value.trim().toLowerCase();

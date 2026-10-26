@@ -5,7 +5,7 @@
   const cfg=window.VIRTUOSO||{};
   if(!(cfg.supabaseUrl&&cfg.anonKey)||/[?&]demo\b/.test(location.search))return;
   const sb=()=>window.VIRTUOSO.client;
-  const fresh=()=>({clients:null,loadC:false,mine:null,loadM:false,weekOff:0,billing:null,recent:null,all:null,tsPeriod:'month',tsInc:'approved',truncated:false,loadB:false,pend:null,loadP:false,busy:false,uid:null});
+  const fresh=()=>({clients:null,loadC:false,mine:null,loadM:false,weekOff:0,billing:null,recent:null,all:null,tsPeriod:'month',tsInc:'approved',truncated:false,loadB:false,pend:null,pendLeave:null,pendLoans:null,loadP:false,busy:false,uid:null});
   let S=fresh();
   const pad=n=>String(n).padStart(2,'0');
   const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -35,13 +35,16 @@
     S.billing=rows.filter(r=>r.status==='Approved');S.recent=S.all.slice(0,50);render()}
   async function loadPend(silent){if(S.loadP||!sb())return;S.loadP=true;
     const {data}=await sb().from('time_entries').select('user_id,work_date,hours').eq('status','Pending').limit(5000);
+    const lv=await sb().from('leave_requests').select('*').eq('status','Pending').order('from_date').limit(200);
+    const ln=await sb().from('loans').select('*').eq('status','Pending').order('created_at').limit(200);
     const nm=await names(),g={};
     (data||[]).forEach(r=>{const w=iso(mondayOf(parse(r.work_date))),k=r.user_id+'|'+w;(g[k]=g[k]||{uid:r.user_id,week:w,hours:0,n:0,who:nm[r.user_id]||'Unknown'});g[k].hours+= +r.hours;g[k].n++});
-    const prev=JSON.stringify(S.pend);S.loadP=false;S.pend=Object.values(g).sort((a,b)=>a.week<b.week?-1:1);
-    if(!silent||prev!==JSON.stringify(S.pend))render()}
+    const prev=JSON.stringify([S.pend,S.pendLeave,S.pendLoans]);S.loadP=false;S.pend=Object.values(g).sort((a,b)=>a.week<b.week?-1:1);
+    S.pendLeave=(lv.data||[]).map(r=>({...r,who:nm[r.user_id]||'Unknown'}));S.pendLoans=(ln.data||[]).map(r=>({...r,who:nm[r.user_id]||'Unknown'}));
+    if(!silent||prev!==JSON.stringify([S.pend,S.pendLeave,S.pendLoans]))render()}
 
-  /* Nav badge counts real pending timesheets. */
-  pending=()=>S.pend?S.pend.length:0;
+  /* Nav badge counts real pending timesheets, leave and loans. */
+  pending=()=>(S.pend?S.pend.length:0)+(S.pendLeave?S.pendLeave.length:0)+(S.pendLoans?S.pendLoans.length:0);
   setInterval(()=>{
     const u=state.user?state.user.id:null;
     if(u!==S.uid){S=fresh();S.uid=u}
@@ -140,12 +143,18 @@
   /* ---------- Approvals (admin, timesheets) ---------- */
   function vApprovals(){
     if(S.pend===null)loadPend();
-    const list=S.pend||[];
-    return `<h2>Approvals</h2><p class="sub">${list.length} timesheet${list.length===1?'':'s'} waiting for review. Leave and loan requests will appear here once they are connected.</p>
+    const ts=S.pend||[],lv=S.pendLeave||[],ln=S.pendLoans||[],n=ts.length+lv.length+ln.length;
+    const row=(type,who,detail,btns)=>`<tr><td>${pill(type)}</td><td>${esc(who)}</td><td>${detail}</td><td>${pill('Pending','warn')}</td><td><div class="row">${btns}</div></td></tr>`;
+    const rows=[
+      ...ts.map(p=>row('Timesheet',p.who,`Week of ${esc(lbl(p.week))}, ${p.hours.toFixed(1)} h (${p.n} entr${p.n>1?'ies':'y'})`,
+        `<button class="btn sm" data-act="ltApprove" data-u="${esc(p.uid)}" data-w="${esc(p.week)}">Approve</button><button class="btn sm bad" data-act="ltReject" data-u="${esc(p.uid)}" data-w="${esc(p.week)}">Reject</button>`)),
+      ...lv.map(l=>row('Leave',l.who,`${esc(l.leave_type)} leave, ${esc(lbl(l.from_date))} to ${esc(lbl(l.to_date))}, ${+l.days} day${+l.days===1?'':'s'}. Reason: ${esc(l.reason||'')}${l.cover_name?'. Cover: '+esc(l.cover_name):''}${l.phone?'. Phone: '+esc(l.phone):''}`,
+        `${l.doc_path?`<button class="btn sm ghost" data-act="ltDoc" data-path="${esc(l.doc_path)}">View document</button>`:''}<button class="btn sm" data-act="ltLeaveYes" data-id="${esc(l.id)}">Approve</button><button class="btn sm bad" data-act="ltLeaveNo" data-id="${esc(l.id)}">Reject</button>`)),
+      ...ln.map(l=>row('Loan',l.who,`Salary advance ${money(l.amount)}, ${money(l.instalment)} a month`,
+        `<button class="btn sm" data-act="ltLoanYes" data-id="${esc(l.id)}">Approve</button><button class="btn sm bad" data-act="ltLoanNo" data-id="${esc(l.id)}">Reject</button>`))];
+    return `<h2>Approvals</h2><p class="sub">${n} request${n===1?'':'s'} waiting for review: timesheets, leave and salary advances.</p>
     <div class="stack"><div class="panel"><div class="tbl"><table><thead><tr><th>Type</th><th>Employee</th><th>Details</th><th>Status</th><th></th></tr></thead><tbody>
-    ${list.length?list.map(p=>`<tr><td>${pill('Timesheet')}</td><td>${esc(p.who)}</td><td>Week of ${esc(lbl(p.week))}, ${p.hours.toFixed(1)} h (${p.n} entr${p.n>1?'ies':'y'})</td><td>${pill('Pending','warn')}</td>
-      <td><div class="row"><button class="btn sm" data-act="ltApprove" data-u="${esc(p.uid)}" data-w="${esc(p.week)}">Approve</button><button class="btn sm bad" data-act="ltReject" data-u="${esc(p.uid)}" data-w="${esc(p.week)}">Reject</button></div></td></tr>`).join('')
-      :`<tr><td colspan="5" class="note">${S.pend===null?'Loading…':'Nothing is waiting for approval.'}</td></tr>`}
+    ${rows.length?rows.join(''):`<tr><td colspan="5" class="note">${S.pend===null?'Loading…':'Nothing is waiting for approval.'}</td></tr>`}
     </tbody></table></div></div></div>`;
   }
   VIEWS.clients=vClients;VIEWS.time=vTime;VIEWS.approvals=vApprovals;
@@ -202,6 +211,13 @@
         return act(async()=>must(await sb().from('clients').update({billable:!c.billable}).eq('id',id)),()=>{S.clients=null;toast(c.name+(c.billable?' is not billable':' is billable'))})}
       case 'ltRemoveClient':{const c=(S.clients||[]).find(x=>x.id===id);if(!c||!confirm('Remove '+c.name+'?'))return;
         return act(async()=>must(await sb().from('clients').delete().eq('id',id)),()=>{S.clients=null;toast(c.name+' removed')})}
+      case 'ltDoc':{const w=window.open('','_blank');
+        sb().storage.from('documents').createSignedUrl(d.path,60).then(({data,error})=>{if(error||!data){if(w)w.close();return toast('Could not open the document.')}if(w){w.opener=null;w.location=data.signedUrl}else toast('Allow pop-ups to open files.')});return}
+      case 'ltLeaveYes':case 'ltLeaveNo':case 'ltLoanYes':case 'ltLoanNo':{
+        const loan=d.act.startsWith('ltLoan'),ok=d.act.endsWith('Yes');
+        return act(async()=>{const r=await sb().rpc(loan?'decide_loan':'decide_leave',{p_id:id,p_approve:ok});
+          if(r.error)throw new Error(/not permitted|row-level|policy|permission/i.test(r.error.message)?'You are not allowed to do that.':r.error.message)},
+          ()=>{if(loan)S.pendLoans=(S.pendLoans||[]).filter(x=>x.id!==id);else S.pendLeave=(S.pendLeave||[]).filter(x=>x.id!==id);S.pend=null;toast((loan?'Advance ':'Leave ')+(ok?'approved':'rejected'))})}
       case 'ltApprove':case 'ltReject':{
         const ok=d.act==='ltApprove',w=d.w,end=iso(addD(parse(w),6)),p=(S.pend||[]).find(x=>x.uid===d.u&&x.week===w);
         return act(async()=>{

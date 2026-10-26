@@ -1,0 +1,1520 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0}</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1a1a1a"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-icon" href="icon.png"></head><body><title>Firm Payroll Portal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:wght@500;600;700&display=swap">
+<style>
+/* Layout: sign-in screen, then sidebar navigation (drawer on phones) with one working panel per feature; tables scroll inside their own wrapper. */
+:root{
+  --bg:#f2f5f7; --surface:#ffffff; --fg:#14202a; --muted:#566775; --line:#dbe2e8;
+  --accent:#1b5b78; --accent-fg:#ffffff; --accent-soft:#e1eef4;
+  --ok:#1d7548; --ok-soft:#e1f2e8; --warn:#8a5d00; --warn-soft:#fbf0d3; --bad:#b0342a; --bad-soft:#fae5e2;
+  --f-body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --f-display:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --f-mono:var(--f-body);
+  --f-code:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --wm-blend:multiply; --wm-filter:none; --wm-op:.12;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e151b; --surface:#16202a; --fg:#e5ecf1; --muted:#93a4b2; --line:#26333e;
+  --accent:#6bb7d8; --accent-fg:#08171f; --accent-soft:#1a3342;
+  --ok:#52c68c; --ok-soft:#14301f; --warn:#e3b24d; --warn-soft:#352a10; --bad:#f08073; --bad-soft:#3a1c19; --wm-blend:screen; --wm-filter:invert(1); --wm-op:.13; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e151b; --surface:#16202a; --fg:#e5ecf1; --muted:#93a4b2; --line:#26333e;
+  --accent:#6bb7d8; --accent-fg:#08171f; --accent-soft:#1a3342;
+  --ok:#52c68c; --ok-soft:#14301f; --warn:#e3b24d; --warn-soft:#352a10; --bad:#f08073; --bad-soft:#3a1c19; --wm-blend:screen; --wm-filter:invert(1); --wm-op:.13; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--bg);padding-block:12px;border-bottom:1px solid var(--line)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;justify-content:space-between}
+.brand{font-weight:600;font-size:16px;letter-spacing:.01em}
+.brand small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.net{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.net.off .dot{background:var(--warn)}
+.badge{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:9px;background:var(--accent);color:var(--accent-fg);font-size:11px;font-weight:600;text-align:center}
+main{padding-block:20px calc(64px + env(safe-area-inset-bottom,0px))}
+h2{font-family:var(--f-display);font-size:24px;line-height:1.2;margin:0 0 6px;font-weight:600;letter-spacing:-.005em;text-wrap:balance}
+h3{font-size:15px;margin:0 0 10px;font-weight:600;color:var(--fg)}
+p.sub{margin:0 0 16px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.stack{display:flex;flex-direction:column;gap:14px}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.tile{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--surface)}
+.tile b{display:block;font-family:var(--f-display);font-size:24px;line-height:1.25;font-weight:600;font-variant-numeric:lining-nums tabular-nums}
+.tile span{color:var(--muted);font-size:13.5px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap}
+td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.total td{font-weight:600;border-bottom:0}
+.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--accent-soft);color:var(--accent)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+.btn{font:inherit;font-weight:500;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);border-radius:6px;padding:7px 14px;cursor:pointer}
+.btn.ghost{background:none;color:var(--accent)} .btn.bad{border-color:var(--bad);background:none;color:var(--bad)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:4px 10px;font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500;min-width:0}
+label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:13px;font-weight:400}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;max-width:100%;width:100%}
+input[type=checkbox]{width:auto;accent-color:var(--accent)}
+input[type=range]{padding:0;accent-color:var(--accent)}
+textarea{resize:vertical;min-height:64px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.form{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end}
+.form .wide{grid-column:1/-1}
+.bar2{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar2 i{display:block;height:100%;background:var(--accent)}
+.note{font-size:13px;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.banner{border:1px solid var(--line);border-left:3px solid var(--warn);background:var(--warn-soft);color:var(--fg);padding:10px 12px;border-radius:6px;margin-bottom:14px}
+.banner.ok{border-left-color:var(--ok);background:var(--ok-soft)}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+pre{margin:0;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow-x:auto;font-family:var(--f-code);font-size:13px}
+.slip{max-width:560px}
+.sigbox{background:#fff;border:1px solid var(--line);border-radius:6px;padding:6px;display:inline-block}.sigbox img{display:block;max-height:70px;max-width:220px}
+.signline{margin-top:18px;border-top:1px solid var(--fg);padding-top:4px;max-width:260px;font-size:13px}
+.slip .hd{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--fg);padding-bottom:10px;margin-bottom:12px}
+.slip dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0 0 12px}
+.slip dt{color:var(--muted)} .slip dd{margin:0;text-align:right;font-family:var(--f-mono)}
+.slip .net-pay{display:flex;justify-content:space-between;border-top:2px solid var(--fg);padding-top:10px;font-weight:600;font-size:18px;font-family:var(--f-display)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:6px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;z-index:40;max-width:calc(100% - 32px)}
+#toast.on{opacity:1}
+/* Sign-in */
+#login{display:none;min-height:100vh;min-height:100dvh;align-items:center;justify-content:center;padding-block:32px}
+.auth-out #login{display:flex}
+.auth-out .shell,.auth-out #scrim{display:none}
+.lcard{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.lcard form{display:flex;flex-direction:column;gap:12px}
+.demo{border-top:1px solid var(--line);padding-top:12px}
+.demo .li{align-items:flex-start}
+/* App shell */
+.shell{display:grid;grid-template-columns:236px minmax(0,1fr);gap:0 28px;max-width:1240px;margin:0 auto}
+#side{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;height:calc(100vh - env(safe-area-inset-top,0px));height:calc(100dvh - env(safe-area-inset-top,0px));overflow-y:auto;padding:18px 16px 28px 0;display:flex;flex-direction:column;gap:16px;border-right:1px solid var(--line)}
+#tabs{display:flex;flex-direction:column;gap:2px}
+.ng{font-size:13px;color:var(--muted);font-weight:600;margin:14px 10px 4px}
+.nv{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-weight:500;padding:9px 10px;border-radius:6px;cursor:pointer;text-align:left}
+.nv svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nv:hover{background:var(--accent-soft);color:var(--fg)}
+.nv[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
+.nv .badge{margin-left:auto}
+.sidefoot{margin-top:auto;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.sidefoot b{color:var(--fg)}
+.col{min-width:0}
+.menu{display:none;align-items:center;justify-content:center;width:38px;height:36px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;cursor:pointer;font:inherit}
+.menu svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+#pageTitle{font-size:16px}
+#scrim{display:none}
+@media (max-width:820px){
+  .shell{display:block}
+  #side{position:fixed;left:0;top:0;bottom:0;width:276px;max-width:86vw;height:auto;overflow-y:auto;z-index:30;background:var(--surface);padding:calc(18px + env(safe-area-inset-top,0px)) 16px calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));transform:translateX(-105%);transition:transform .2s;border-right:1px solid var(--line)}
+  body.open #side{transform:none}
+  body.open #scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:25}
+  .menu{display:inline-flex}
+}
+@media (prefers-reduced-motion:reduce){#side,#toast{transition:none}}
+/* Dashboard */
+.hello{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:flex-end;margin-bottom:16px}
+.tile.link{text-align:left;font:inherit;color:inherit;cursor:pointer;width:100%}
+.tile.link:hover{border-color:var(--accent)}
+.tile small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.dgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));margin-top:14px}
+.cols{display:flex;align-items:flex-end;gap:10px;height:150px;border-bottom:1px solid var(--line);position:relative;padding-top:8px}
+.cols .c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+.cols .c i{display:block;width:100%;max-width:38px;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+.cols .c i.empty{background:var(--line)}
+.cols .goal{position:absolute;left:0;right:0;border-top:1px dashed var(--muted);pointer-events:none}
+.clab{display:flex;gap:10px;margin-top:6px}
+.clab span{flex:1;text-align:center;font-size:12px;color:var(--muted)}
+.clab span b{display:block;font-family:var(--f-mono);font-weight:500;color:var(--fg)}
+.hb{display:grid;grid-template-columns:minmax(80px,140px) 1fr auto;gap:10px;align-items:center;margin-bottom:10px}
+.hb .t{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.hb .t i{display:block;height:100%;background:var(--accent)}
+.stackbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line);gap:2px}
+.stackbar i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;background:var(--c)}
+.check{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.check:last-child{border-bottom:0}
+.check .mk{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex:none;display:grid;place-items:center;font-size:12px;color:var(--accent-fg)}
+.check.done .mk{background:var(--ok);border-color:var(--ok)}
+.check .tx{flex:1;min-width:0}
+.li{display:flex;gap:10px;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:0}
+.li .tx{min-width:0}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.ph h3{margin:0}
+.cred{border:1px solid var(--ok);background:var(--ok-soft);border-radius:8px;padding:14px}
+.drop{border:2px dashed var(--line);border-radius:8px;padding:28px 16px;text-align:center;cursor:pointer;background:var(--bg);color:var(--muted)}
+.drop:hover,.drop.over,.drop:focus-visible{border-color:var(--accent);background:var(--accent-soft);color:var(--fg)}
+.drop b{display:block;color:var(--fg);font-size:15px;margin-bottom:4px}
+.drop.dis{opacity:.5;pointer-events:none}
+.thumb{width:44px;height:44px;border-radius:4px;object-fit:cover;border:1px solid var(--line);display:block}
+.ftype{width:44px;height:44px;border-radius:4px;border:1px solid var(--line);display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--muted);background:var(--bg)}
+td input,td select{padding:5px 7px}
+td input[type=number]{min-width:90px}
+td input[type=date]{min-width:128px}
+fieldset{border:0;padding:0;margin:0;min-width:0}
+/* Logo and watermark: multiply on light, inverted and screened on dark so the white scan background disappears */
+.wm{position:fixed;top:0;bottom:0;left:calc(max(0px,(100vw - 1240px)/2) + 264px);right:max(0px,(100vw - 1240px)/2);z-index:12;pointer-events:none;background:url(logo.png) center/min(80%,640px) no-repeat;opacity:var(--wm-op);mix-blend-mode:var(--wm-blend);filter:var(--wm-filter)}
+.auth-out .wm{left:0;right:0}
+@media (max-width:820px){.wm{left:0;right:0;background-size:min(88%,520px)}}
+.logo{display:block;width:100%;max-width:210px;height:auto;mix-blend-mode:var(--wm-blend);filter:var(--wm-filter)}
+.lcard .logo{max-width:280px;margin:0 auto}
+#side::after{content:"";position:absolute;inset:0;background:url(logo.png) center 82%/170px no-repeat;opacity:var(--wm-op);mix-blend-mode:var(--wm-blend);filter:var(--wm-filter);pointer-events:none}
+</style>
+
+<div id="login"><div class="lcard" id="lcard"></div></div>
+<div class="shell">
+  <aside id="side" aria-label="Main navigation">
+    <div class="brand"><img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System"><small>Preview with example data, Oct 2026 (FY2027)</small></div>
+    <div id="tabs"></div>
+    <div class="sidefoot" id="who"></div>
+  </aside>
+  <div class="col">
+    <header><div class="bar">
+      <div class="row"><button class="menu" id="menu" aria-label="Open menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><b id="pageTitle">Dashboard</b></div>
+      <div class="row">
+        <button class="net" id="bell" data-tab="alerts" aria-label="Alerts"><svg viewBox="0 0 24 24" width="18" height="18" style="stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="badge" id="bellN" hidden style="margin:0"></span></button>
+        <button class="net" id="net" aria-label="Toggle connection"><span class="dot"></span><span id="netTxt">Online</span></button></div>
+    </div></header>
+    <main><div id="view"></div></main>
+  </div>
+</div>
+<div class="wm" aria-hidden="true"></div>
+<div id="scrim"></div>
+<div id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const NAD=v=>'N$ '+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtD=iso=>new Date(iso+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+const hhmm=d=>d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+const fmtDT=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+', '+hhmm(d);
+let seq=100;const uid=()=>'x'+(++seq);
+
+const calc=e=>{const ot=Math.round(e.ot*(e.base/173.33)*1.5*100)/100;const gross=e.base+e.allow+ot;const ded=e.loan+e.ded;const re=e.reimb||0;return{ot,gross,ded,reimb:re,net:gross-ded+re}};
+const DEF_BAL=()=>[['Annual',15],['Sick',10],['Family responsibility',3]];
+const mk=(id,type,name,title,email,password,o={})=>Object.assign({id,type,name,title,email,password,access:true,mustChange:false,base:0,allow:0,ot:0,loan:0,ded:0,lastSeen:null,lastLogin:null,beat:null},o);
+
+const SEED_SHEET=[
+ {id:'l1',date:'2026-10-02',amt:245.50,desc:'Printer paper',vendor:'Office Ware'},
+ {id:'l2',date:'2026-10-05',amt:380.00,desc:'Fuel, courier run',vendor:'Engen'},
+ {id:'l3',date:'2026-10-08',amt:126.90,desc:'Tea, coffee, milk',vendor:'Spar'},
+ {id:'l4',date:'2026-10-12',amt:64.00,desc:'Registered post',vendor:'NamPost'},
+ {id:'l5',date:'2026-10-15',amt:890.00,desc:'Toner cartridge',vendor:'Wecke & Voigts'},
+ {id:'l6',date:'2026-10-19',amt:150.00,desc:'Cleaning supplies',vendor:'Checkers'}
+];
+const SEED_RECEIPTS=[
+ {id:'r1',date:'2026-10-02',amt:245.50,vendor:'Office Ware Windhoek',ref:'OW-20931'},
+ {id:'r2',date:'2026-10-06',amt:380.00,vendor:'Engen Service Station',ref:'EN-77410'},
+ {id:'r3',date:'2026-10-08',amt:129.90,vendor:'Spar Klein Windhoek',ref:'SP-5521'},
+ {id:'r4',date:'2026-10-12',amt:64.00,vendor:'NamPost',ref:'NP-88213'},
+ {id:'r5',date:'2026-10-20',amt:55.00,vendor:'Pick n Pay',ref:'PP-30912'}
+];
+
+const state={
+  user:null,role:'emp',tab:{emp:'dash',adm:'dash'},online:true,queue:0,offlineSince:null,
+  users:[
+    mk('u0','admin','Administrator','Firm owner','admin@firm.example','Admin#2026'),
+    mk('u1','emp','Selma Nghipandulwa','Senior Accountant','selma@firm.example','Welcome#1',{base:28500,allow:1800,ot:6,loan:1000,lastSeen:new Date('2026-10-24T08:55:00'),lastLogin:new Date('2026-10-24T08:55:00')}),
+    mk('u2','emp','Johannes Amupolo','Audit Clerk','johannes@firm.example','Welcome#2',{base:16200,allow:900,ded:250,lastSeen:new Date('2026-10-24T08:12:00'),lastLogin:new Date('2026-10-24T08:12:00'),beat:Date.now()-40000}),
+    mk('u3','emp','Maria van Wyk','Payroll Officer','maria@firm.example','Welcome#3',{base:21000,allow:1200,ot:3,loan:500,lastSeen:new Date('2026-10-23T17:40:00'),lastLogin:new Date('2026-10-23T08:03:00')}),
+    mk('u4','emp','Tobias Haufiku','Junior Accountant','tobias@firm.example','Welcome#4',{base:14800,allow:600,ot:10,ded:120,mustChange:true})
+  ],
+  data:{},
+  logins:[],failed:{},newCred:null,
+  timer:null,timerId:null,
+  approvals:[
+    {id:'a1',uid:'u2',type:'Timesheet',who:'Johannes Amupolo',detail:'Week 12-16 Oct, 41.0 h',status:'Pending'},
+    {id:'a2',uid:'u3',type:'Leave',who:'Maria van Wyk',detail:'Annual leave, 2 to 4 Nov, 3 days',status:'Pending'},
+    {id:'a3',uid:'u4',type:'Loan',who:'Tobias Haufiku',detail:'Salary advance N$ 2,500 over 2 months',status:'Pending'},
+    {id:'a4',uid:'u4',type:'Timesheet',who:'Tobias Haufiku',detail:'Week 12-16 Oct, 39.5 h',status:'Pending'}
+  ],
+  clients:[{id:'c1',name:'Kalahari Mining Ltd',rate:850,bill:true},{id:'c2',name:'Benguela Fisheries',rate:750,bill:true},{id:'c3',name:'Swakop Retail Group',rate:700,bill:true},{id:'c4',name:'Internal',rate:0,bill:false}],
+  sig:null,runSig:false,
+  finalised:false,
+  tol:2,thr:0.6,month:'2026-10',pcm:{},shMsg:''
+};
+state.users.forEach(u=>{state.data[u.id]={entries:[],leaveBal:DEF_BAL(),leaves:[],loans:[]}});
+Object.assign(state.data.u1,{
+  entries:[
+    {day:'Mon 19 Oct',client:'Kalahari Mining Ltd',task:'Year-end audit prep',hrs:7.5,status:'Draft'},
+    {day:'Tue 20 Oct',client:'Benguela Fisheries',task:'Bank reconciliations',hrs:8,status:'Draft'},
+    {day:'Wed 21 Oct',client:'Swakop Retail Group',task:'VAT working papers',hrs:7.5,status:'Draft'},
+    {day:'Thu 22 Oct',client:'Kalahari Mining Ltd',task:'Fixed asset register',hrs:8,status:'Draft'},
+    {day:'Fri 23 Oct',client:'Internal',task:'Team training',hrs:7.5,status:'Draft'}],
+  leaveBal:[['Annual',14.5],['Sick',8],['Family responsibility',3]],
+  leaves:[{id:'lv0',type:'Annual',from:'2026-09-14',to:'2026-09-16',days:3,reason:'Family trip',cover:'Maria van Wyk',status:'Approved'}],
+  loans:[{label:'Salary advance, 6 instalments',amount:6000,paid:3,per:1000,status:'Active'}]
+});
+const staff=()=>state.users.filter(u=>u.type==='emp');
+
+/* Petty cash months: financial year 2027 runs March 2026 to February 2027 */
+const MONTHS=[];for(let i=0;i<12;i++){const y=i<10?2026:2027,mo=((2+i)%12)+1;MONTHS.push(y+'-'+String(mo).padStart(2,'0'))}
+const monthLabel=k=>new Date(k+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+const fyOf=k=>{const [y,mo]=k.split('-').map(Number);return 'FY'+(mo>=3?y+1:y)};
+const lastDay=k=>{const [y,mo]=k.split('-').map(Number);return new Date(y,mo,0).getDate()};
+const CATS=['Stationery','Fuel and transport','Refreshments','Postage and courier','Cleaning','Other'];
+const M=()=>state.pcm[state.month]||(state.pcm[state.month]={sheet:[],receipts:[],sheetFile:null,overrides:{},links:{},locked:false,opening:3000});
+state.pcm['2026-10']={sheet:SEED_SHEET.slice(),
+  receipts:SEED_RECEIPTS.map((r,i)=>Object.assign({},r,{cat:['Stationery','Fuel and transport','Refreshments','Postage and courier','Other'][i],status:'Verified',file:r.ref+'.pdf',size:84000,kind:'pdf',url:''})),
+  sheetFile:{name:'Petty cash Oct 2026.xlsx',size:18400,at:new Date('2026-10-23T16:20:00')},overrides:{},links:{},locked:false,opening:3000};
+Object.defineProperty(state,'overrides',{get:()=>M().overrides});
+Object.defineProperty(state,'links',{get:()=>M().links});
+Object.defineProperty(state,'locked',{get:()=>M().locked,set:v=>{M().locked=v}});
+Object.defineProperty(window,'SHEET',{get:()=>M().sheet,configurable:true});
+Object.defineProperty(window,'RECEIPTS',{get:()=>M().receipts.filter(r=>r.amt>0),configurable:true});
+Object.defineProperty(window,'OPENING_FLOAT',{get:()=>M().opening,configurable:true});
+
+/* ---------- Stationery, cash taken and alerts (demo date is movable) ---------- */
+state.today='2026-10-24';state.smonth='2026-10';state.stMsg='';
+state.stat={thr:2,items:[],moves:[],counts:{}};state.notes=[];state.advances=[];
+const addDays=(iso,n)=>{const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const curMonth=()=>state.today.slice(0,7);
+const dateFor=k=>k===curMonth()?state.today:k+'-01';
+const sg=n=>n>0?'+'+n:String(n);
+function recips(staffToo){return state.users.filter(u=>u.access&&(u.type==='admin'||(staffToo&&u.type==='emp'))).map(u=>u.email)}
+function notify(kind,msg,staffToo,at){state.notes.unshift({id:uid(),kind,msg,staff:staffToo,at:at||new Date(),emails:recips(staffToo),readBy:{}})}
+const visibleNotes=()=>state.notes.filter(n=>state.user&&(n.to?(state.user.id===n.to||state.user.type==='admin'):(state.user.type==='admin'||n.staff)));
+function logA(action,detail){(state.audit=state.audit||[]).unshift({id:uid(),at:new Date(),by:state.user?state.user.name:'System',action,detail:detail||''})}
+function notifyTo(uidTo,kind,msg){state.notes.unshift({id:uid(),kind,msg,staff:false,to:uidTo,at:new Date(),emails:[(byId(uidTo)||{}).email].filter(Boolean),readBy:{}})}
+const unreadCount=()=>state.user?visibleNotes().filter(n=>!n.readBy[state.user.id]).length:0;
+function stock(it,key){
+  if(key<it.startMonth)return null;
+  let start=it.open;
+  for(const k of MONTHS){
+    if(k<it.startMonth)continue;
+    const mv=state.stat.moves.filter(x=>x.item===it.id&&x.date.slice(0,7)===k);
+    const added=mv.filter(x=>x.type==='add').reduce((s,x)=>s+x.qty,0),taken=mv.filter(x=>x.type==='take').reduce((s,x)=>s+x.qty,0);
+    const left=start+added-taken,c=(state.stat.counts[k]||{})[it.id];
+    if(k===key)return {start,added,taken,left,counted:c==null?null:c,diff:c==null?null:c-left};
+    start=c==null?left:c;
+  }
+  return null;
+}
+function checkLow(it){
+  const s=stock(it,curMonth());if(!s)return false;
+  if(s.left<=state.stat.thr&&!it.low){it.low=true;notify('Low stock','Low stock: '+it.name+' is down to '+s.left+' '+it.unit+'. Time to reorder.',true);return true}
+  if(s.left>state.stat.thr)it.low=false;
+  return false;
+}
+const lowItems=()=>state.stat.items.filter(it=>{const s=stock(it,curMonth());return s&&s.left<=state.stat.thr});
+const isOverdue=a=>a.status==='Open'&&state.today>addDays(a.date,1);
+const overdueAdv=()=>state.advances.filter(isOverdue);
+function checkCash(){state.advances.forEach(a=>{if(isOverdue(a)&&!a.alerted){a.alerted=true;notify('Cash',byId(a.uid).name+' has not reported change brought back ('+NAD(a.amount)+' taken on '+fmtD(a.date)+').',false)}})}
+(function seedOffice(){
+  const mkItem=(id,name,unit,open)=>({id,name,unit,open,startMonth:'2026-09',low:false});
+  state.stat.items=[mkItem('i1','Blue pens','box',20),mkItem('i2','Black pens','box',15),mkItem('i3','A4 paper','ream',12),mkItem('i4','Staples','box',6),mkItem('i5','Highlighters','pack',8),mkItem('i6','Staplers','pcs',3),mkItem('i7','Sticky notes','pack',10),mkItem('i8','Ring binder folders','pcs',25)];
+  [['i3','2026-09-10','add',6,'u3','09:15'],['i1','2026-09-03','take',3,'u1','10:20'],['i1','2026-09-17','take',2,'u3','14:05'],['i2','2026-09-08','take',4,'u2','11:40'],['i3','2026-09-12','take',5,'u1','09:50'],['i3','2026-09-24','take',3,'u4','15:30'],['i4','2026-09-15','take',1,'u2','13:10'],['i5','2026-09-19','take',2,'u3','10:05'],['i7','2026-09-22','take',3,'u1','16:00'],['i8','2026-09-26','take',6,'u2','09:30'],
+   ['i1','2026-10-06','take',4,'u1','09:05'],['i2','2026-10-08','take',2,'u2','10:45'],['i3','2026-10-09','take',3,'u1','11:15'],['i3','2026-10-12','add',10,'u3','08:50'],['i4','2026-10-13','take',3,'u3','14:20'],['i5','2026-10-15','take',3,'u4','09:40'],['i6','2026-10-19','take',1,'u2','13:35'],['i7','2026-10-20','take',2,'u1','15:10'],['i8','2026-10-22','take',5,'u1','10:00']]
+   .forEach(([item,date,type,qty,u,t])=>state.stat.moves.push({id:uid(),item,date,type,qty,uid:u,note:'',at:new Date(date+'T'+t+':00')}));
+  state.stat.counts['2026-09']={i1:15,i2:11,i3:9,i4:5,i5:6,i6:3,i7:7,i8:18};
+  state.stat.items.find(i=>i.id==='i4').low=true;state.stat.items.find(i=>i.id==='i6').low=true;
+  const adv=(id,u,date,t,amount,purpose,rest)=>state.advances.push(Object.assign({id,uid:u,date,at:new Date(date+'T'+t+':00'),amount,purpose,status:'Open'},rest||{}));
+  adv('c3','u3','2026-10-14','09:30',500,'Printer repair deposit',{status:'Settled',spent:450,returned:50,expected:50,diff:0,settledAt:new Date('2026-10-14T16:10:00')});
+  adv('c4','u2','2026-10-16','10:15',150,'Client lunch',{status:'Settled with difference',spent:120,returned:20,expected:30,diff:-10,settledAt:new Date('2026-10-17T08:40:00')});
+  adv('c2','u4','2026-10-21','11:00',300,'Office kitchen supplies',{alerted:true});
+  adv('c1','u1','2026-10-23','10:05',200,'Courier and fuel');
+  notify('Low stock','Low stock: Staples is down to 2 box. Time to reorder.',true,new Date('2026-10-22T16:20:00'));
+  notify('Cash','Tobias Haufiku has not reported change brought back (N$ 300.00 taken on 21 Oct).',false,new Date('2026-10-23T08:00:00'));
+  notify('Low stock','Low stock: Staplers is down to 2 pcs. Time to reorder.',true,new Date('2026-10-23T11:05:00'));
+})();
+const D=()=>state.data[state.user.id];
+const byId=id=>state.users.find(u=>u.id===id);
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2600)}
+function queue(){if(!state.online){state.queue++;paintNet()}}
+function paintNet(){const n=$('#net');n.classList.toggle('off',!state.online);$('#netTxt').textContent=state.online?'Online, synced':'Offline, '+state.queue+' queued'}
+
+const ICON={
+ dash:'<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
+ kyc:'<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+ reports:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+ audit:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+ requests:'<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+ clients:'<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/>',
+ time:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ leave:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+ loans:'<circle cx="9" cy="9" r="6"/><path d="M15 9.5a6 6 0 1 1-5.5 8"/>',
+ slip:'<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
+ approvals:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+ employees:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.8c1.8.7 3 2.3 3.5 5.2"/>',
+ payroll:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="3"/>',
+ activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+ receipts:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+ sheets:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>',
+ petty:'<path d="M4 8h13l-3-3M20 16H7l3 3"/>',
+ alerts:'<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+ stationery:'<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/>',
+ cash:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.7c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.9-2.5.9-2.5 1.9 1 1.8 2.5 1.8 2.5-.8 2.5-1.8"/>'};
+const NAV={
+ emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['loans','Loans'],['slip','Payslips'],['stationery','Stationery list'],['cash','Cash taken']]]],
+ adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['employees','Employees'],['kyc','Client KYC'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['payroll','Payroll'],['receipts','Receipts'],['sheets','Cash sheets'],['petty','Reconcile'],['cash','Cash taken'],['clients','Clients & billing']]],['Office',[['stationery','Stationery list']]]]};
+function pending(){return state.approvals.filter(a=>a.status==='Pending').length}
+function paintTabs(){
+  const cur=state.tab[state.role];let title='Dashboard';
+  $('#tabs').innerHTML=NAV[state.role].map(([g,items])=>`<div class="ng">${g}</div>`+items.map(([k,l])=>{
+    if(k===cur)title=l;
+    return `<button class="nv" data-tab="${k}" aria-selected="${k===cur}"><svg viewBox="0 0 24 24">${ICON[k]}</svg><span>${l}</span>${k==='approvals'&&pending()?`<span class="badge">${pending()}</span>`:''}${k==='kyc'&&kPend()?`<span class="badge">${kPend()}</span>`:''}${k==='alerts'&&unreadCount()?`<span class="badge">${unreadCount()}</span>`:''}</button>`}).join('')).join('');
+  $('#pageTitle').textContent=title;
+  {const bn=unreadCount(),b=$('#bellN');b.textContent=bn;b.hidden=!bn}
+  const u=state.user;
+  $('#who').innerHTML=`<div>Signed in as <b>${esc(u.name)}</b><br>${esc(u.title)}</div><button class="btn ghost sm" data-act="signout">Sign out</button>`;
+}
+
+const pill=(t,c='')=>`<span class="pill ${c}">${esc(t)}</span>`;
+const stc=s=>({Approved:'ok',Rejected:'bad',Pending:'warn',Submitted:'warn',Withdrawn:'',Draft:'',Active:''}[s]||'');
+function weekdays(a,b){if(!a||!b)return 0;let d=new Date(a+'T00:00:00'),e=new Date(b+'T00:00:00'),n=0;if(e<d)return 0;for(;d<=e;d.setDate(d.getDate()+1)){const w=d.getDay();if(w&&w<6)n++}return n}
+
+/* ---------- Authentication ---------- */
+function authHTML(){
+  const u=state.user;
+  if(u&&u.mustChange)return `<div class="brand">Set a new password<small>${esc(u.name)}, your administrator gave you a temporary password. Choose your own to continue.</small></div>
+  <form id="pwForm"><label>New password<input id="cpNew" type="password" autocomplete="new-password" required></label>
+  <label>Confirm new password<input id="cpConf" type="password" autocomplete="new-password" required></label>
+  <div class="note">At least 8 characters, with a number.</div><div class="err" id="cpErr" role="alert"></div>
+  <button class="btn" type="submit">Save and continue</button><button class="btn ghost" type="button" data-act="signout">Cancel</button></form>`;
+  return `<img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System"><div class="brand" style="text-align:center"><small>Sign in with the details your administrator gave you</small></div>
+  <form id="loginForm"><label>Email<input id="liEmail" type="email" autocomplete="username" required></label>
+  <label>Password<input id="liPass" type="password" autocomplete="current-password" required></label>
+  <div class="err" id="liErr" role="alert"></div><button class="btn" type="submit">Sign in</button></form>
+  <div class="demo"><h3>Demo accounts</h3><p class="note" style="margin:0 0 6px">For this preview only. New employees you add as admin can sign in too.</p>
+  <div class="li"><div class="tx"><b>Admin</b><div class="note mono">admin@firm.example<br>Admin#2026</div></div><button class="btn sm ghost" data-act="fill" data-e="admin@firm.example" data-p="Admin#2026">Use</button></div>
+  <div class="li"><div class="tx"><b>Employee</b><div class="note mono">selma@firm.example<br>Welcome#1</div></div><button class="btn sm ghost" data-act="fill" data-e="selma@firm.example" data-p="Welcome#1">Use</button></div>
+  <div class="li"><div class="tx"><b>First sign-in</b><div class="note mono">tobias@firm.example<br>Welcome#4</div></div><button class="btn sm ghost" data-act="fill" data-e="tobias@firm.example" data-p="Welcome#4">Use</button></div></div>`;
+}
+function paintAuth(){
+  const authed=state.user&&!state.user.mustChange;
+  document.body.classList.toggle('auth-out',!authed);
+  if(!authed)$('#lcard').innerHTML=authHTML();
+}
+function signIn(u){
+  state.user=u;state.role=u.type==='admin'?'adm':'emp';state.tab={emp:'dash',adm:'dash'};
+  u.lastLogin=new Date();u.lastSeen=new Date();u.beat=Date.now();
+  state.logins.unshift({uid:u.id,at:new Date(),out:null});
+}
+function signOut(){if(state.kyc){state.kyc.view='forms';state.kyc.done=null;state.kyc.ans={};state.kyc.errs={};state.kyc.q='';state.kyc.st='All'}
+  const u=state.user;
+  if(u){u.beat=null;u.lastSeen=new Date();const l=state.logins.find(x=>x.uid===u.id&&!x.out);if(l)l.out=new Date()}
+  if(state.timerId){clearInterval(state.timerId);state.timer=null}
+  state.user=null;state.newCred=null;document.body.classList.remove('open');render();
+}
+
+/* ---------- Employee views ---------- */
+function vTime(){
+  const d=D(),total=d.entries.reduce((s,e)=>s+e.hrs,0);
+  const hasDraft=d.entries.some(e=>e.status==='Draft');
+  const running=state.timer!==null;
+  return `<h2>Timesheet</h2><p class="sub">${esc(state.user.name)}. Week of 19 to 23 October.</p>
+  <div class="stack">
+  <div class="panel"><div class="row" style="justify-content:space-between"><div><span class="mono" style="font-size:22px">${total.toFixed(1)} h</span> <span class="note">of 40 h</span></div>
+    <button class="btn" data-act="submitWeek" ${hasDraft?'':'disabled'}>Submit week for approval</button></div>
+    <div class="bar2"><i style="width:${Math.min(100,total/40*100)}%"></i></div></div>
+  <div class="panel"><h3>Log time</h3>
+    <form class="form" id="timeForm">
+      <label>Client<select id="tClient">${state.clients.map(c=>`<option>${esc(c.name)}</option>`).join('')}</select></label>
+      <label>Task<input id="tTask" value="Management accounts" required></label>
+      <label>Hours<input id="tHrs" type="number" min="0.25" max="24" step="0.25" value="1"></label>
+      <button class="btn" type="submit">Add entry</button>
+    </form>
+    <div class="row" style="margin-top:12px"><button class="btn ghost" data-act="timer">${running?'Stop timer':'Start timer'}</button>
+      <span class="mono" id="timerOut">${running?'Running...':'Timer idle'}</span></div></div>
+  <div class="panel"><div class="tbl"><table><thead><tr><th>Day</th><th>Client</th><th>Task</th><th class="n">Hours</th><th>Status</th></tr></thead><tbody>
+    ${d.entries.length?d.entries.map(e=>`<tr><td>${esc(e.day)}</td><td>${esc(e.client)}</td><td>${esc(e.task)}</td><td class="n">${e.hrs.toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td></tr>`).join(''):'<tr><td colspan="5" class="note">No time logged yet. Add your first entry above.</td></tr>'}
+  </tbody></table></div></div></div>`;
+}
+function clientStats(){
+  const rows=[];state.users.forEach(u=>(state.data[u.id]?.entries||[]).forEach(e=>rows.push({u,e})));
+  return state.clients.map(c=>{const r=rows.filter(x=>x.e.client===c.name);const hrs=r.reduce((s,x)=>s+x.e.hrs,0);return {c,hrs,amt:c.bill?hrs*c.rate:0,rows:r}});
+}
+function vClients(){
+  const st=clientStats(),th=st.reduce((s,x)=>s+x.hrs,0),ta=st.reduce((s,x)=>s+x.amt,0);
+  const bh=st.filter(x=>x.c.bill).reduce((s,x)=>s+x.hrs,0);
+  const all=[];st.forEach(x=>x.rows.forEach(r=>all.push({...r,c:x.c})));
+  return `<h2>Clients & billing</h2><p class="sub">Add the clients staff can log time against, set the hourly rate you charge, and see hours spent and the amount billable.</p>
+  <div class="stack"><div class="tiles"><div class="tile"><b>${th.toFixed(1)}</b><span>Hours logged</span></div><div class="tile"><b>${bh.toFixed(1)}</b><span>Billable hours</span></div><div class="tile"><b>${NAD(ta)}</b><span>Amount billable</span></div></div>
+  <div class="panel"><h3>Add client</h3><form class="form" id="clientForm" novalidate>
+    <label>Client name<input id="cName" required></label>
+    <label>Hourly rate (N$)<input id="cRate" type="number" min="0" step="0.01" value="0"></label>
+    <label>Billing<select id="cBill"><option value="1">Billable</option><option value="0">Not billable</option></select></label>
+    <button class="btn" type="submit">Add client</button></form><div class="err" id="cErr"></div></div>
+  <div class="panel"><h3>Clients</h3><div class="tbl"><table><thead><tr><th>Client</th><th>Rate per hour</th><th>Billing</th><th class="n">Hours</th><th class="n">Amount billable</th><th></th></tr></thead><tbody>
+  ${st.map(x=>`<tr><td>${esc(x.c.name)}</td><td><input type="number" min="0" step="0.01" value="${x.c.rate}" data-rate="${x.c.id}" style="width:100px" aria-label="Rate for ${esc(x.c.name)}"></td><td><button class="btn ghost sm" data-act="toggleBill" data-id="${x.c.id}">${x.c.bill?'Billable':'Not billable'}</button></td><td class="n">${x.hrs.toFixed(2)}</td><td class="n">${NAD(x.amt)}</td><td><button class="btn ghost sm" data-act="removeClient" data-id="${x.c.id}">Remove</button></td></tr>`).join('')||'<tr><td colspan="6" class="note">No clients yet.</td></tr>'}
+  <tr><td colspan="3"><b>Total</b></td><td class="n"><b>${th.toFixed(2)}</b></td><td class="n"><b>${NAD(ta)}</b></td><td></td></tr></tbody></table></div></div>
+  <div class="panel"><h3>Time entries</h3><div class="tbl"><table><thead><tr><th>Employee</th><th>Day</th><th>Client</th><th>Task</th><th class="n">Hours</th><th class="n">Amount</th><th>Status</th></tr></thead><tbody>
+  ${all.map(r=>`<tr><td>${esc(r.u.name)}</td><td>${esc(r.e.day)}</td><td>${esc(r.e.client)}</td><td>${esc(r.e.task)}</td><td class="n">${r.e.hrs.toFixed(2)}</td><td class="n">${r.c.bill?NAD(r.e.hrs*r.c.rate):'Not billable'}</td><td>${pill(r.e.status,stc(r.e.status))}</td></tr>`).join('')||'<tr><td colspan="7" class="note">No time logged yet.</td></tr>'}
+  </tbody></table></div></div></div>`;
+}
+function vLeave(){
+  const d=D();
+  return `<h2>Leave</h2><p class="sub">Fill in the form below. Your administrator reviews it and your balance updates once it is approved.</p>
+  <div class="stack"><div class="tiles">${d.leaveBal.map(([k,v])=>`<div class="tile"><b>${v}</b><span>${k} days left</span></div>`).join('')}</div>
+  <div class="panel"><h3>Leave application</h3><form class="form" id="leaveForm" novalidate>
+    <label>Leave type<select id="lType"><option>Annual</option><option>Sick</option><option>Family responsibility</option><option>Unpaid</option></select></label>
+    <label>First day<input id="lFrom" type="date" value="2026-11-09" required></label>
+    <label>Last day<input id="lTo" type="date" value="2026-11-10" required></label>
+    <label>Length<select id="lPortion"><option value="full">Full days</option><option value="half">Half day (one day only)</option></select></label>
+    <label class="wide">Reason<textarea id="lReason" placeholder="Briefly say why you need leave"></textarea></label>
+    <label>Phone number while away<input id="lPhone" type="tel" placeholder="081 000 0000"></label>
+    <label>Who covers your work<input id="lCover" placeholder="Colleague name"></label>
+    <label class="wide">Supporting document <span id="lDocNote" class="note"></span><input id="lFile" type="file" accept=".pdf,.jpg,.jpeg,.png"></label>
+    <div class="wide note" id="lSum"></div>
+    <label class="chk wide"><input id="lDecl" type="checkbox"> I confirm the details above are correct.</label>
+    <div class="wide err" id="lErr" role="alert"></div>
+    <div class="wide"><button class="btn" type="submit">Send application</button></div></form></div>
+  <div class="panel"><h3>My applications</h3><div class="tbl"><table style="min-width:640px"><thead><tr><th>Type</th><th>Dates</th><th class="n">Days</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
+    ${d.leaves.length?d.leaves.map(l=>`<tr><td>${esc(l.type)}</td><td>${fmtD(l.from)} to ${fmtD(l.to)}</td><td class="n">${l.days}</td><td>${esc(l.reason)}${l.file?`<div class="note">Attached: ${esc(l.file)}</div>`:''}</td><td>${pill(l.status,stc(l.status))}${l.signed?' '+pill('Signed','ok'):''}</td>
+      <td>${l.status==='Pending'?`<button class="btn sm ghost" data-act="withdraw" data-id="${l.id}">Withdraw</button>`:''}</td></tr>`).join(''):'<tr><td colspan="6" class="note">No applications yet.</td></tr>'}
+  </tbody></table></div></div></div>`;
+}
+function leaveCalc(){
+  const from=$('#lFrom').value,to=$('#lTo').value,type=$('#lType').value;
+  const single=from&&from===to;
+  const half=single&&$('#lPortion').value==='half';
+  const days=half?0.5:weekdays(from,to);
+  return {from,to,type,days,half,single};
+}
+function leaveSummary(){
+  const c=leaveCalc();const bal=D().leaveBal.find(b=>b[0]===c.type);
+  $('#lPortion').disabled=!c.single;if(!c.single)$('#lPortion').value='full';
+  $('#lDocNote').textContent=c.type==='Sick'&&c.days>2?'(required for sick leave over 2 days)':'(optional)';
+  $('#lSum').textContent=c.days?`${c.days} working day${c.days===1?'':'s'}`+(bal?`. Balance after approval: ${(bal[1]-c.days).toFixed(1)} days.`:'. Unpaid leave does not use a balance.'):'Pick working days to see the length.';
+}
+function vLoans(){
+  const d=D(),L=d.loans.find(l=>l.status==='Active'),bal=L?L.amount-L.paid*L.per:0;
+  const rows=L?Array.from({length:Math.round(L.amount/L.per)},(_,i)=>`<tr><td>Instalment ${i+1}</td><td class="n">${NAD(L.per)}</td><td>${pill(i<L.paid?'Paid':'Scheduled',i<L.paid?'ok':'')}</td></tr>`).join(''):'';
+  return `<h2>Loans</h2><p class="sub">Instalments are deducted automatically in each payroll run.</p>
+  <div class="stack"><div class="tiles"><div class="tile"><b>${NAD(bal)}</b><span>Outstanding</span></div><div class="tile"><b>${L?L.paid+' / '+Math.round(L.amount/L.per):'None'}</b><span>Instalments paid</span></div></div>
+  ${L?`<div class="panel"><h3>${esc(L.label)}</h3><div class="tbl"><table><tbody>${rows}</tbody></table></div></div>`:''}
+  <div class="panel"><h3>Request an advance</h3><form class="form" id="loanForm">
+    <label>Amount (N$)<input id="aAmt" type="number" min="100" step="100" value="2000"></label>
+    <label>Repay over (months)<input id="aMon" type="number" min="1" max="12" value="4"></label>
+    <button class="btn" type="submit">Send request</button></form>
+    ${d.loans.filter(l=>l!==L).map(l=>`<p class="note">${esc(l.label)}: ${pill(l.status,stc(l.status))}</p>`).join('')}</div></div>`;
+}
+function vSlip(){
+  const e=state.user,c=calc(e),L=D().loans.find(l=>l.status==='Active'),bal=L?L.amount-L.paid*L.per-e.loan:0;
+  return `<h2>Payslip</h2><p class="sub">${state.online?'Rendered from the live template.':'Offline: rendered on this device from the cached template.'}</p>
+  <div class="panel slip"><div class="hd"><div><b>Virtuous Accounting Solutions CC</b><div class="note">Windhoek, Namibia</div></div><div style="text-align:right"><b>Payslip, October 2026</b><div>${pill(state.finalised?'Final':'Draft',state.finalised?'ok':'warn')}</div></div></div>
+  <div class="note" style="margin-bottom:10px">${esc(e.name)} · ${esc(e.title)}</div>
+  <h3>Earnings</h3><dl><dt>Basic salary</dt><dd>${NAD(e.base)}</dd><dt>Allowances</dt><dd>${NAD(e.allow)}</dd><dt>Overtime (${e.ot} h at 1.5x)</dt><dd>${NAD(c.ot)}</dd><dt><b>Gross pay</b></dt><dd><b>${NAD(c.gross)}</b></dd></dl>
+  <h3>Deductions</h3><dl><dt>Loan instalment</dt><dd>${NAD(e.loan)}</dd><dt>Other deductions</dt><dd>${NAD(e.ded)}</dd><dt><b>Total deductions</b></dt><dd><b>${NAD(c.ded)}</b></dd></dl>
+  <div class="net-pay"><span>Net pay</span><span class="mono">${NAD(c.net)}</span></div>
+  ${c.reimb?`<p class="note" style="margin:8px 0 0">Net pay includes ${NAD(c.reimb)} approved expense reimbursement (not part of gross pay).</p>`:''}<p class="note" style="margin:10px 0 0">Loan balance after this payslip: ${NAD(Math.max(0,bal))}. No tax is calculated in this version.</p>
+  ${state.finalised&&state.runSig&&state.runSigUrl?`<div class="signline"><span class="sigbox"><img src="${state.runSigUrl}" alt="Authorised signature"></span><br>Authorised signature</div>`:`<div class="signline">${state.finalised?'Not signed':'Authorised signature (added when the run is finalised)'}</div>`}</div>`;
+}
+
+/* ---------- Admin views ---------- */
+function sigPanel(){
+  return `<div class="panel"><h3>Wet signature</h3><p class="note" style="margin-top:0">Upload a photo or scan of your handwritten signature (PNG or JPG, ideally on a plain background). When you approve a request or finalise payroll you choose to sign or not sign each time.</p>
+  ${state.sig?`<div class="row" style="align-items:center;gap:16px"><span class="sigbox"><img src="${state.sig.url}" alt="Your signature"></span><div class="note">${esc(state.sig.name)}</div><button class="btn ghost sm" data-act="removeSig">Remove signature</button></div>`:''}
+  <div class="drop" id="sgDrop" data-input="sgFile" tabindex="0" role="button" aria-label="Upload signature" style="margin-top:10px"><b>${state.sig?'Replace signature':'Drop your signature here'}</b>or click to choose an image</div>
+  <input id="sgFile" type="file" accept="image/png,image/jpeg" hidden><div class="err" id="sgErr">${esc(state.sgMsg||'')}</div></div>`}
+function sigChoice(id){
+  return `<select id="sg-${id}" aria-label="Signature choice" style="width:auto"><option value="sign" ${state.sig?'selected':''} ${state.sig?'':'disabled'}>Wet sign</option><option value="none" ${state.sig?'':'selected'}>Don't sign</option></select>`}
+function loadSig(f){
+  if(!f)return;
+  if(!/^image\/(png|jpeg)$/.test(f.type)){state.sgMsg='Choose a PNG or JPG image.';return render()}
+  if(f.size>2*1024*1024){state.sgMsg='Image is larger than 2 MB.';return render()}
+  const fr=new FileReader();fr.onload=()=>{state.sig={url:fr.result,name:f.name};logA('Signature uploaded',f.name);state.sgMsg='';toast('Signature saved');render()};fr.onerror=()=>{state.sgMsg='Could not read that file.';render()};fr.readAsDataURL(f)}
+function vApprovals(){
+  const list=state.approvals;
+  return `<h2>Approvals</h2><p class="sub">${pending()} waiting for review. Choose whether to wet sign each document when you approve it.</p>
+  <div class="stack">${sigPanel()}<div class="panel"><div class="tbl"><table><thead><tr><th>Type</th><th>Employee</th><th>Details</th><th>Status</th><th></th></tr></thead><tbody>
+  ${list.map(a=>`<tr><td>${pill(a.type)}</td><td>${esc(a.who)}</td><td>${esc(a.detail)}</td><td>${pill(a.status,stc(a.status))}${a.signed?` ${pill('Signed','ok')}`:''}</td>
+    <td>${a.status==='Pending'?`<div class="row">${sigChoice(a.id)}<button class="btn sm" data-act="approve" data-id="${a.id}">Approve</button><button class="btn sm bad" data-act="reject" data-id="${a.id}">Reject</button></div>`:''}</td></tr>`).join('')}
+  </tbody></table></div></div></div>`;
+}
+function genPw(){const L='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz',S='#@!%';const r=new Uint32Array(10);crypto.getRandomValues(r);
+  let p='';for(let i=0;i<7;i++)p+=L[r[i]%L.length];return p+S[r[7]%S.length]+(r[8]%90+10)}
+function vEmployees(){
+  const cr=state.newCred;
+  return `<h2>Employees</h2><p class="sub">Add people and give them a sign-in. They use the email and temporary password on the sign-in screen, then choose their own password.</p>
+  <div class="stack">
+  ${cr?`<div class="cred"><h3 style="color:var(--ok)">Sign-in details for ${esc(cr.name)}</h3>
+    <pre>Email: ${esc(cr.email)}\nTemporary password: ${esc(cr.password)}</pre>
+    <p class="note" style="margin:8px 0">Shown once. Share it with ${esc(cr.name.split(' ')[0])} privately.${cr.mustChange?' They must set a new password at first sign-in.':''}</p>
+    <div class="row"><button class="btn sm" data-act="copycred">Copy details</button><button class="btn sm ghost" data-act="doneCred">Done</button></div></div>`:''}
+  <div class="panel"><h3>Add employee</h3><form class="form" id="empForm" novalidate>
+    <label>Full name<input id="nName" required></label>
+    <label>Job title<input id="nTitle" placeholder="e.g. Tax Consultant"></label>
+    <label>Work email<input id="nEmail" type="email" required></label>
+    <label>Account type<select id="nRole"><option value="emp">Employee</option><option value="admin">Admin</option></select></label>
+    <label>Basic salary (N$ / month)<input id="nBase" type="number" min="0" step="100" value="15000"></label>
+    <label>Allowances (N$ / month)<input id="nAllow" type="number" min="0" step="50" value="0"></label>
+    <label>Temporary password<input id="nPass" value="${genPw()}" autocomplete="off" required></label>
+    <div><button class="btn ghost" type="button" data-act="genpw">Generate</button></div>
+    <label class="chk"><input id="nMust" type="checkbox" checked> Must change password at first sign-in</label>
+    <label class="chk"><input id="nAccess" type="checkbox" checked> Access enabled</label>
+    <div class="wide err" id="nErr" role="alert"></div>
+    <div class="wide"><button class="btn" type="submit">Add employee</button></div></form></div>
+  <div class="panel"><h3>All accounts</h3><div class="tbl"><table style="min-width:760px"><thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Access</th><th>Last sign-in</th><th></th></tr></thead><tbody>
+  ${state.users.map(u=>`<tr><td>${esc(u.name)}<div class="note">${esc(u.title||'')}</div></td><td class="mono">${esc(u.email)}</td><td>${pill(u.type==='admin'?'Admin':'Employee')}</td>
+    <td>${pill(u.access?'Enabled':'Disabled',u.access?'ok':'bad')}${u.mustChange?'<div class="note">Temporary password</div>':''}</td>
+    <td class="note">${u.lastLogin?fmtDT(u.lastLogin):'Never'}</td>
+    <td><div class="row"><button class="btn sm ghost" data-act="resetPw" data-id="${u.id}">Reset password</button>${u.id===state.user.id?'':`<button class="btn sm ${u.access?'bad':''}" data-act="toggleAccess" data-id="${u.id}">${u.access?'Disable':'Enable'}</button>`}</div></td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="note" style="margin:10px 0 0">Preview only: passwords live in this page's memory. The real build stores Argon2id hashes on the server and adds two-step sign-in.</p></div></div>`;
+}
+function vPayroll(){
+  const rows=staff().map(e=>({e,c:calc(e)}));
+  const T=rows.reduce((t,{e,c})=>({base:t.base+e.base,allow:t.allow+e.allow,ot:t.ot+c.ot,gross:t.gross+c.gross,loan:t.loan+e.loan,ded:t.ded+e.ded,net:t.net+c.net}),{base:0,allow:0,ot:0,gross:0,loan:0,ded:0,net:0});
+  const blockers=state.approvals.filter(a=>a.status==='Pending'&&a.type==='Timesheet').length;
+  const csv=rows.map(({e,c},i)=>`${e.name},****${(4821+i*137)%10000},${c.net.toFixed(2)},SAL OCT26`).join('\n');
+  return `<h2>Payroll run, October 2026</h2><p class="sub">Non-tax run. Template: Standard payslip v3. ${pill(state.finalised?'Finalised':'Draft',state.finalised?'ok':'warn')}</p>
+  ${!state.finalised&&blockers?`<div class="banner">${blockers} timesheet${blockers>1?'s are':' is'} still waiting for approval. Approve them before finalising.</div>`:''}
+  <div class="stack"><div class="panel"><div class="tbl"><table><thead><tr><th>Employee</th><th class="n">Basic</th><th class="n">Allow.</th><th class="n">Overtime</th><th class="n">Gross</th><th class="n">Loan</th><th class="n">Other</th><th class="n">Net</th></tr></thead><tbody>
+  ${rows.map(({e,c})=>`<tr><td>${esc(e.name)}<div class="note">${esc(e.title)}</div></td><td class="n">${e.base.toFixed(2)}</td><td class="n">${e.allow.toFixed(2)}</td><td class="n">${c.ot.toFixed(2)}</td><td class="n">${c.gross.toFixed(2)}</td><td class="n">${e.loan.toFixed(2)}</td><td class="n">${e.ded.toFixed(2)}</td><td class="n"><b>${c.net.toFixed(2)}</b></td></tr>`).join('')}
+  <tr class="total"><td>Total</td><td class="n">${T.base.toFixed(2)}</td><td class="n">${T.allow.toFixed(2)}</td><td class="n">${T.ot.toFixed(2)}</td><td class="n">${T.gross.toFixed(2)}</td><td class="n">${T.loan.toFixed(2)}</td><td class="n">${T.ded.toFixed(2)}</td><td class="n">${T.net.toFixed(2)}</td></tr>
+  </tbody></table></div>
+  <div class="row" style="margin-top:12px">${state.finalised?pill(state.runSig?'Signed':'Not signed',state.runSig?'ok':'warn'):sigChoice('run')}<button class="btn" data-act="finalise" ${state.finalised||blockers?'disabled':''}>Finalise run</button></div></div>${state.finalised?'':sigPanel()}
+  ${state.finalised?`<div class="panel"><h3>Bank payment file</h3><p class="note" style="margin-top:0">Validation passed: ${rows.length} of ${rows.length} accounts present, total ${NAD(T.net)} matches the run.</p><pre>${esc('beneficiary,account,amount,reference\n'+csv)}</pre>
+  <div class="row" style="margin-top:12px"><button class="btn ghost" data-act="mail">Email payslips</button></div></div>`:''}</div>`;
+}
+function status(u){
+  if(state.user&&u.id===state.user.id)return state.online?['Active Now','ok']:['Last active '+hhmm(state.offlineSince||new Date())+' (offline, sync pending)','warn'];
+  if(u.beat&&Date.now()-u.beat<120000)return ['Active Now','ok'];
+  if(u.lastSeen)return ['Last active '+fmtDT(u.lastSeen),''];
+  return ['Never logged in','bad'];
+}
+function vActivity(){
+  return `<h2>Activity</h2><p class="sub">Status comes from the heartbeat while online and from synced timestamps after offline use. Toggle the connection at the top to see your own row change.</p>
+  <div class="stack"><div class="panel"><div class="tbl"><table><thead><tr><th>Person</th><th>Status</th><th>Last login</th></tr></thead><tbody>
+  ${state.users.map(u=>{const [t,c]=status(u);return `<tr><td>${esc(u.name)}<div class="note">${esc(u.title||'')}</div></td><td>${pill(t,c)}</td><td class="note">${u.lastLogin?fmtDT(u.lastLogin):'None'}</td></tr>`}).join('')}
+  </tbody></table></div></div>
+  <div class="panel"><h3>Sign-in history, this session</h3>${state.logins.length?state.logins.slice(0,8).map(l=>`<div class="li"><span>${esc(byId(l.uid).name)}</span><span class="note mono">in ${hhmm(l.at)} · out ${l.out?hhmm(l.out):'still signed in'}</span></div>`).join(''):'<p class="note" style="margin:0">No sign-ins yet.</p>'}</div></div>`;
+}
+
+/* ---------- Petty cash ---------- */
+const tok=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ').filter(x=>x.length>=3);
+function sim(a,b){const A=tok(a),B=tok(b);if(!A.length)return 0;return A.filter(x=>B.some(y=>y.startsWith(x)||x.startsWith(y))).length/A.length}
+const dd=(a,b)=>Math.abs((Date.parse(a)-Date.parse(b))/864e5);
+function runMatch(){
+  const used=new Set(),out=[];
+  Object.keys(state.links).forEach(r=>used.add(r));
+  for(const l of SHEET){
+    const lk=Object.entries(state.links).find(([,li])=>li===l.id);
+    if(lk){const r=RECEIPTS.find(x=>x.id===lk[0]);out.push({l,r,status:r.amt===l.amt?'Reconciled':'Disputed',manual:true});continue}
+    const c=RECEIPTS.filter(r=>!used.has(r.id)&&dd(r.date,l.date)<=state.tol&&sim(l.vendor,r.vendor)>=state.thr)
+      .sort((a,b)=>(b.amt===l.amt)-(a.amt===l.amt)||dd(a.date,l.date)-dd(b.date,l.date));
+    if(c.length){const r=c[0];used.add(r.id);out.push({l,r,status:r.amt===l.amt?'Reconciled':'Disputed'})}
+    else out.push({l,r:null,status:'Missing'});
+  }
+  const orphans=RECEIPTS.filter(r=>!used.has(r.id));
+  return {out,orphans};
+}
+function pcResults(){
+  const {out,orphans}=runMatch();
+  const cnt=s=>out.filter(x=>x.status===s).length;
+  const open=out.filter(x=>x.status!=='Reconciled'&&!state.overrides[x.l.id]).length+orphans.length;
+  const sheetTotal=SHEET.reduce((s,l)=>s+l.amt,0);
+  const verified=out.filter(x=>x.r).reduce((s,x)=>s+x.r.amt,0);
+  const dis=state.locked?'disabled':'';
+  const missing=out.filter(x=>x.status==='Missing'&&!state.overrides[x.l.id]);
+  const rows=out.map(({l,r,status,manual})=>{
+    const ov=state.overrides[l.id];
+    const c={Reconciled:'ok',Disputed:'bad',Missing:'warn'}[status];
+    let act='';
+    if(!ov&&status==='Disputed')act=`<div class="row"><input id="note-${l.id}" placeholder="Note" aria-label="Approval note" style="width:130px"><button class="btn sm" data-act="approveDis" data-id="${l.id}" ${dis}>Approve</button></div>`;
+    if(!ov&&status==='Missing')act=`<button class="btn sm ghost" data-act="flag" data-id="${l.id}" ${dis}>Flag follow-up</button>`;
+    const label=status==='Missing'?'Missing receipt':status;
+    return `<tr><td>${fmtD(l.date)}</td><td>${esc(l.desc)}<div class="note">${esc(l.vendor)}</div></td><td class="n">${l.amt.toFixed(2)}</td>
+      <td>${r?`${esc(r.vendor)}<div class="note mono">${esc(r.ref)} · ${fmtD(r.date)} · ${r.amt.toFixed(2)}${manual?' · linked by hand':''}</div>`:'<span class="note">None</span>'}</td>
+      <td>${pill(label,c)}${ov?`<div class="note">${ov.kind==='flag'?'Follow-up flagged':'Approved: '+esc(ov.note)}</div>`:''}</td><td>${act}</td></tr>`}).join('');
+  const orows=orphans.map(r=>`<tr><td>${fmtD(r.date)}</td><td>${esc(r.vendor)}<div class="note mono">${esc(r.ref)}</div></td><td class="n">${r.amt.toFixed(2)}</td><td>${pill('Orphan receipt','bad')}</td>
+    <td><div class="row"><select id="lnk-${r.id}" aria-label="Line to link" style="max-width:170px">${out.filter(x=>x.status==='Missing').map(x=>`<option value="${x.l.id}">${esc(x.l.desc)}</option>`).join('')||'<option value="">No open lines</option>'}</select><button class="btn sm" data-act="link" data-id="${r.id}" ${dis||!missing.length?'disabled':''}>Link</button></div></td></tr>`).join('');
+  return `<div class="tiles" style="margin:14px 0">
+    <div class="tile"><b style="color:var(--ok)">${cnt('Reconciled')}</b><span>Reconciled</span></div>
+    <div class="tile"><b style="color:var(--bad)">${cnt('Disputed')}</b><span>Disputed</span></div>
+    <div class="tile"><b style="color:var(--warn)">${cnt('Missing')}</b><span>Missing receipt</span></div>
+    <div class="tile"><b style="color:var(--bad)">${orphans.length}</b><span>Orphan receipts</span></div></div>
+  <div class="panel"><div class="tbl"><table style="min-width:760px"><thead><tr><th>Date</th><th>Sheet line</th><th class="n">Amount</th><th>Matched receipt</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+  ${orphans.length?`<div class="panel" style="margin-top:14px"><h3>Receipts with no sheet line</h3><div class="tbl"><table style="min-width:640px"><thead><tr><th>Date</th><th>Vendor</th><th class="n">Amount</th><th>Status</th><th>Link to line</th></tr></thead><tbody>${orows}</tbody></table></div></div>`:''}
+  <div class="panel" style="margin-top:14px"><div class="tiles"><div class="tile"><b>${NAD(OPENING_FLOAT)}</b><span>Opening float</span></div><div class="tile"><b>${NAD(sheetTotal)}</b><span>Sheet total</span></div><div class="tile"><b>${NAD(verified)}</b><span>Backed by receipts</span></div><div class="tile"><b>${NAD(OPENING_FLOAT-sheetTotal)}</b><span>Closing balance</span></div></div>
+  <div class="row" style="margin-top:14px">${state.locked?`<button class="btn bad" data-act="unlock">Unlock month (logged)</button>`:`<button class="btn" data-act="lock" ${open?'disabled':''}>Lock ${monthLabel(state.month)}</button>`}
+  <span class="note">${state.locked?'Ledger locked. Edits are blocked until unlocked.':open?open+' item'+(open>1?'s':'')+' left to resolve before locking.':'All items resolved.'}</span></div></div>`;
+}
+function vPetty(){
+  return `<h2>Reconcile petty cash</h2><p class="sub">Receipts are matched to the monthly sheet by date, amount and vendor name.</p>${monthPicker()}${(!M().sheet.length||!M().receipts.length)?`<div class="banner">${!M().sheet.length?'No cash sheet for this month yet. <button class="btn sm ghost" data-tab="sheets">Upload sheet</button> ':''}${!M().receipts.length?'No receipts yet. <button class="btn sm ghost" data-tab="receipts">Upload receipts</button>':''}</div>`:''}
+  <div class="panel"><div class="form">
+    <label>Date tolerance: <span class="mono" id="tolV">+/- ${state.tol} days</span><input id="tol" type="range" min="0" max="5" step="1" value="${state.tol}" ${state.locked?'disabled':''}></label>
+    <label>Vendor similarity: <span class="mono" id="thrV">${Math.round(state.thr*100)}%</span><input id="thr" type="range" min="30" max="100" step="5" value="${Math.round(state.thr*100)}" ${state.locked?'disabled':''}></label></div>
+    <p class="note" style="margin:10px 0 0">Amounts must match exactly. Try a tolerance of 0 days to see Engen drop out of the match.</p></div>
+  <div id="pcResults">${pcResults()}</div>`;
+}
+
+/* ---------- Dashboards ---------- */
+function pcSummary(){
+  const {out,orphans}=runMatch();
+  const cnt=s=>out.filter(x=>x.status===s).length;
+  const open=out.filter(x=>x.status!=='Reconciled'&&!state.overrides[x.l.id]).length+orphans.length;
+  return {rec:cnt('Reconciled'),dis:cnt('Disputed'),mis:cnt('Missing'),orp:orphans.length,open};
+}
+function dEmp(){
+  const e=state.user,c=calc(e),d=D();
+  const total=d.entries.reduce((s,x)=>s+x.hrs,0);
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat'];
+  const per=days.map(k=>d.entries.filter(x=>x.day.startsWith(k)).reduce((s,x)=>s+x.hrs,0));
+  const L=d.loans.find(l=>l.status==='Active'),bal=L?L.amount-L.paid*L.per:0;
+  const mine=state.approvals.filter(a=>a.uid===e.id).slice(-4).reverse();
+  const draft=d.entries.some(x=>x.status==='Draft');
+  const hr=new Date().getHours(),greet=hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
+  return `${cashBanner()}<div class="hello"><div><h2>${greet}, ${esc(e.name.split(' ')[0])}</h2><p class="sub" style="margin:0">Saturday 24 October 2026. Next payday: Friday 30 October.</p></div>
+    <div class="row"><button class="btn" data-tab="time">Log time</button><button class="btn ghost" data-tab="leave">Apply for leave</button></div></div>
+  <div class="tiles">
+    <button class="tile link" data-tab="time"><b>${total.toFixed(1)} h</b><span>Hours this week</span><small>Target 40 h</small></button>
+    <button class="tile link" data-tab="leave"><b>${d.leaveBal[0][1]} d</b><span>Annual leave left</span><small>Sick ${d.leaveBal[1][1]} d, family ${d.leaveBal[2][1]} d</small></button>
+    <button class="tile link" data-tab="loans"><b>${NAD(bal)}</b><span>Loan balance</span><small>${L?L.paid+' of '+Math.round(L.amount/L.per)+' instalments paid':'No active loan'}</small></button>
+    <button class="tile link" data-tab="slip"><b>${NAD(c.net)}</b><span>October net pay</span><small>${state.finalised?'Final':'Draft until payroll closes'}</small></button>
+  </div>
+  <div class="dgrid">
+    <div class="panel"><div class="ph"><h3>Hours by day</h3>${!d.entries.length?'':draft?pill('Not yet submitted','warn'):pill('Submitted','ok')}</div>
+      <div class="cols">${per.map(h=>`<div class="c"><i class="${h?'':'empty'}" style="height:${Math.min(100,h/10*100)}%"></i></div>`).join('')}<div class="goal" style="bottom:calc((100% - 8px) * 0.8)"></div></div>
+      <div class="clab">${days.map((k,i)=>`<span>${k}<b>${per[i]?per[i].toFixed(1):'-'}</b></span>`).join('')}</div>
+      <p class="note" style="margin:10px 0 0">Dashed line marks an 8 hour day.</p></div>
+    <div class="panel"><div class="ph"><h3>My requests</h3></div>
+      ${mine.length?mine.map(a=>`<div class="li"><div class="tx"><b>${esc(a.type)}</b><div class="note">${esc(a.detail)}</div></div>${pill(a.status,stc(a.status))}</div>`).join(''):'<p class="note" style="margin:0">No requests yet. Submit your week or apply for leave to see them here.</p>'}</div>
+  </div>`;
+}
+function dAdm(){
+  const rows=staff().map(e=>({e,c:calc(e)}));
+  const net=rows.reduce((s,r)=>s+r.c.net,0),maxG=Math.max(1,...rows.map(r=>r.c.gross));
+  const act=state.users.filter(u=>status(u)[0]==='Active Now').length;
+  const pc=pcSummary(),tot=Math.max(1,pc.rec+pc.dis+pc.mis+pc.orp);
+  const pend=state.approvals.filter(a=>a.status==='Pending');
+  const tsOpen=pend.some(a=>a.type==='Timesheet'),reqOpen=pend.some(a=>a.type!=='Timesheet');
+  const chk=[['All timesheets approved',!tsOpen,'approvals'],['Leave and loan requests reviewed',!reqOpen,'approvals'],['Payroll run finalised',state.finalised,'payroll'],['Petty cash locked for '+monthLabel(state.month),state.locked,'petty']];
+  const doneN=chk.filter(x=>x[1]).length;
+  const seg=(n,c)=>n?`<i style="width:${n/tot*100}%;background:${c}"></i>`:'';
+  return `<div class="hello"><div><h2>Dashboard</h2><p class="sub" style="margin:0">October 2026 close, financial year 2027. ${doneN} of ${chk.length} month-end steps done.</p></div>
+    <div class="row"><button class="btn" data-tab="employees">Add employee</button><button class="btn ghost" data-tab="payroll">Open payroll</button></div></div>
+  <div class="tiles">
+    <button class="tile link" data-tab="approvals"><b>${pend.length}</b><span>Waiting for approval</span><small>${pend.filter(a=>a.type==='Timesheet').length} timesheets</small></button>
+    <button class="tile link" data-tab="kyc"><b>${kPend()}</b><span>Forms awaiting review</span><small>KYC and staff requests</small></button>
+    <button class="tile link" data-tab="payroll"><b>${NAD(net)}</b><span>Net payroll, October</span><small>${state.finalised?'Finalised':'Draft'}</small></button>
+    <button class="tile link" data-tab="employees"><b>${state.users.filter(u=>u.access).length} of ${state.users.length}</b><span>Accounts with access</span><small>${staff().length} employees on payroll</small></button>
+    <button class="tile link" data-tab="activity"><b>${act}</b><span>Active now</span><small>${state.online?'Live heartbeat':'Offline, using last sync'}</small></button>
+    <button class="tile link" data-tab="stationery"><b>${lowItems().length}</b><span>Low stock items</span><small>${lowItems().length?esc(lowItems().map(i=>i.name).join(', ')):'Everything above '+state.stat.thr}</small></button>
+    <button class="tile link" data-tab="cash"><b>${overdueAdv().length}</b><span>Cash not reported</span><small>${NAD(state.advances.filter(a=>a.status==='Open').reduce((s,a)=>s+a.amount,0))} still with staff</small></button>
+    <button class="tile link" data-tab="petty"><b>${pc.open}</b><span>Petty cash items open</span><small>${state.locked?'Month locked':'Resolve before locking'}</small></button>
+  </div>
+  <div class="dgrid">
+    <div class="panel"><div class="ph"><h3>Waiting for approval</h3><button class="btn sm ghost" data-tab="approvals">See all</button></div>
+      ${pend.length?pend.slice(0,4).map(a=>`<div class="li"><div class="tx"><b>${esc(a.who)}</b><div class="note">${esc(a.type)}: ${esc(a.detail)}</div></div><button class="btn sm" data-act="approve" data-id="${a.id}">Approve</button></div>`).join(''):'<p class="note" style="margin:0">Nothing waiting. All requests are reviewed.</p>'}</div>
+    <div class="panel"><div class="ph"><h3>Month-end checklist</h3></div>
+      ${chk.map(([t,d,go])=>`<div class="check ${d?'done':''}"><span class="mk">${d?'&#10003;':''}</span><span class="tx">${t}</span>${d?pill('Done','ok'):`<button class="btn sm ghost" data-tab="${go}">Open</button>`}</div>`).join('')}</div>
+    <div class="panel"><div class="ph"><h3>Gross pay by employee</h3></div>
+      ${rows.map(({e,c})=>`<div class="hb"><span>${esc(e.name.split(' ')[0])}</span><div class="t"><i style="width:${c.gross/maxG*100}%"></i></div><span class="mono">${c.gross.toFixed(0)}</span></div>`).join('')}
+      <p class="note" style="margin:6px 0 0">N$ per month, before deductions.</p></div>
+    <div class="panel"><div class="ph"><h3>Petty cash reconciliation</h3><button class="btn sm ghost" data-tab="petty">Review</button></div>
+      <div class="stackbar">${seg(pc.rec,'var(--ok)')}${seg(pc.dis,'var(--bad)')}${seg(pc.mis,'var(--warn)')}${seg(pc.orp,'var(--muted)')}</div>
+      <div class="legend"><span style="--c:var(--ok)">${pc.rec} reconciled</span><span style="--c:var(--bad)">${pc.dis} disputed</span><span style="--c:var(--warn)">${pc.mis} missing receipt</span><span style="--c:var(--muted)">${pc.orp} orphan</span></div></div>
+  </div>`;
+}
+/* ---------- Petty cash: receipts and monthly sheets ---------- */
+function monthPicker(){const m=M();return `<div class="row" style="margin-bottom:14px"><label style="min-width:190px">Month<select id="mSel">${MONTHS.map(k=>`<option value="${k}" ${k===state.month?'selected':''}>${monthLabel(k)}</option>`).join('')}</select></label><span class="note">${fyOf(state.month)}, March to February</span>${m.locked?pill('Locked','bad'):''}</div>`}
+function rcSummary(){
+  const m=M(),rs=m.receipts,tot=rs.reduce((s,r)=>s+(r.amt||0),0),sheetTot=m.sheet.reduce((s,l)=>s+l.amt,0);
+  const byCat=CATS.map(c=>[c,rs.filter(r=>r.cat===c).reduce((s,r)=>s+(r.amt||0),0)]);
+  const max=Math.max(1,...byCat.map(x=>x[1])),review=rs.filter(r=>r.status!=='Verified').length;
+  const diff=Math.round((tot-sheetTot)*100)/100;
+  return `<div class="tiles"><div class="tile"><b>${rs.length}</b><span>Receipts stored</span><small>${review} need review</small></div>
+  <div class="tile"><b>${NAD(tot)}</b><span>Cost this month</span><small>From receipts</small></div>
+  <div class="tile"><b>${m.sheet.length?NAD(sheetTot):'No sheet'}</b><span>Cash sheet total</span><small>${m.sheet.length?(diff===0?'Matches receipts':'Receipts differ by '+NAD(Math.abs(diff))):'Upload it under Cash sheets'}</small></div>
+  <div class="tile"><b>${NAD(m.opening-tot)}</b><span>Closing balance</span><small>Opening float ${NAD(m.opening)}</small></div></div>
+  <div class="panel" style="margin-top:14px"><h3>Cost by category</h3>${byCat.map(([c,v])=>`<div class="hb"><span>${c}</span><div class="t"><i style="width:${v/max*100}%"></i></div><span class="mono">${v.toFixed(2)}</span></div>`).join('')}</div>`;
+}
+function vReceipts(){
+  const m=M(),dis=m.locked?'disabled':'';
+  const rows=m.receipts.map(r=>`<tr><td>${r.url&&r.kind==='img'?`<img class="thumb" src="${esc(r.url)}" alt="Receipt scan">`:`<div class="ftype">${r.kind==='img'?'IMG':'PDF'}</div>`}</td>
+    <td><div class="mono" style="font-size:12px;word-break:break-all">${esc(r.file)}</div><div class="note">${Math.max(1,Math.round(r.size/1024))} KB</div></td>
+    <td><input type="date" value="${esc(r.date)}" data-rid="${r.id}" data-f="date" aria-label="Receipt date" ${dis}></td>
+    <td><input value="${esc(r.vendor)}" placeholder="Vendor" data-rid="${r.id}" data-f="vendor" aria-label="Vendor" ${dis}></td>
+    <td><input type="number" min="0" step="0.01" value="${r.amt||''}" placeholder="0.00" data-rid="${r.id}" data-f="amt" aria-label="Amount" ${dis}></td>
+    <td><select data-rid="${r.id}" data-f="cat" aria-label="Category" ${dis}>${CATS.map(c=>`<option ${c===r.cat?'selected':''}>${c}</option>`).join('')}</select></td>
+    <td>${pill(r.status,r.status==='Verified'?'ok':'warn')}</td>
+    <td><div class="row"><button class="btn sm ghost" data-act="verifyR" data-id="${r.id}" ${dis}>${r.status==='Verified'?'Reopen':'Verify'}</button><button class="btn sm bad" data-act="removeR" data-id="${r.id}" ${dis}>Remove</button></div></td></tr>`).join('');
+  return `<h2>Receipts</h2><p class="sub">Upload scanned receipts for the month. Each file is stored with that month's records and counted in the monthly cost.</p>${monthPicker()}
+  <div class="stack"><div id="rcTotals" class="stack">${rcSummary()}</div>
+  <div class="panel"><h3>Upload receipts</h3>
+    <div class="drop ${m.locked?'dis':''}" id="rcDrop" data-input="rcFile" tabindex="0" role="button" aria-label="Upload receipts"><b>Drop scanned receipts here</b>or click to choose files (PDF, JPG or PNG, up to 10 MB each)</div>
+    <input id="rcFile" type="file" multiple accept="application/pdf,image/*" hidden>
+    <p class="note" style="margin:10px 0 0">Stored under <span class="mono">company-001/${fyOf(state.month)}/${state.month}/receipts/</span>. In the real build, OCR reads the date, vendor, amount and tax from each scan. In this preview, type them in below. Files stay in the page until you reload.</p></div>
+  <div class="panel"><h3>Receipts for ${monthLabel(state.month)}</h3><div class="tbl"><table style="min-width:900px"><thead><tr><th></th><th>File</th><th>Date</th><th>Vendor</th><th>Amount (N$)</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows||'<tr><td colspan="8" class="note">No receipts for this month. Drop your first scans above.</td></tr>'}</tbody></table></div></div></div>`;
+}
+function addReceipts(files){
+  const m=M();if(m.locked)return toast('This month is locked');
+  let n=0,bad=0;
+  for(const f of files){
+    const isImg=f.type.startsWith('image/'),isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name);
+    if(!(isImg||isPdf)||f.size>10*1024*1024){bad++;continue}
+    const today=new Date().toISOString().slice(0,10),date=today.slice(0,7)===state.month?today:state.month+'-01';
+    m.receipts.push({id:uid(),file:f.name,size:f.size,kind:isImg?'img':'pdf',url:isImg?URL.createObjectURL(f):'',date,vendor:'',amt:0,cat:'Other',status:'Needs review',ref:f.name.slice(0,20)});
+    n++;
+  }
+  toast(n?n+' receipt'+(n>1?'s':'')+' stored'+(bad?', '+bad+' skipped':''):'Only PDF, JPG or PNG files under 10 MB');
+  render();
+}
+function vSheets(){
+  const m=M(),dis=m.locked?'disabled':'',tot=m.sheet.reduce((s,l)=>s+l.amt,0),f=m.sheetFile;
+  return `<h2>Cash sheets</h2><p class="sub">Upload the monthly petty cash sheet. Its lines are what the receipts are matched against.</p>${monthPicker()}
+  <div class="stack">
+  <div class="panel"><h3>Upload sheet</h3>
+    <div class="drop ${m.locked?'dis':''}" id="shDrop" data-input="shFile" tabindex="0" role="button" aria-label="Upload monthly sheet"><b>Drop the monthly sheet here</b>or click to choose a file (Excel, CSV or PDF)</div>
+    <input id="shFile" type="file" accept=".xlsx,.xls,.csv,application/pdf" hidden>
+    <p class="note" style="margin:10px 0 0">Excel and CSV files are read here. Use the columns Date, Description and Amount, plus Vendor if you have one. PDF and scanned sheets are stored, and the real build reads their lines with OCR. Here, add those lines by hand below.</p>
+    ${state.shMsg?`<div class="banner ok" style="margin:10px 0 0">${esc(state.shMsg)}</div>`:''}</div>
+  ${f?`<div class="panel"><div class="ph"><h3>Stored sheet</h3><button class="btn sm bad" data-act="clearSheet" ${dis}>Remove sheet</button></div>
+    <div><b>${esc(f.name)}</b> <span class="note">${Math.max(1,Math.round(f.size/1024))} KB, uploaded ${fmtDT(f.at)}</span></div>
+    <div class="note mono" style="word-break:break-all">company-001/${fyOf(state.month)}/${state.month}/sheets/${esc(f.name)}</div></div>`:''}
+  <div class="panel"><h3>Lines for ${monthLabel(state.month)}</h3>
+    <div class="tiles" style="margin-bottom:12px"><div class="tile"><b>${m.sheet.length}</b><span>Lines</span></div><div class="tile"><b>${NAD(tot)}</b><span>Sheet total</span></div>
+      <div class="tile"><label>Opening float (N$)<input id="opening" type="number" min="0" step="100" value="${m.opening}" ${dis}></label></div><div class="tile"><b>${NAD(m.opening-tot)}</b><span>Closing balance</span></div></div>
+    <div class="tbl"><table style="min-width:560px"><thead><tr><th>Date</th><th>Description</th><th>Vendor</th><th class="n">Amount</th><th></th></tr></thead><tbody>
+    ${m.sheet.length?m.sheet.map(l=>`<tr><td>${fmtD(l.date)}</td><td>${esc(l.desc)}</td><td>${esc(l.vendor)}</td><td class="n">${l.amt.toFixed(2)}</td><td><button class="btn sm bad" data-act="removeLine" data-id="${l.id}" ${dis}>Remove</button></td></tr>`).join(''):'<tr><td colspan="5" class="note">No lines yet. Upload a sheet or add a line below.</td></tr>'}
+    </tbody></table></div>
+    <h3 style="margin-top:16px">Add a line by hand</h3>
+    <form class="form" id="lineForm" novalidate><fieldset ${dis} class="form" style="grid-column:1/-1">
+      <label>Date<input id="sDate" type="date" min="${state.month}-01" max="${state.month}-${lastDay(state.month)}" value="${state.month}-01"></label>
+      <label>Description<input id="sDesc" placeholder="e.g. Printer paper"></label>
+      <label>Vendor<input id="sVend" placeholder="e.g. Office Ware"></label>
+      <label>Amount (N$)<input id="sAmt" type="number" min="0" step="0.01"></label>
+      <button class="btn" type="submit">Add line</button></fieldset></form><div class="err" id="sErr" role="alert"></div></div></div>`;
+}
+function parseCSV(text){
+  const first=text.split(/\r?\n/)[0]||'',d=(first.split(';').length>first.split(',').length)?';':',';
+  const rows=[];let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}
+    else if(c==='"')q=true;else if(c===d){row.push(cur);cur=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cur);rows.push(row);row=[];cur=''}
+    else cur+=c}
+  if(cur||row.length){row.push(cur);rows.push(row)}
+  return rows;
+}
+function toISO(v){
+  if(v instanceof Date)return isNaN(v)?'':new Date(Math.round(v/864e5)*864e5).toISOString().slice(0,10);
+  if(typeof v==='number'&&v>30000)return new Date(Math.round((v-25569))*864e5).toISOString().slice(0,10);
+  const s=String(v==null?'':v).trim();if(!s)return '';
+  let m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s);if(m)return m[1]+'-'+m[2]+'-'+m[3];
+  m=/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(s);if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  const p=Date.parse(s);if(isNaN(p))return '';const d=new Date(p);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+const toNum=v=>typeof v==='number'?v:parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''))||0;
+function rowsToLines(rows){
+  const norm=c=>String(c==null?'':c).trim();
+  const h=rows.findIndex(r=>r.some(c=>/date/i.test(norm(c)))&&r.some(c=>/amount|amt|value|total/i.test(norm(c))));
+  if(h<0)return null;
+  const hdr=rows[h].map(c=>norm(c).toLowerCase()),ci=re=>hdr.findIndex(x=>re.test(x));
+  const di=ci(/date/),ai=ci(/amount|amt|value|total/),ni=ci(/desc|detail|item|particular/),vi=ci(/vendor|supplier|payee|shop/);
+  const lines=[];let skipped=0,other=0;
+  for(const r of rows.slice(h+1)){
+    const iso=toISO(r[di]),amt=toNum(r[ai]);
+    if(!iso||!(amt>0)){if(r.some(c=>norm(c)))skipped++;continue}
+    if(iso.slice(0,7)!==state.month){other++;continue}
+    const desc=ni>=0?norm(r[ni]):'';let vendor=vi>=0?norm(r[vi]):'';
+    if(!vendor){const p=desc.split(/\s[-–—]\s/);vendor=p.length>1?p[p.length-1]:desc}
+    lines.push({id:uid(),date:iso,amt,desc:desc||vendor||'Petty cash',vendor:vendor||desc});
+  }
+  return {lines,skipped,other};
+}
+async function loadSheet(f){
+  const m=M();if(m.locked)return toast('This month is locked');
+  const ext=f.name.split('.').pop().toLowerCase();let rows=null,msg='';
+  if(!['csv','xlsx','xls','pdf'].includes(ext))return toast('Use an Excel, CSV or PDF file');
+  m.sheetFile={name:f.name,size:f.size,at:new Date()};
+  try{
+    if(ext==='csv')rows=parseCSV(await f.text());
+    else if(ext==='pdf')msg='Sheet stored. PDFs are read by the server OCR in the real build, so add the lines by hand for now.';
+    else{if(!window.XLSX)throw new Error('The Excel reader did not load. Try a CSV file.');
+      const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
+      rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''})}
+    if(rows){
+      const r=rowsToLines(rows);
+      if(!r)msg='Sheet stored, but no Date and Amount columns were found. Check the header row, or add lines by hand.';
+      else{m.sheet=r.lines;m.overrides={};m.links={};
+        const t=r.lines.reduce((s,l)=>s+l.amt,0);
+        msg='Read '+r.lines.length+' lines totalling '+NAD(t)+' for '+monthLabel(state.month)+'.'+(r.other?' '+r.other+' lines dated in other months were left out.':'')+(r.skipped?' '+r.skipped+' rows could not be read.':'')}
+    }
+  }catch(err){msg='Sheet stored, but it could not be read: '+err.message}
+  state.shMsg=msg;render();
+}
+/* ---------- Alerts ---------- */
+function vAlerts(){
+  const me=state.user,list=visibleNotes();
+  const html=list.length?list.map(n=>{const fresh=!n.readBy[me.id];
+    return `<div class="li" style="align-items:flex-start"><div class="tx"><div>${pill(n.kind,n.kind==='Low stock'?'warn':'bad')} ${fresh?pill('New','ok'):''}</div>
+      <div style="margin-top:4px"><b>${esc(n.msg)}</b></div>
+      <div class="note">${fmtDT(n.at)}${me.type==='admin'?' · Email sent (simulated) to '+n.emails.map(esc).join(', '):' · Also emailed to you'}</div></div></div>`}).join(''):'<p class="note" style="margin:0">No alerts.</p>';
+  list.forEach(n=>{n.readBy[me.id]=true});
+  return `<h2>Alerts</h2><p class="sub">Low stock goes to admin and all staff. Cash that has not been reported back goes to admin only. In this preview, emails are shown here and not actually sent.</p><div class="panel">${html}</div>`;
+}
+
+/* ---------- Stationery list ---------- */
+function statPicker(){return `<div class="row" style="margin-bottom:14px"><label style="min-width:190px">Month<select id="smSel">${MONTHS.filter(k=>k<=curMonth()).map(k=>`<option value="${k}" ${k===state.smonth?'selected':''}>${monthLabel(k)}</option>`).join('')}</select></label><span class="note">${fyOf(state.smonth)}. Flag shows at ${state.stat.thr} or fewer left.</span></div>`}
+const stRows=key=>state.stat.items.map(it=>({it,s:stock(it,key)})).filter(x=>x.s);
+function stSummary(key){
+  const rows=stRows(key),sum=f=>rows.reduce((t,r)=>t+f(r.s),0);
+  const low=rows.filter(r=>r.s.left<=state.stat.thr).length;
+  const cn=rows.filter(r=>r.s.counted!=null),diff=cn.reduce((t,r)=>t+r.s.diff,0);
+  const mrows=MONTHS.filter(k=>k<=curMonth()).map(k=>{
+    const rs=stRows(k);if(!rs.length)return '';
+    const sm=f=>rs.reduce((t,r)=>t+f(r.s),0),c=rs.filter(r=>r.s.counted!=null),d=c.reduce((t,r)=>t+r.s.diff,0);
+    return `<tr><td>${monthLabel(k)}</td><td class="n">${sm(s=>s.start)}</td><td class="n">${sm(s=>s.added)}</td><td class="n">${sm(s=>s.taken)}</td><td class="n"><b>${sm(s=>s.left)}</b></td><td class="n">${c.length} of ${rs.length}</td>
+      <td class="n">${c.length?pill(d===0?'No difference':sg(d)+' units',d===0?'ok':'bad'):'<span class="note">Not counted</span>'}</td></tr>`}).join('');
+  return `<div class="tiles"><div class="tile"><b>${rows.length}</b><span>Items</span></div><div class="tile"><b>${sum(s=>s.start)}</b><span>Starting amount</span></div>
+    <div class="tile"><b>${sum(s=>s.added)}</b><span>Added</span></div><div class="tile"><b>${sum(s=>s.taken)}</b><span>Taken</span></div>
+    <div class="tile"><b>${sum(s=>s.left)}</b><span>Left in total</span></div>
+    <div class="tile"><b style="color:${low?'var(--bad)':'var(--ok)'}">${low}</b><span>Low stock</span></div>
+    <div class="tile"><b style="color:${cn.length&&diff?'var(--bad)':'inherit'}">${cn.length?sg(diff):'None'}</b><span>Month-end difference</span><small>${cn.length} of ${rows.length} counted</small></div></div>
+  <div class="panel" style="margin-top:14px"><h3>Month-end differences, ${fyOf(key)}</h3><div class="tbl"><table style="min-width:640px"><thead><tr><th>Month</th><th class="n">Starting</th><th class="n">Added</th><th class="n">Taken</th><th class="n">Left</th><th class="n">Counted</th><th class="n">Difference</th></tr></thead><tbody>${mrows}</tbody></table></div>
+  <p class="note" style="margin:10px 0 0">Difference is the physical count minus what the records say is left. Next month starts from the count.</p></div>`;
+}
+function takeFormHTML(adm){
+  const opts=state.stat.items.map(it=>({it,s:stock(it,curMonth())})).filter(x=>x.s&&x.s.left>0);
+  return `<form class="form" id="takeForm" novalidate>${!adm?`<label>Your name<input id="tWhoName" value="${esc(state.user.name)}" readonly aria-readonly="true"></label>`:''}${adm?`<label>Taken by<select id="tWho">${staff().filter(u=>u.access).map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label>`:''}
+    <label>Item<select id="tItem">${opts.map(({it,s})=>`<option value="${it.id}">${esc(it.name)} (${s.left} ${esc(it.unit)} left)</option>`).join('')}</select></label>
+    <label>Quantity<input id="tQty" type="number" min="1" step="1" value="1"></label>
+    <label>Used for (optional)<input id="tNote" placeholder="e.g. Client meeting"></label>
+    <button class="btn" type="submit">Record</button></form><div class="err" id="tErr" role="alert"></div>`;
+}
+function moveRows(list,adm){
+  return list.length?list.map(x=>{const it=state.stat.items.find(i=>i.id===x.item);
+    return `<tr><td>${fmtD(x.date)}<div class="note">${hhmm(x.at)}</div></td>${adm?`<td>${esc(byId(x.uid)?byId(x.uid).name:'')}</td>`:''}<td>${esc(it.name)}</td><td class="n">${x.qty}</td><td>${pill(x.type==='take'?'Taken':'Added',x.type==='take'?'':'ok')}</td><td class="note">${esc(x.note)}</td></tr>`}).join(''):`<tr><td colspan="${adm?6:5}" class="note">Nothing recorded yet.</td></tr>`;
+}
+function vStat(){
+  const adm=state.role==='adm',me=state.user;
+  if(!adm){
+    const rows=stRows(curMonth()),mine=state.stat.moves.filter(x=>x.uid===me.id).sort((a,b)=>b.at-a.at).slice(0,10);
+    return `<h2>Stationery list</h2><p class="sub">Take what you need and record it here, so the stock stays accurate.</p>
+    <div class="stack"><div class="panel"><h3>Record an item you took</h3>${takeFormHTML(false)}</div>
+    <div class="panel"><h3>What is in stock</h3><div class="tbl"><table style="min-width:420px"><thead><tr><th>Item</th><th class="n">Left</th><th>Status</th></tr></thead><tbody>
+      ${rows.map(({it,s})=>`<tr><td>${esc(it.name)}<div class="note">${esc(it.unit)}</div></td><td class="n">${s.left}</td><td>${s.left<=state.stat.thr?pill(s.left?'Low stock':'Out of stock','bad'):pill('In stock','ok')}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="panel"><h3>My recent records</h3><div class="tbl"><table style="min-width:480px"><thead><tr><th>When</th><th>Employee</th><th>Item</th><th class="n">Qty</th><th>Type</th><th>Used for</th></tr></thead><tbody>${moveRows(mine,true)}</tbody></table></div></div></div>`;
+  }
+  const key=state.smonth,rows=stRows(key);
+  const tot=f=>rows.reduce((t,r)=>t+f(r.s),0);
+  const log=state.stat.moves.filter(x=>x.date.slice(0,7)===key).sort((a,b)=>b.at-a.at);
+  return `<h2>Stationery list</h2><p class="sub">Upload or add stock, see what is left, and check each month-end count. Staff record what they take.</p>${statPicker()}
+  <div class="stack"><div id="stSum">${stSummary(key)}</div>
+  <div class="panel"><h3>Stock for ${monthLabel(key)}</h3><div class="tbl"><table style="min-width:900px"><thead><tr><th>Item</th><th class="n">Starting</th><th class="n">Added</th><th class="n">Taken</th><th class="n">Left</th><th>Flag</th><th>Month-end count</th><th class="n">Difference</th><th>Add stock</th></tr></thead><tbody>
+    ${rows.map(({it,s})=>`<tr><td><b>${esc(it.name)}</b><div class="note">${esc(it.unit)}</div></td><td class="n">${s.start}</td><td class="n">${s.added}</td><td class="n">${s.taken}</td><td class="n"><b>${s.left}</b></td>
+      <td>${s.left<=state.stat.thr?pill(s.left?'Low stock':'Out of stock','bad'):pill('OK','ok')}</td>
+      <td><input type="number" min="0" step="1" data-cnt="${it.id}" value="${s.counted==null?'':s.counted}" placeholder="Count" aria-label="Counted at month end" style="width:90px"></td>
+      <td class="n" id="df-${it.id}">${s.diff==null?'-':s.diff===0?'0':sg(s.diff)}</td>
+      <td><form class="row" id="restock-${it.id}"><input type="number" min="1" step="1" value="5" aria-label="Quantity to add" style="width:72px"><button class="btn sm ghost" type="submit">Add</button></form></td></tr>`).join('')||'<tr><td colspan="9" class="note">No items in this month. Add items or upload a list below.</td></tr>'}
+    <tr class="total"><td>Total</td><td class="n">${tot(s=>s.start)}</td><td class="n">${tot(s=>s.added)}</td><td class="n">${tot(s=>s.taken)}</td><td class="n">${tot(s=>s.left)}</td><td></td><td></td><td></td><td></td></tr>
+    </tbody></table></div></div>
+  <div class="panel"><h3>Upload a stationery list</h3>
+    <div class="drop" id="stDrop" data-input="stFile" tabindex="0" role="button" aria-label="Upload stationery list"><b>Drop your stationery list here</b>or click to choose a file (Excel or CSV)</div>
+    <input id="stFile" type="file" accept=".xlsx,.xls,.csv" hidden>
+    <p class="note" style="margin:10px 0 0">Columns: Item, Quantity, and Unit if you have it. New items start in ${monthLabel(key)} with that quantity. Items that already exist are topped up by it.</p>
+    ${state.stMsg?`<div class="banner ok" style="margin:10px 0 0">${esc(state.stMsg)}</div>`:''}</div>
+  <div class="panel"><h3>Add an item by hand</h3><form class="form" id="itemForm" novalidate>
+    <label>Item name<input id="iName" placeholder="e.g. Correction tape"></label>
+    <label>Unit<select id="iUnit"><option>pcs</option><option>box</option><option>pack</option><option>ream</option><option>roll</option><option>bottle</option></select></label>
+    <label>Starting amount<input id="iQty" type="number" min="0" step="1" value="10"></label>
+    <button class="btn" type="submit">Add item</button></form><div class="err" id="iErr" role="alert"></div></div>
+  <div class="panel"><h3>Record an item taken on someone's behalf</h3>${takeFormHTML(true)}</div>
+  <div class="panel"><h3>Who took what, ${monthLabel(key)}</h3><div class="tbl"><table style="min-width:620px"><thead><tr><th>When</th><th>Employee</th><th>Item</th><th class="n">Qty</th><th>Type</th><th>Used for</th></tr></thead><tbody>${moveRows(log,true)}</tbody></table></div></div></div>`;
+}
+async function loadStatList(f){
+  const ext=f.name.split('.').pop().toLowerCase();let rows;
+  try{
+    if(ext==='csv')rows=parseCSV(await f.text());
+    else if(ext==='xlsx'||ext==='xls'){if(!window.XLSX)throw new Error('The Excel reader did not load. Try a CSV file.');
+      const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''})}
+    else return toast('Use an Excel or CSV file');
+    const norm=c=>String(c==null?'':c).trim();
+    const h=rows.findIndex(r=>r.some(c=>/item|name|description|product/i.test(norm(c)))&&r.some(c=>/qty|quantity|stock|start|opening|amount|count/i.test(norm(c))));
+    if(h<0){state.stMsg='No Item and Quantity columns found. Check the header row.';return render()}
+    const hd=rows[h].map(c=>norm(c).toLowerCase()),ci=re=>hd.findIndex(x=>re.test(x));
+    const ni=ci(/item|name|description|product/),qi=ci(/qty|quantity|stock|start|opening|amount|count/),ui=ci(/unit|uom/);
+    let created=0,topped=0,skipped=0;
+    for(const r of rows.slice(h+1)){
+      const name=norm(r[ni]);
+      if(!name||norm(r[qi])===''){if(r.some(c=>norm(c)))skipped++;continue}
+      const q=Math.max(0,Math.round(toNum(r[qi]))),ex=state.stat.items.find(i=>i.name.toLowerCase()===name.toLowerCase());
+      if(ex){if(q>0)state.stat.moves.push({id:uid(),item:ex.id,date:dateFor(state.smonth),type:'add',qty:q,uid:state.user.id,note:'Stationery list upload',at:new Date()});topped++}
+      else{state.stat.items.push({id:uid(),name,unit:ui>=0&&norm(r[ui])?norm(r[ui]):'pcs',open:q,startMonth:state.smonth,low:false});created++}
+    }
+    state.stat.items.forEach(checkLow);
+    state.stMsg='Read '+(created+topped)+' items: '+created+' new, '+topped+' existing topped up.'+(skipped?' '+skipped+' rows were skipped.':'');
+  }catch(err){state.stMsg='The list could not be read: '+err.message}
+  render();
+}
+
+/* ---------- Cash taken ---------- */
+function cashStatus(a){return a.status==='Open'?(isOverdue(a)?['Overdue, change not reported','bad']:['Open, change due by '+fmtD(addDays(a.date,1)),'warn']):a.status==='Settled'?['Settled','ok']:['Settled with difference','bad']}
+function cashBanner(){
+  if(!state.user||state.user.type!=='emp')return '';
+  const open=state.advances.filter(a=>a.uid===state.user.id&&a.status==='Open');if(!open.length)return '';
+  const od=open.some(isOverdue);
+  return `<div class="banner" ${od?'style="border-left-color:var(--bad);background:var(--bad-soft)"':''}>You have ${NAD(open.reduce((s,a)=>s+a.amount,0))} of petty cash to settle. ${od?'Your change report is overdue. ':'Record what you spent and the change you brought back. '}<button class="btn sm ghost" data-tab="cash">Settle now</button></div>`;
+}
+function cashByPerson(){
+  const cur=curMonth(),f2=n=>(Math.round(n*100)/100).toFixed(2);
+  const rows=staff().filter(u=>u.access).map(u=>{
+    const mine=state.advances.filter(a=>a.uid===u.id),open=mine.filter(a=>a.status==='Open'),od=mine.filter(isOverdue);
+    const last=mine.length?mine[mine.length-1]:null;
+    return `<tr><td>${esc(u.name)}<div class="note">${esc(u.title)}</div></td><td class="n">${f2(mine.filter(a=>a.date.slice(0,7)===cur).reduce((s,a)=>s+a.amount,0))}</td><td class="n">${f2(open.reduce((s,a)=>s+a.amount,0))}</td>
+      <td>${od.length?pill(od.length+' not reported','bad'):open.length?pill('Open','warn'):pill('Clear','ok')}</td><td class="note">${last?fmtD(last.date)+', '+NAD(last.amount):'Never'}</td></tr>`}).join('');
+  return `<div class="panel"><h3>Who has taken cash</h3><div class="tbl"><table style="min-width:560px"><thead><tr><th>Employee</th><th class="n">Taken this month</th><th class="n">Still to settle</th><th>Status</th><th>Last taken</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function vCash(){
+  const adm=state.role==='adm',me=state.user,cur=curMonth();
+  const all=state.advances.filter(a=>adm||a.uid===me.id),list=all.slice().reverse();
+  const month=all.filter(a=>a.date.slice(0,7)===cur),settled=month.filter(a=>a.status!=='Open');
+  const open=all.filter(a=>a.status==='Open'),od=all.filter(isOverdue);
+  const f2=n=>(Math.round(n*100)/100).toFixed(2);
+  const rows=list.map(a=>{const [st,c]=cashStatus(a),p=byId(a.uid),done=a.status!=='Open';
+    const settle=!done?`<form class="settle" id="settle-${a.id}"><div class="row"><input name="spent" type="number" min="0" max="${a.amount}" step="0.01" placeholder="Spent" aria-label="Amount spent" style="width:92px"><input name="ret" type="number" min="0" step="0.01" placeholder="Change back" aria-label="Change returned" style="width:108px"><button class="btn sm" type="submit">Settle</button></div><div class="note" id="calc-${a.id}">Enter what was spent to see the change due back.</div></form>`:'';
+    return `<tr><td>${fmtD(a.date)}<div class="note">${hhmm(a.at)}</div></td>${adm?`<td>${esc(p.name)}</td>`:''}<td>${esc(a.purpose)}</td><td class="n">${f2(a.amount)}</td>
+      <td class="n">${done?f2(a.spent):'-'}</td><td class="n">${done?f2(a.expected):'-'}</td><td class="n">${done?f2(a.returned):'-'}</td><td class="n">${done?(a.diff===0?'0.00':(a.diff>0?'+':'')+f2(a.diff)):'-'}</td>
+      <td>${pill(st,c)}</td><td>${settle}</td></tr>`}).join('');
+  return `<h2>Cash taken</h2><p class="sub">Record every time petty cash is taken. Afterwards, record what was spent and the change brought back. The app works out the change due. If change is not reported by the end of the next day, the admin gets an alert.</p>
+  <div class="stack"><div class="tiles">
+    <div class="tile"><b>${NAD(month.reduce((s,a)=>s+a.amount,0))}</b><span>Taken in ${monthLabel(cur)}</span></div>
+    <div class="tile"><b>${NAD(settled.reduce((s,a)=>s+a.spent,0))}</b><span>Spent, reported</span></div>
+    <div class="tile"><b>${NAD(settled.reduce((s,a)=>s+a.returned,0))}</b><span>Change returned</span></div>
+    <div class="tile"><b>${NAD(open.reduce((s,a)=>s+a.amount,0))}</b><span>Still to settle</span><small>${open.length} open</small></div>
+    <div class="tile"><b style="color:${od.length?'var(--bad)':'inherit'}">${od.length}</b><span>Change not reported</span></div>
+    <div class="tile"><b style="color:${all.some(a=>a.status==='Settled with difference')?'var(--bad)':'inherit'}">${all.filter(a=>a.status==='Settled with difference').length}</b><span>Settled with a difference</span></div></div>
+  ${adm?cashByPerson():''}
+  <div class="panel"><h3>Record cash taken</h3><form class="form" id="cashForm" novalidate>
+    ${!adm?`<label>Your name<input id="cWhoName" value="${esc(me.name)}" readonly aria-readonly="true"></label>`:''}${adm?`<label>Taken by<select id="cWho">${staff().filter(u=>u.access).map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label>`:''}
+    <label>Amount (N$)<input id="cAmt" type="number" min="1" step="0.01"></label>
+    <label>What it is for<input id="cWhy" placeholder="e.g. Courier and fuel"></label>
+    <button class="btn" type="submit">Record cash taken</button></form><div class="err" id="cErr" role="alert"></div></div>
+  <div class="panel"><h3>${adm?'All cash taken':'My cash taken'}</h3><div class="tbl"><table style="min-width:${adm?1120:1000}px"><thead><tr><th>When</th>${adm?'<th>Employee</th>':''}<th>For</th><th class="n">Taken</th><th class="n">Spent</th><th class="n">Change due</th><th class="n">Change back</th><th class="n">Difference</th><th>Status</th><th>Settle</th></tr></thead><tbody>
+    ${rows||`<tr><td colspan="${adm?10:9}" class="note">No cash taken yet.</td></tr>`}</tbody></table></div></div>
+  ${adm?`<div class="panel"><h3>Preview helper</h3><p class="note" style="margin-top:0">The demo date is ${fmtD(state.today)} ${state.today.slice(0,4)}. Move it forward to see overdue change alerts fire, as they would after the deadline passes.</p><button class="btn ghost" data-act="nextDay">Move date forward one day</button></div>`:''}</div>`;
+}
+/* ---------- Client KYC forms ---------- */
+const KTYPES=[['short','Short text'],['long','Long text'],['email','Email'],['phone','Phone'],['number','Number'],['date','Date'],['idno','ID or passport number'],['select','Dropdown'],['radio','Single choice'],['check','Multiple choice'],['yesno','Yes or no'],['file','File upload'],['sign','Signature'],['head','Heading'],['para','Paragraph text']];
+const KLAB=Object.fromEntries(KTYPES);
+const kF=(type,label,o={})=>Object.assign({id:uid(),type,label,req:false,help:'',opts:[],showIf:null},o);
+function kTemplate(n){
+  if(n==='ind'){const pep=kF('yesno','Are you a politically exposed person?',{req:true});
+    return {title:'Individual client KYC',desc:'Please complete all fields. Certified copies of your documents are required.',thanks:'Thank you. We will review your documents and contact you shortly.',fields:[
+    kF('head','Personal details'),kF('short','Full name',{req:true}),kF('idno','ID or passport number',{req:true}),kF('date','Date of birth',{req:true}),kF('short','Nationality',{req:true}),kF('long','Residential address',{req:true}),kF('email','Email address',{req:true}),kF('phone','Mobile number',{req:true}),kF('short','Occupation'),
+    kF('select','Source of funds',{req:true,opts:['Salary','Business income','Savings','Investments','Other']}),pep,kF('long','Give details of the position held',{showIf:{fid:pep.id,val:'Yes'}}),
+    kF('head','Documents'),kF('file','Copy of ID or passport',{req:true}),kF('file','Proof of residential address (not older than 3 months)',{req:true}),
+    kF('head','Declaration'),kF('para','I declare that the information given is true and correct, and I will inform the firm of any change.'),kF('sign','Client signature',{req:true})]}}
+  const pep=kF('yesno','Is any beneficial owner a politically exposed person?',{req:true});
+  return {title:'Company client KYC',desc:'To be completed by an authorised representative of the company or close corporation.',thanks:'Thank you. Your company documents have been received for review.',fields:[
+    kF('head','Entity details'),kF('short','Registered name',{req:true}),kF('short','Registration number',{req:true}),kF('date','Date of registration'),kF('long','Registered address',{req:true}),kF('long','Nature of business',{req:true}),kF('email','Contact email',{req:true}),kF('phone','Contact phone',{req:true}),
+    kF('head','Ownership'),kF('long','Directors or members (full names and ID numbers)',{req:true}),kF('long','Beneficial owners holding 25% or more',{req:true}),pep,kF('long','Give details',{showIf:{fid:pep.id,val:'Yes'}}),
+    kF('select','Expected annual turnover',{opts:['Under N$ 1 million','N$ 1 to 5 million','N$ 5 to 20 million','Over N$ 20 million']}),
+    kF('head','Documents'),kF('file','Registration certificate',{req:true}),kF('file','Proof of business address',{req:true}),kF('file','IDs of directors or members',{req:true}),
+    kF('head','Declaration'),kF('para','I confirm that I am authorised to sign for the entity and that the information given is true and correct.'),kF('short','Name and capacity of signatory',{req:true}),kF('sign','Authorised signature',{req:true})]}}
+function kHrForms(){
+  const mkf=(id,title,desc,thanks,fields)=>state.forms.push({id,title,desc,thanks,fields,status:'open',created:state.today,audience:'staff',category:'HR'});
+  mkf('h1','Overtime claim','Claim approved overtime. Hours are added to the next payroll draft once approved.','Your overtime claim was sent for approval.',[kF('date','Date worked',{req:true}),kF('number','Overtime hours',{req:true,help:'Hours above normal time'}),kF('long','Reason',{req:true})]);
+  mkf('h2','Expense claim','Claim money you spent for the firm. Approved claims are added to your net pay.','Your expense claim was sent for approval.',[kF('date','Date of expense',{req:true}),kF('number','Amount (N$)',{req:true}),kF('long','What was it for?',{req:true}),kF('file','Receipt',{req:true})]);
+  mkf('h3','Bank detail change','Changes take effect only after approval.','Your request was sent for approval.',[kF('short','Bank name',{req:true}),kF('short','Account holder',{req:true}),kF('short','Branch code',{req:true}),kF('short','Account number',{req:true}),kF('file','Bank letter or statement',{req:true}),kF('sign','Signature',{req:true})]);
+  mkf('h4','Equipment request','Ask for equipment you need for work.','Your request was received.',[kF('short','Item needed',{req:true}),kF('long','Why do you need it?',{req:true})]);
+  mkf('h5','Document request','Ask for a letter or copy.','Your request was received.',[kF('select','Document',{req:true,opts:['Employment confirmation letter','Payslip copy','Certificate of service']}),kF('long','Purpose')])}
+function kPend(){return (state.subs||[]).filter(s=>s.status==='Pending').length}
+function kApply(s,approved){
+  const f=kForm(s.formId);if(!f||f.category!=='HR'||!s.uid)return;const u=byId(s.uid);if(!u)return;
+  const fld=l=>{const x=f.fields.find(q=>q.label===l);return x?+s.ans[x.id]:0};
+  const kind=f.title==='Overtime claim'?'ot':f.title==='Expense claim'?'reimb':null;if(!kind)return;
+  const amt=kind==='ot'?fld('Overtime hours'):fld('Amount (N$)');if(!(amt>0))return;
+  if(approved&&!s.applied){
+    if(state.finalised){s.flag='Payroll already finalised. Needs a correction in the next run.';logA('Payroll input held',s.ref+' approved after payroll was finalised');notify('Payroll','Approved '+(kind==='ot'?'overtime':'expense claim')+' '+s.ref+' arrived after payroll was finalised. Handle it as a correction.',false);return}
+    u[kind]=(u[kind]||0)+amt;s.applied=true;s.flag='';logA('Payroll input applied',s.ref+': '+(kind==='ot'?amt+' h overtime':'N$ '+amt+' reimbursement')+' for '+u.name)}
+  else if(!approved&&s.applied){u[kind]=Math.max(0,(u[kind]||0)-amt);s.applied=false;logA('Payroll input reversed',s.ref+' for '+u.name)}}
+function kInitDummy(){}
+function kInit(){
+  if(state.forms)return;
+  state.forms=[];state.subs=[];state.kyc={view:'forms',formId:null,subId:null,ans:{},errs:{},q:'',st:'All',done:null,msg:''};
+  state.kseq=0;
+  const a=Object.assign({id:'f1',status:'open',created:state.today,audience:'client',category:'KYC'},kTemplate('ind')),b=Object.assign({id:'f2',status:'open',created:state.today,audience:'client',category:'KYC'},kTemplate('co'));
+  state.forms.push(a,b);kHrForms();
+  const F=a.fields,g=t=>F.find(f=>f.label===t).id;
+  [['Anna Shikongo','8801010123','Selma follows up'],['Daniel Kavari','9205120456','']].forEach(([n,id],i)=>{
+    const ans={};F.forEach(f=>{if(f.type==='short')ans[f.id]='Namibian';});
+    ans[g('Full name')]=n;ans[g('ID or passport number')]=id;ans[g('Date of birth')]='1990-05-12';ans[g('Residential address')]='12 Independence Ave, Windhoek';ans[g('Email address')]=n.split(' ')[0].toLowerCase()+'@example.com';ans[g('Mobile number')]='+264 81 555 01'+i+'0';ans[g('Source of funds')]='Salary';ans[g('Are you a politically exposed person?')]='No';ans[g('Occupation')]='Teacher';
+    state.subs.push({id:'s'+(i+1),ref:'KYC-000'+(i+1),formId:'f1',date:'2026-10-2'+(i+1),time:'2'+(i+1)+' Oct, 09:1'+i,ans,status:i?'Approved':'Pending',notes:[],signed:false});});
+  state.kseq=2;
+}
+const kForm=id=>state.forms.find(f=>f.id===id);
+const kSub=id=>state.subs.find(s=>s.id===id);
+function kVis(f,form,ans){if(!f.showIf)return true;const c=form.fields.find(x=>x.id===f.showIf.fid);if(!c||!kVis(c,form,ans))return false;const v=ans[f.showIf.fid];return Array.isArray(v)?v.includes(f.showIf.val):String(v??'')===String(f.showIf.val)}
+const kEmpty=v=>v==null||v===''||(Array.isArray(v)&&!v.length);
+function kNameOf(s){if(s.by)return s.by;const f=kForm(s.formId);const fld=f&&f.fields.find(x=>['short'].includes(x.type)&&!kEmpty(s.ans[x.id]));return fld?s.ans[fld.id]:'(no name)'}
+async function kDownload(name,mime,text){
+  try{if(window.claude&&claude.use){const d=await claude.use('downloads');if(d){try{await d.save({filename:name,data:text});toast('Saved '+name)}catch(er){if(er&&er.code!=='declined')toast('Could not save the file here')}return}}}catch(_){}
+  kDownloadAnchor(name,mime,text)}
+function kDownloadAnchor(name,mime,text){const b=new Blob([text],{type:mime}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)}
+function kAnsText(f,v){if(f.type==='file')return v?v.name:'';if(f.type==='sign')return v?'(signed)':'';return Array.isArray(v)?v.join('; '):(v??'')}
+const kCsvCell=v=>'"'+String(v).replace(/"/g,'""')+'"';
+function kCsv(form){const fs=form.fields.filter(f=>!['head','para'].includes(f.type));
+  const rows=[['Reference','Date','Status','Reviewed'].concat(fs.map(f=>f.label))];
+  state.subs.filter(s=>s.formId===form.id).forEach(s=>rows.push([s.ref,s.date,s.status,s.reviewedAt||''].concat(fs.map(f=>kVis(f,form,s.ans)?kAnsText(f,s.ans[f.id]):''))));
+  return rows.map(r=>r.map(kCsvCell).join(',')).join('\r\n')}
+function kDocHtml(s,forPrint){
+  const form=kForm(s.formId);
+  const body=form.fields.map(f=>{
+    if(f.type==='head')return `<h3>${esc(f.label)}</h3>`;
+    if(f.type==='para')return `<p class="kp">${esc(f.label)}</p>`;
+    if(!kVis(f,form,s.ans))return '';
+    const v=s.ans[f.id];let out;
+    if(f.type==='sign')out=v?`<img class="ksig" src="${v}" alt="Signature">`:'<i>Not signed</i>';
+    else if(f.type==='file')out=v?(/^data:image/.test(v.url)?`<div>${esc(v.name)}</div><img class="kimg" src="${v.url}" alt="${esc(v.name)}">`:esc(v.name)):'<i>Not provided</i>';
+    else out=kEmpty(v)?'<i>Not provided</i>':esc(kAnsText(f,v)).replace(/\n/g,'<br>');
+    return `<div class="kq"><div class="kl">${esc(f.label)}</div><div class="kv">${out}</div></div>`}).join('');
+  const rev=s.status==='Pending'?'':`<div class="kq"><div class="kl">Review decision</div><div class="kv"><b>${esc(s.status)}</b> on ${esc(s.reviewedAt||'')}</div>${s.signed&&s.sigUrl?`<div class="kv"><span class="sigbox"><img src="${s.sigUrl}" alt="Reviewer signature"></span><div class="signline">Authorised signature</div></div>`:'<div class="kv"><i>Not signed</i></div>'}</div>`;
+  const notes=(s.notes||[]).length?`<h3>Review notes</h3>${s.notes.map(n=>`<div class="kq"><div class="kl">${esc(n.by)} · ${esc(n.at)}</div><div class="kv">${esc(n.text)}</div></div>`).join('')}`:'';
+  return `<div class="kdoc" id="kycDoc"><div class="khd"><div><b>Virtuous Accounting Solutions CC</b><div class="note2">Windhoek, Namibia</div></div><div style="text-align:right"><b>${esc(s.ref)}</b><div class="note2">${esc(s.date)}</div></div></div><h2 class="kt">${esc(form.title)}</h2>${body}${rev}${notes}</div>`}
+const KDOC_CSS='.kdoc{font-family:Arial,sans-serif;color:#111;background:#fff;max-width:760px;margin:0 auto;padding:24px}.kdoc h2{font-size:20px;margin:14px 0}.kdoc h3{font-size:14px;margin:18px 0 6px;border-bottom:1px solid #999;padding-bottom:3px;text-transform:uppercase;letter-spacing:.04em}.khd{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px}.note2{font-size:12px;color:#555}.kq{margin:8px 0;break-inside:avoid}.kl{font-size:12px;color:#555}.kv{font-size:14px;margin-top:2px}.kp{font-size:13px}.ksig{max-height:90px;border-bottom:1px solid #111}.kimg{max-width:260px;max-height:180px;border:1px solid #ccc;margin-top:4px}.sigbox img{max-height:70px}.signline{border-top:1px solid #111;max-width:240px;font-size:12px;margin-top:4px}';
+/* ---- views ---- */
+function kBack(label){return `<button class="btn ghost sm" data-k="go" data-v="${label==='Submissions'&&state.user.type==='admin'?'subs':'forms'}">Back to ${label.toLowerCase()}</button>`}
+function vKyc(){
+  kInit();const K=state.kyc;
+  const tabs=`<div class="seg" role="tablist" style="margin-bottom:14px"><button class="btn ghost sm" data-k="go" data-v="forms" aria-pressed="${K.view==='forms'}">Forms</button><button class="btn ghost sm" data-k="go" data-v="subs" aria-pressed="${K.view==='subs'}">Submissions (${state.subs.length})</button></div>`;
+  if(K.view==='build')return kBuild();
+  if(K.view==='fill')return kFill();
+  if(K.view==='review')return kReview();
+  if(K.view==='subs')return `<h2>Client onboarding (KYC)</h2><p class="sub">Build forms, collect client documents, review, download and print.</p>${tabs}${kSubs()}`;
+  return `<h2>Client onboarding (KYC)</h2><p class="sub">Build forms, collect client documents, review, download and print.</p>${tabs}${kForms()}`}
+function kForms(){
+  return `<div class="stack"><div class="panel"><h3>Create a form</h3><div class="row">
+    <button class="btn" data-k="newForm" data-v="blank">Blank form</button><button class="btn ghost" data-k="newForm" data-v="ind">Individual KYC template</button><button class="btn ghost" data-k="newForm" data-v="co">Company KYC template</button></div></div>
+  <div class="panel"><h3>Your forms</h3><div class="tbl"><table><thead><tr><th>Form</th><th>Status</th><th class="n">Fields</th><th class="n">Submissions</th><th>Link</th><th></th></tr></thead><tbody>
+  ${state.forms.map(f=>`<tr><td>${esc(f.title)}<div class="note">${esc(f.category||'KYC')} · ${f.audience==='staff'?'Staff form':'Client form'} · Created ${esc(f.created)}</div></td><td>${pill(f.status==='open'?'Accepting':'Closed',f.status==='open'?'ok':'warn')}</td><td class="n">${f.fields.filter(x=>!['head','para'].includes(x.type)).length}</td><td class="n">${state.subs.filter(s=>s.formId===f.id).length}</td>
+   <td><button class="btn ghost sm" data-k="copy" data-id="${f.id}">Copy link</button></td>
+   <td><div class="row"><button class="btn sm" data-k="edit" data-id="${f.id}">Edit</button><button class="btn ghost sm" data-k="fill" data-id="${f.id}">Fill</button><button class="btn ghost sm" data-k="toggleForm" data-id="${f.id}">${f.status==='open'?'Close':'Reopen'}</button><button class="btn ghost sm" data-k="dupForm" data-id="${f.id}">Duplicate</button><button class="btn ghost sm" data-k="csv" data-id="${f.id}">Export CSV</button><button class="btn sm bad" data-k="delForm" data-id="${f.id}">Delete</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="note">No forms yet.</td></tr>'}
+  </tbody></table></div>${state.kyc.msg?`<p class="note">${esc(state.kyc.msg)}</p>`:''}</div></div>`}
+function kSubs(){
+  const K=state.kyc,q=K.q.toLowerCase();
+  const list=state.subs.filter(s=>(K.st==='All'||s.status===K.st)&&(!q||(s.ref+' '+kNameOf(s)+' '+kForm(s.formId).title).toLowerCase().includes(q)));
+  return `<div class="panel"><div class="row" style="margin-bottom:10px"><input id="kQ" placeholder="Search by client, reference or form" value="${esc(K.q)}" aria-label="Search submissions" style="max-width:300px">
+   <select id="kSt" aria-label="Filter by status">${['All','Pending','Needs info','Approved','Rejected'].map(x=>`<option ${K.st===x?'selected':''}>${x}</option>`).join('')}</select></div>
+  <div class="tbl"><table><thead><tr><th>Reference</th><th>Client</th><th>Form</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>
+  ${list.map(s=>`<tr><td class="mono">${esc(s.ref)}</td><td>${esc(kNameOf(s))}</td><td>${esc(kForm(s.formId).title)}</td><td>${esc(s.time||s.date)}</td><td>${pill(s.status,{Approved:'ok',Rejected:'bad',Pending:'warn','Needs info':'warn'}[s.status])}${s.signed?' '+pill('Signed','ok'):''}</td>
+   <td><div class="row"><button class="btn sm" data-k="review" data-id="${s.id}">Review</button><button class="btn ghost sm" data-k="delSub" data-id="${s.id}">Delete</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="note">No submissions match.</td></tr>'}
+  </tbody></table></div></div>`}
+function kBuild(){
+  const f=kForm(state.kyc.formId),F=f.fields;
+  const ctl=(i)=>F.slice(0,i).filter(x=>['select','radio','yesno','check','short'].includes(x.type));
+  return `<div class="row" style="justify-content:space-between;margin-bottom:10px"><div>${kBack('Forms')}</div><div class="row"><button class="btn ghost" data-k="fill" data-id="${f.id}">Preview and fill</button><button class="btn" data-k="saveForm">Save form</button></div></div>
+  <h2>Form builder</h2><div class="stack">
+  <div class="panel"><h3>Form settings</h3><div class="form" style="grid-template-columns:1fr">
+   <label>Form title<input data-kp="title" value="${esc(f.title)}"></label>
+   <label>Description shown to the client<textarea data-kp="desc">${esc(f.desc)}</textarea></label>
+   <label>Thank-you message<textarea data-kp="thanks">${esc(f.thanks)}</textarea></label></div></div>
+  <div class="panel"><h3>Add a field</h3><div class="row">${KTYPES.map(([k,l])=>`<button class="btn ghost sm" data-k="addField" data-v="${k}">${l}</button>`).join('')}</div></div>
+  ${F.map((x,i)=>`<div class="panel" data-fid="${x.id}"><div class="row" style="justify-content:space-between"><div>${pill(KLAB[x.type])} <span class="note">Field ${i+1}</span></div>
+    <div class="row"><button class="btn ghost sm" data-k="mvUp" data-id="${x.id}" ${i?'':'disabled'} aria-label="Move up">Up</button><button class="btn ghost sm" data-k="mvDn" data-id="${x.id}" ${i<F.length-1?'':'disabled'} aria-label="Move down">Down</button><button class="btn ghost sm" data-k="dupField" data-id="${x.id}">Duplicate</button><button class="btn sm bad" data-k="delField" data-id="${x.id}">Delete</button></div></div>
+    <div class="form" style="grid-template-columns:1fr;margin-top:8px">
+    <label>${x.type==='para'?'Text':'Label'}<input data-kp="label" data-id="${x.id}" value="${esc(x.label)}"></label>
+    ${['head','para'].includes(x.type)?'':`<label>Help text<input data-kp="help" data-id="${x.id}" value="${esc(x.help)}"></label>
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-kp="req" data-id="${x.id}" ${x.req?'checked':''} style="width:auto"> Required</label>`}
+    ${['select','radio','check'].includes(x.type)?`<label>Options (one per line)<textarea data-kp="opts" data-id="${x.id}">${esc(x.opts.join('\n'))}</textarea></label>`:''}
+    ${['head','para'].includes(x.type)||!ctl(i).length&&!x.showIf?'':`<div class="row"><label>Show only when<select data-kp="sf" data-id="${x.id}"><option value="">Always show</option>${ctl(i).map(c=>`<option value="${c.id}" ${x.showIf&&x.showIf.fid===c.id?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label>
+     ${x.showIf?`<label>equals<input data-kp="sv" data-id="${x.id}" value="${esc(x.showIf.val)}"></label>`:''}</div>`}
+    </div></div>`).join('')||'<div class="panel note">No fields yet. Add one above.</div>'}
+  </div>`}
+function kField(x,form,ans,errs){
+  if(x.type==='head')return `<h3 style="margin-top:20px">${esc(x.label)}</h3>`;
+  if(x.type==='para')return `<p class="note">${esc(x.label)}</p>`;
+  const v=ans[x.id],id=x.id;let inp='';
+  const A=`data-a="${id}"`;
+  if(x.type==='long')inp=`<textarea ${A}>${esc(v??'')}</textarea>`;
+  else if(x.type==='select')inp=`<select ${A}><option value="">Choose...</option>${x.opts.map(o=>`<option ${v===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  else if(x.type==='radio'||x.type==='yesno'){const os=x.type==='yesno'?['Yes','No']:x.opts;inp=`<div class="row">${os.map(o=>`<label style="display:flex;gap:6px;align-items:center"><input type="radio" name="r-${id}" ${A} value="${esc(o)}" ${v===o?'checked':''} style="width:auto"> ${esc(o)}</label>`).join('')}</div>`}
+  else if(x.type==='check')inp=`<div class="row">${x.opts.map(o=>`<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" ${A} data-opt="${esc(o)}" ${(v||[]).includes(o)?'checked':''} style="width:auto"> ${esc(o)}</label>`).join('')}</div>`;
+  else if(x.type==='file')inp=`<input type="file" data-af="${id}" accept="image/*,application/pdf">${v?`<div class="note">Attached: ${esc(v.name)} <button type="button" class="btn ghost sm" data-k="rmFile" data-id="${id}">Remove</button></div>`:''}`;
+  else if(x.type==='sign')inp=`<div class="sigbox" style="display:block"><canvas data-sig="${id}" width="480" height="150" style="width:100%;max-width:480px;touch-action:none;display:block" aria-label="Signature pad"></canvas></div><button type="button" class="btn ghost sm" data-k="sigClear" data-id="${id}" style="margin-top:6px">Clear signature</button>`;
+  else{const t={email:'email',phone:'tel',number:'number',date:'date'}[x.type]||'text';inp=`<input type="${t}" ${A} value="${esc(v??'')}">`}
+  return `<label style="display:block">${esc(x.label)}${x.req?' <span style="color:var(--bad)">*</span>':''}${x.help?`<div class="note">${esc(x.help)}</div>`:''}${inp}</label>${errs[id]?`<div class="err">${esc(errs[id])}</div>`:''}`}
+function kFill(){
+  const K=state.kyc,f=kForm(K.formId);
+  if(K.done){const s=kSub(K.done);return `<div class="panel"><h2>Submitted</h2><p>${esc(f.thanks||'Thank you.')}</p><p class="note">Reference <b class="mono">${esc(s.ref)}</b></p><div class="row"><button class="btn" data-k="again">Submit another</button><button class="btn ghost" data-k="review" data-id="${s.id}">Review this submission</button>${kBack('Forms')}</div></div>`}
+  const n=Object.keys(K.errs).length;
+  return `<div class="row" style="margin-bottom:10px">${kBack('Forms')}</div><div class="panel" style="max-width:720px"><h2>${esc(f.title)}</h2><p class="note">${esc(f.desc)}</p>
+  ${f.status!=='open'?'<div class="banner">This form is closed and is not accepting responses.</div>':''}
+  ${n?`<div class="banner">Please fix ${n} field${n>1?'s':''} marked below.</div>`:''}
+  <form id="kfFill" novalidate class="stack">${f.fields.filter(x=>kVis(x,f,K.ans)).map(x=>kField(x,f,K.ans,K.errs)).join('')}
+  <div><button class="btn" type="submit" ${f.status!=='open'?'disabled':''}>Submit</button></div></form></div>`}
+function kReview(){
+  const K=state.kyc,s=kSub(K.subId),f=kForm(s.formId);
+  return `<style>${KDOC_CSS}@media print{body *{visibility:hidden!important}#kycDoc,#kycDoc *{visibility:visible!important}#kycDoc{position:absolute;left:0;top:0;width:100%}.wm{display:none!important}}</style>
+  <div class="row" style="margin-bottom:10px;justify-content:space-between"><div>${kBack('Submissions')}</div>
+  <div class="row"><button class="btn ghost" data-k="print">Print</button><button class="btn ghost" data-k="dlHtml">Download document</button>${state.user.type==='admin'?`<button class="btn ghost" data-k="dlJson">Download data (JSON)</button><button class="btn ghost" data-k="csv" data-id="${f.id}">Export form CSV</button>`:''}</div></div>
+  <h2>${esc(s.ref)} · ${esc(kNameOf(s))}</h2><p class="sub">Status ${pill(s.status,{Approved:'ok',Rejected:'bad',Pending:'warn','Needs info':'warn'}[s.status])}</p>
+  <div class="stack">${state.user.type!=='admin'?`<div class="panel"><b>Status: ${esc(s.status)}</b>${s.flag?`<div class="note">${esc(s.flag)}</div>`:''}</div>`:`<div class="panel"><h3>Decision</h3><div class="row">${sigChoice('k')}
+   <button class="btn" data-k="decide" data-v="Approved">Approve</button><button class="btn ghost" data-k="decide" data-v="Needs info">Request more information</button><button class="btn sm bad" data-k="decide" data-v="Rejected">Reject</button></div>
+   ${state.sig?'':'<p class="note">Upload a wet signature on the Approvals page to sign documents.</p>'}
+   <form id="kfNote" class="form" style="margin-top:10px;grid-template-columns:1fr auto" novalidate><label>Add a note<input id="kNote" placeholder="Comment for the file"></label><button class="btn" type="submit">Add note</button></form>${s.flag?`<p class="note">${esc(s.flag)}</p>`:''}</div>`}
+  <div style="background:#fff;border-radius:8px;padding:4px;overflow:auto">${kDocHtml(s)}</div></div>`}
+/* ---- actions ---- */
+function kRender(){const y=window.scrollY;render();window.scrollTo(0,y)}
+function kAfter(){
+  document.querySelectorAll('canvas[data-sig]').forEach(c=>{
+    const id=c.dataset.sig,ctx=c.getContext&&c.getContext('2d');if(!ctx)return;ctx.lineWidth=2.2;ctx.lineCap='round';ctx.strokeStyle='#111';
+    const v=state.kyc.ans[id];if(v){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,c.width,c.height);im.src=v}
+    let down=false;const pt=e=>{const r=c.getBoundingClientRect();return [(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height]};
+    c.onpointerdown=e=>{down=true;c.setPointerCapture&&c.setPointerCapture(e.pointerId);const [x,y]=pt(e);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+.1,y+.1);ctx.stroke()};
+    c.onpointermove=e=>{if(!down)return;const [x,y]=pt(e);ctx.lineTo(x,y);ctx.stroke()};
+    const end=()=>{if(!down)return;down=false;state.kyc.ans[id]=c.toDataURL('image/png');delete state.kyc.errs[id]};
+    c.onpointerup=end;c.onpointercancel=end;c.onpointerleave=end})}
+window.kycAfter=kAfter;
+function kValidate(f,ans){
+  const errs={};
+  f.fields.forEach(x=>{if(['head','para'].includes(x.type)||!kVis(x,f,ans))return;const v=ans[x.id];
+    if(x.req&&kEmpty(v))return errs[x.id]='This field is required.';
+    if(kEmpty(v))return;
+    if(x.type==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))errs[x.id]='Enter a valid email address.';
+    if(x.type==='phone'&&String(v).replace(/\D/g,'').length<7)errs[x.id]='Enter a valid phone number.';
+    if(x.type==='number'&&isNaN(+v))errs[x.id]='Enter a number.'});
+  return errs}
+function kFileRead(id,file){
+  if(file.size>3*1024*1024){state.kyc.errs[id]='File is larger than 3 MB.';return kRender()}
+  const fr=new FileReader();fr.onload=()=>{state.kyc.ans[id]={name:file.name,size:file.size,url:fr.result};delete state.kyc.errs[id];kRender()};fr.onerror=()=>{state.kyc.errs[id]='Could not read that file.';kRender()};fr.readAsDataURL(file)}
+document.addEventListener('click',e=>{
+  const t=e.target.closest&&e.target.closest('[data-k]');if(!t||!state.forms)return;
+  const K=state.kyc,k=t.dataset.k,id=t.dataset.id,v=t.dataset.v;
+  if(k==='go'){K.view=v;K.msg='';return kRender()}
+  if(k==='newForm'){const tpl=v==='blank'?{title:'Untitled form',desc:'',thanks:'Thank you. Your response has been recorded.',fields:[kF('short','Full name',{req:true})]}:kTemplate(v);
+    const f=Object.assign({id:'f'+(++state.kseq+10),status:'open',created:state.today,audience:'client',category:'KYC'},tpl);state.forms.push(f);logA('Form created',f.title);K.formId=f.id;K.view='build';return kRender()}
+  if(k==='edit'){K.formId=id;K.view='build';return kRender()}
+  if(k==='fill'){K.formId=id;K.ans={};K.errs={};K.done=null;K.view='fill';return kRender()}
+  if(k==='again'){K.ans={};K.errs={};K.done=null;return kRender()}
+  if(k==='copy'){const url='https://forms.virtuous.example/f/'+id;try{navigator.clipboard.writeText(url).then(()=>toast('Link copied')).catch(()=>toast(url))}catch(_){toast(url)}K.msg='Share link (preview only): '+url;return kRender()}
+  if(k==='toggleForm'){const f=kForm(id);f.status=f.status==='open'?'closed':'open';toast(f.status==='open'?'Form is accepting responses':'Form closed');return kRender()}
+  if(k==='dupForm'){const f=kForm(id),c=JSON.parse(JSON.stringify(f));c.id='f'+(++state.kseq+10);c.title=f.title+' (copy)';const m={};c.fields.forEach(x=>{const n=uid();m[x.id]=n;x.id=n});c.fields.forEach(x=>{if(x.showIf)x.showIf.fid=m[x.showIf.fid]});state.forms.push(c);toast('Form duplicated');return kRender()}
+  if(k==='delForm'){const n=state.subs.filter(s=>s.formId===id).length;if(n)return toast('This form has '+n+' submission(s). Delete them first.');state.forms=state.forms.filter(f=>f.id!==id);toast('Form deleted');return kRender()}
+  if(k==='csv'){const f=kForm(id);kDownload(f.title.replace(/\W+/g,'_')+'.csv','text/csv',kCsv(f));return toast('CSV downloaded')}
+  if(k==='saveForm'){K.view='forms';toast('Form saved');return kRender()}
+  if(k==='addField'){const f=kForm(K.formId),x=kF(v,KLAB[v]);if(['select','radio','check'].includes(v))x.opts=['Option 1','Option 2'];f.fields.push(x);return kRender()}
+  if(['mvUp','mvDn','dupField','delField'].includes(k)){const F=kForm(K.formId).fields,i=F.findIndex(x=>x.id===id);
+    if(k==='mvUp'&&i>0)[F[i-1],F[i]]=[F[i],F[i-1]];
+    if(k==='mvDn'&&i<F.length-1)[F[i+1],F[i]]=[F[i],F[i+1]];
+    if(k==='dupField'){const c=JSON.parse(JSON.stringify(F[i]));c.id=uid();c.showIf=null;F.splice(i+1,0,c)}
+    if(k==='delField'){F.splice(i,1);F.forEach(x=>{if(x.showIf&&x.showIf.fid===id)x.showIf=null})}
+    return kRender()}
+  if(k==='rmFile'){delete K.ans[id];return kRender()}
+  if(k==='sigClear'){delete K.ans[id];return kRender()}
+  if(k==='review'){const q=kSub(id);if(state.user.type!=='admin'&&(!q||q.uid!==state.user.id))return toast('You can only open your own requests');K.subId=id;K.view='review';return kRender()}
+  if(k==='delSub'){if(state.user.type!=='admin')return;const q=kSub(id);if(q&&q.applied)kApply(q,false);logA('Submission deleted',q?q.ref:id);state.subs=state.subs.filter(s=>s.id!==id);toast('Submission deleted');return kRender()}
+  if(k==='print'){try{window.print()}catch(_){toast('Printing is blocked here. Use Download document, then print the file.')}return}
+  if(k==='dlHtml'){const s=kSub(K.subId);kDownload(s.ref+'.html','text/html','<!doctype html><meta charset="utf-8"><title>'+esc(s.ref)+'</title><style>'+KDOC_CSS+'</style>'+kDocHtml(s));return toast('Document downloaded')}
+  if(k==='dlJson'){const s=kSub(K.subId),f=kForm(s.formId);const o={reference:s.ref,form:f.title,received:s.date,status:s.status,answers:Object.fromEntries(f.fields.filter(x=>!['head','para'].includes(x.type)&&kVis(x,f,s.ans)).map(x=>[x.label,x.type==='file'?(s.ans[x.id]?s.ans[x.id].name:null):x.type==='sign'?(s.ans[x.id]?'signed':null):(s.ans[x.id]??null)])),notes:s.notes};kDownload(s.ref+'.json','application/json',JSON.stringify(o,null,2));return toast('Data downloaded')}
+  if(k==='decide'){if(state.user.type!=='admin')return toast('Only an administrator can decide');const s=kSub(K.subId),ch=$('#sg-k')?.value;s.status=v;s.reviewedAt=fmtDT(new Date());s.signed=v==='Approved'&&ch==='sign'&&!!state.sig;s.sigUrl=s.signed?state.sig.url:null;s.decidedBy=state.user.name;logA('KYC/request '+v.toLowerCase(),s.ref+' · '+kNameOf(s)+(s.signed?' · wet signed':''));if(s.uid)notifyTo(s.uid,'Request',kForm(s.formId).title+' '+s.ref+': '+v);kApply(s,v==='Approved');toast(v==='Approved'?'Approved'+(s.signed?' and signed':''):v==='Rejected'?'Rejected':'More information requested');return kRender()}
+});
+document.addEventListener('submit',e=>{
+  if(!state.forms)return;const K=state.kyc;
+  if(e.target.id==='kfNote'){const s=kSub(K.subId),tx=$('#kNote').value.trim();if(!tx)return toast('Write a note first');s.notes.push({by:state.user.name,at:fmtDT(new Date()),text:tx});return kRender()}
+  if(e.target.id!=='kfFill')return;
+  const f=kForm(K.formId);if(f.status!=='open')return toast('This form is closed');
+  K.errs=kValidate(f,K.ans);if(Object.keys(K.errs).length){kRender();const el=document.querySelector('.err');el&&el.scrollIntoView&&el.scrollIntoView({block:"center"});return}
+  const ans={};f.fields.forEach(x=>{if(kVis(x,f,K.ans)&&K.ans[x.id]!=null)ans[x.id]=K.ans[x.id]});
+  const n=state.subs.length+1,s={id:'s'+uid(),ref:'KYC-'+String(n).padStart(4,'0'),formId:f.id,date:state.today,time:fmtDT(new Date()),ans,status:'Pending',notes:[],signed:false};
+  if(f.audience==='staff'||state.user.type==='emp'){s.uid=state.user.id;s.by=state.user.name}
+  state.subs.push(s);logA('Form submitted',s.ref+' · '+f.title);notify('Request',f.title+' '+s.ref+' from '+(s.by||'a client')+' is waiting for review.',false);K.done=s.id;K.ans={};K.errs={};toast('Form submitted');kRender()});
+document.addEventListener('input',e=>{
+  if(!state.forms)return;const t=e.target,K=state.kyc;
+  if(t.id==='kQ'){K.q=t.value;kRender();const q=$('#kQ');q&&(q.focus(),q.setSelectionRange(q.value.length,q.value.length));return}
+  if(t.dataset.kp){const f=kForm(K.formId),p=t.dataset.kp;
+    if(!t.dataset.id){f[p]=t.value;return}
+    const x=f.fields.find(q=>q.id===t.dataset.id);if(!x)return;
+    if(p==='label'||p==='help')x[p]=t.value;
+    if(p==='opts')x.opts=t.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(p==='sv'&&x.showIf)x.showIf.val=t.value;
+    return}
+  if(t.dataset.a&&!['radio','checkbox'].includes(t.type)&&t.tagName!=='SELECT'){K.ans[t.dataset.a]=t.value;delete K.errs[t.dataset.a]}});
+document.addEventListener('change',e=>{
+  if(!state.forms)return;const t=e.target,K=state.kyc;
+  if(t.id==='kSt'){K.st=t.value;return kRender()}
+  if(t.dataset.kp==='req'){kForm(K.formId).fields.find(q=>q.id===t.dataset.id).req=t.checked;return}
+  if(t.dataset.kp==='sf'){const x=kForm(K.formId).fields.find(q=>q.id===t.dataset.id);x.showIf=t.value?{fid:t.value,val:''}:null;return kRender()}
+  if(t.dataset.af){if(t.files[0])kFileRead(t.dataset.af,t.files[0]);return}
+  if(t.dataset.a){const id=t.dataset.a,f=kForm(K.formId);
+    if(t.type==='checkbox'){const cur=new Set(K.ans[id]||[]);t.checked?cur.add(t.dataset.opt):cur.delete(t.dataset.opt);K.ans[id]=[...cur]}
+    else K.ans[id]=t.value;
+    delete K.errs[id];
+    if(f.fields.some(x=>x.showIf&&x.showIf.fid===id)||t.type==='radio'||t.tagName==='SELECT')kRender()}});
+
+function csvOf(rows){return rows.map(r=>r.map(kCsvCell).join(',')).join('\r\n')}
+function repTable(title,head,rows,fname){
+  return `<div class="panel"><div class="ph"><h3>${esc(title)}</h3><button class="btn ghost sm" data-k="repCsv" data-id="${fname}">Export CSV</button></div><div class="tbl"><table><thead><tr>${head.map((h,i)=>`<th${i?' class="n"':''}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="n"':''}>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td class="note" colspan="9">No data.</td></tr>'}</tbody></table></div></div>`}
+function repData(){
+  const emps=staff(),rows=emps.map(e=>({e,c:calc(e)}));
+  const T=k=>rows.reduce((s,r)=>s+r.c[k],0);
+  const pay=rows.map(r=>[r.e.name,r.e.base.toFixed(2),r.e.allow.toFixed(2),r.c.ot.toFixed(2),r.c.gross.toFixed(2),r.c.ded.toFixed(2),(r.c.reimb||0).toFixed(2),r.c.net.toFixed(2)]);
+  pay.push(['Total','','','',T('gross').toFixed(2),T('ded').toFixed(2),T('reimb').toFixed(2),T('net').toFixed(2)]);
+  const leave=[];state.users.forEach(u=>(state.data[u.id]?.leaves||[]).forEach(l=>leave.push([u.name,l.type,l.days,l.status])));
+  const subs=state.forms.map(f=>{const q=state.subs.filter(s=>s.formId===f.id);return [f.title,q.length,q.filter(s=>s.status==='Pending').length,q.filter(s=>s.status==='Approved').length,q.filter(s=>s.status==='Rejected').length,q.filter(s=>s.status==='Needs info').length]});
+  const cl=clientStats().map(x=>[x.c.name,x.hrs.toFixed(2),x.c.bill?x.c.rate.toFixed(2):'Not billable',x.amt.toFixed(2)]);
+  const head={headcount:[['Group','Count'],['Employees on payroll',emps.length],['Accounts with access',state.users.filter(u=>u.access).length],['Administrators',state.users.filter(u=>u.type==='admin').length],['Accounts without access',state.users.filter(u=>!u.access).length]]};
+  return {pay,leave,subs,cl,head:head.headcount,net:T('net')}}
+function vReports(){
+  const d=repData(),dashNet=staff().reduce((s,e)=>s+calc(e).net,0),ok=Math.abs(dashNet-d.net)<0.005;
+  return `<h2>Reports</h2><p class="sub">Every figure here is calculated from the same records as the dashboard. ${pill(ok?'Reconciled to dashboard':'Mismatch',ok?'ok':'bad')}</p><div class="stack">
+  ${repTable('Headcount',['Group','Count'],d.head.slice(1),'headcount')}
+  ${repTable('Payroll register, October 2026',['Employee','Basic','Allowances','Overtime','Gross','Deductions','Reimbursed','Net'],d.pay,'payroll')}
+  ${repTable('Leave requests',['Employee','Type','Days','Status'],d.leave,'leave')}
+  ${repTable('Forms and requests',['Form','Total','Pending','Approved','Rejected','Needs info'],d.subs,'forms')}
+  ${repTable('Client billing',['Client','Hours','Rate per hour','Amount billable'],d.cl,'clients')}</div>`}
+function repCsv(name){const d=repData();const m={headcount:[['Group','Count']].concat(d.head.slice(1)),payroll:[['Employee','Basic','Allowances','Overtime','Gross','Deductions','Reimbursed','Net']].concat(d.pay),leave:[['Employee','Type','Days','Status']].concat(d.leave),forms:[['Form','Total','Pending','Approved','Rejected','Needs info']].concat(d.subs),clients:[['Client','Hours','Rate','Amount billable']].concat(d.cl)};
+  kDownload('report_'+name+'.csv','text/csv',csvOf(m[name]))}
+function vAudit(){
+  const A=state.audit||[],q=(state.auditQ||'').toLowerCase();
+  const list=A.filter(a=>!q||(a.by+' '+a.action+' '+a.detail).toLowerCase().includes(q));
+  return `<h2>Audit log</h2><p class="sub">Who did what and when. Entries are added automatically and cannot be edited here.</p>
+  <div class="panel"><div class="row" style="margin-bottom:10px"><input id="auQ" placeholder="Search the log" value="${esc(state.auditQ||'')}" aria-label="Search audit log" style="max-width:300px"><button class="btn ghost" data-k="auditCsv">Export CSV</button></div>
+  <div class="tbl"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr></thead><tbody>${list.map(a=>`<tr><td>${esc(fmtDT(a.at))}</td><td>${esc(a.by)}</td><td>${esc(a.action)}</td><td>${esc(a.detail)}</td></tr>`).join('')||'<tr><td colspan="4" class="note">Nothing logged yet.</td></tr>'}</tbody></table></div></div>`}
+function vRequests(){
+  kInit();const K=state.kyc,me=state.user;
+  if(!['fill','review'].includes(K.view))K.view='forms';
+  if(K.view==='fill'){const f=kForm(K.formId);if(!f||f.audience!=='staff')K.view='forms';else return kFill()}
+  if(K.view==='review'){const q=kSub(K.subId);if(!q||q.uid!==me.id)K.view='forms';else return kReview()}
+  const mine=state.subs.filter(s=>s.uid===me.id);
+  return `<h2>Requests</h2><p class="sub">Send requests to your administrator and follow their status here.</p><div class="stack">
+  <div class="panel"><h3>New request</h3><div class="row">${state.forms.filter(f=>f.audience==='staff'&&f.status==='open').map(f=>`<button class="btn ghost" data-k="fill" data-id="${f.id}">${esc(f.title)}</button>`).join('')}</div></div>
+  <div class="panel"><h3>My requests</h3><div class="tbl"><table><thead><tr><th>Reference</th><th>Request</th><th>Sent</th><th>Status</th><th></th></tr></thead><tbody>
+  ${mine.map(s=>`<tr><td class="mono">${esc(s.ref)}</td><td>${esc(kForm(s.formId).title)}</td><td>${esc(s.time)}</td><td>${pill(s.status,{Approved:'ok',Rejected:'bad',Pending:'warn','Needs info':'warn'}[s.status])}${s.applied?' '+pill('In payroll','ok'):''}</td><td><button class="btn sm" data-k="review" data-id="${s.id}">Open</button></td></tr>`).join('')||'<tr><td colspan="5" class="note">You have not sent any requests.</td></tr>'}
+  </tbody></table></div></div></div>`}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-k]');if(!t)return;
+  if(t.dataset.k==='repCsv')repCsv(t.dataset.id);
+  if(t.dataset.k==='auditCsv')kDownload('audit_log.csv','text/csv',csvOf([['When','Who','Action','Details']].concat((state.audit||[]).map(a=>[fmtDT(a.at),a.by,a.action,a.detail]))))});
+document.addEventListener('input',e=>{if(e.target.id==='auQ'){state.auditQ=e.target.value;kRender();const q=$('#auQ');q&&(q.focus(),q.setSelectionRange(q.value.length,q.value.length))}});
+const VIEWS={reports:vReports,audit:vAudit,requests:vRequests,kyc:vKyc,clients:vClients,dash:()=>state.role==='emp'?dEmp():dAdm(),time:vTime,leave:vLeave,loans:vLoans,slip:vSlip,employees:vEmployees,approvals:vApprovals,payroll:vPayroll,activity:vActivity,receipts:vReceipts,sheets:vSheets,petty:vPetty,alerts:vAlerts,stationery:vStat,cash:vCash};
+
+function render(){
+  paintAuth();
+  if(!state.user||state.user.mustChange)return;
+  checkCash();paintTabs();paintNet();
+  $('#view').innerHTML=VIEWS[state.tab[state.role]]();
+  if(window.kycAfter)kycAfter();
+  if(state.tab[state.role]==='leave'&&state.role==='emp')leaveSummary();
+  if(state.tab[state.role]==='alerts')paintTabs();
+}
+
+/* ---------- Approval side effects ---------- */
+function resolveApproval(x,ok){
+  x.status=ok?'Approved':'Rejected';
+  const u=byId(x.uid),d=u&&state.data[u.id];
+  if(x.kind==='leave'&&x.obj){x.obj.status=x.status;
+    if(ok){const b=d.leaveBal.find(b=>b[0]===x.obj.type);if(b)b[1]=Math.max(0,b[1]-x.obj.days)}}
+  if(x.kind==='time'&&x.list)x.list.forEach(e=>e.status=ok?'Approved':'Draft');
+  if(x.kind==='loan'&&x.obj){x.obj.status=ok?'Active':'Rejected';if(ok)u.loan+=Math.round(x.obj.per)}
+}
+
+/* ---------- Events ---------- */
+document.addEventListener('click',async e=>{
+  const dz=e.target.closest('.drop');
+  if(dz&&e.target.tagName!=='INPUT'){const inp=$('#'+dz.dataset.input);if(inp)inp.click();return}
+  const t=e.target.closest('button');if(!t)return;
+  if(t.id==='net'){
+    state.online=!state.online;
+    if(!state.online){state.offlineSince=new Date()}
+    else{if(state.user)state.user.beat=Date.now();if(state.queue){toast(state.queue+' change'+(state.queue>1?'s':'')+' synced');state.queue=0}else toast('Back online')}
+    return render();
+  }
+  if(t.id==='menu'){document.body.classList.toggle('open');return}
+  if(t.dataset.tab){state.tab[state.role]=t.dataset.tab;document.body.classList.remove('open');window.scrollTo(0,0);return render()}
+  const a=t.dataset.act,id=t.dataset.id;if(!a)return;
+  if(a==='toggleBill'){const c=state.clients.find(x=>x.id===id);c.bill=!c.bill;toast(c.name+(c.bill?' is billable':' is not billable'))}
+  if(a==='removeClient'){const c=state.clients.find(x=>x.id===id);const used=state.users.some(u=>(state.data[u.id]?.entries||[]).some(e=>e.client===c.name));if(used)return toast('Time is logged against '+c.name+'. Set it to Not billable instead.');state.clients=state.clients.filter(x=>x.id!==id);toast('Client removed')}
+  if(a==='nextDay'){state.today=addDays(state.today,1);toast('Demo date is now '+fmtD(state.today))}
+  if(a==='verifyR'){const r=M().receipts.find(x=>x.id===id);if(r.status!=='Verified'&&!(r.vendor.trim()&&r.amt>0))return toast('Add the vendor and amount first');r.status=r.status==='Verified'?'Needs review':'Verified'}
+  if(a==='removeR'){const m=M(),r=m.receipts.find(x=>x.id===id);if(r&&r.url)URL.revokeObjectURL(r.url);m.receipts=m.receipts.filter(x=>x.id!==id);delete m.links[id];toast('Receipt removed')}
+  if(a==='removeLine'){const m=M();m.sheet=m.sheet.filter(x=>x.id!==id);Object.keys(m.links).forEach(k=>{if(m.links[k]===id)delete m.links[k]});delete m.overrides[id]}
+  if(a==='clearSheet'){const m=M();m.sheet=[];m.sheetFile=null;m.overrides={};m.links={};state.shMsg='';toast('Sheet removed')}
+  if(a==='fill'){$('#liEmail').value=t.dataset.e;$('#liPass').value=t.dataset.p;return}
+  if(a==='signout')return signOut();
+  if(a==='genpw'){$('#nPass').value=genPw();return}
+  if(a==='copycred'){const c=state.newCred,txt='Email: '+c.email+'\nTemporary password: '+c.password;
+    try{await navigator.clipboard.writeText(txt);toast('Details copied')}catch(_){toast('Select the details and copy them')}return}
+  if(a==='doneCred'){state.newCred=null;return render()}
+  if(a==='toggleAccess'){const u=byId(id);u.access=!u.access;if(!u.access)u.beat=null;toast(u.name+(u.access?' can sign in again':' can no longer sign in'))}
+  if(a==='resetPw'){const u=byId(id),p=genPw();u.password=p;u.mustChange=true;state.newCred={name:u.name,email:u.email,password:p,mustChange:true}}
+  if(a==='withdraw'){const d=D(),l=d.leaves.find(x=>x.id===id);l.status='Withdrawn';state.approvals=state.approvals.filter(x=>x.obj!==l);queue();toast('Application withdrawn')}
+  if(a==='submitWeek'){const d=D(),list=d.entries.filter(x=>x.status==='Draft');list.forEach(x=>x.status='Submitted');
+    const tot=d.entries.reduce((s,x)=>s+x.hrs,0);
+    state.approvals.push({id:uid(),uid:state.user.id,type:'Timesheet',who:state.user.name,detail:'Week 19-23 Oct, '+tot.toFixed(1)+' h',status:'Pending',kind:'time',list});
+    queue();toast('Timesheet submitted')}
+  if(a==='timer'){
+    if(state.timer===null){state.timer=Date.now();state.timerId=setInterval(()=>{const o=$('#timerOut');if(o){const s=Math.floor((Date.now()-state.timer)/1000);o.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}},500)}
+    else{clearInterval(state.timerId);const h=Math.max(0.25,Math.round((Date.now()-state.timer)/3600000*4)/4);state.timer=null;
+      D().entries.push({day:'Sat 24 Oct',client:$('#tClient')?.value||'Internal',task:'Timed session',hrs:h,status:'Draft'});queue();toast('Timer entry added')}
+  }
+  if(a==='approve'||a==='reject'){const x=state.approvals.find(q=>q.id===id);resolveApproval(x,a==='approve');logA(x.type+' '+x.status.toLowerCase(),x.who+': '+x.detail);
+    const ch=$('#sg-'+id)?.value;x.signed=a==='approve'&&ch==='sign'&&!!state.sig;if(x.signed){x.sigUrl=state.sig.url;x.signedAt=fmtDT(new Date());if(x.obj)x.obj.signed=true}
+    toast(x.type+' '+x.status.toLowerCase()+(x.signed?' and signed':''))}
+  if(a==='removeSig'){state.sig=null;toast('Signature removed')}
+  if(a==='finalise'){logA('Payroll finalised','October 2026');state.finalised=true;state.runSig=$('#sg-run')?.value==='sign'&&!!state.sig;state.runSigUrl=state.runSig?state.sig.url:null;toast('Payroll run finalised'+(state.runSig?' and signed':''))}
+  if(a==='mail')toast(staff().length+' payslips queued for email');
+  if(a==='approveDis'){const n=$('#note-'+id).value.trim();if(!n)return toast('Add a note to approve');state.overrides[id]={kind:'approve',note:n};$('#pcResults').innerHTML=pcResults();return toast('Approved with note')}
+  if(a==='flag'){state.overrides[id]={kind:'flag'};$('#pcResults').innerHTML=pcResults();return toast('Flagged for follow-up')}
+  if(a==='link'){const v=$('#lnk-'+id).value;if(!v)return;state.links[id]=v;$('#pcResults').innerHTML=pcResults();return toast('Linked. Amounts differ, so a note is needed.')}
+  if(a==='lock'){state.locked=true;toast('October 2026 locked')}
+  if(a==='unlock'){state.locked=false;toast('Month unlocked and logged')}
+  render();
+});
+document.addEventListener('submit',e=>{
+  e.preventDefault();const f=e.target.id;
+  if(f==='loginForm'){
+    const em=$('#liEmail').value.trim().toLowerCase(),pw=$('#liPass').value,err=$('#liErr');
+    const u=state.users.find(x=>x.email.toLowerCase()===em);
+    if((state.failed[em]||0)>=5){err.textContent='Too many attempts. Ask your administrator to reset your password.';return}
+    if(!u||u.password!==pw){state.failed[em]=(state.failed[em]||0)+1;err.textContent='Email or password is incorrect.';return}
+    if(!u.access){err.textContent='Your access is switched off. Contact your administrator.';return}
+    state.failed[em]=0;signIn(u);render();if(!u.mustChange)toast('Signed in as '+u.name);return;
+  }
+  if(f==='pwForm'){
+    const n=$('#cpNew').value,c=$('#cpConf').value,err=$('#cpErr'),u=state.user;
+    if(n.length<8||!/\d/.test(n)){err.textContent='Use at least 8 characters, including a number.';return}
+    if(n===u.password){err.textContent='Choose a password different from the temporary one.';return}
+    if(n!==c){err.textContent='The two passwords do not match.';return}
+    u.password=n;u.mustChange=false;render();toast('Password saved. Welcome, '+u.name.split(' ')[0]);return;
+  }
+  if(f==='takeForm'){
+    const adm=state.role==='adm',it=state.stat.items.find(i=>i.id===$('#tItem').value),err=$('#tErr');
+    if(!it)return err.textContent='Nothing is in stock to take.';
+    const s=stock(it,curMonth()),qty=Math.round(+$('#tQty').value);
+    if(!(qty>=1))return err.textContent='Enter a quantity of 1 or more.';
+    if(qty>s.left)return err.textContent='Only '+s.left+' '+it.unit+' of '+it.name+' left.';
+    const who=adm?$('#tWho').value:state.user.id;
+    state.stat.moves.push({id:uid(),item:it.id,date:state.today,type:'take',qty,uid:who,note:$('#tNote').value.trim(),at:new Date()});
+    const low=checkLow(it);queue();
+    toast('Recorded: '+byId(who).name.split(' ')[0]+' took '+qty+' '+it.name.toLowerCase()+(low?'. Low stock alert sent.':''));render();return;
+  }
+  if(f==='itemForm'){
+    const name=$('#iName').value.trim(),q=Math.round(+$('#iQty').value),err=$('#iErr');
+    if(name.length<2)return err.textContent='Enter the item name.';
+    if(state.stat.items.some(i=>i.name.toLowerCase()===name.toLowerCase()))return err.textContent='That item is already on the list. Use Add stock on its row.';
+    if(!(q>=0))return err.textContent='Enter a starting amount of 0 or more.';
+    const it={id:uid(),name,unit:$('#iUnit').value,open:q,startMonth:state.smonth,low:false};
+    state.stat.items.push(it);checkLow(it);toast(name+' added');render();return;
+  }
+  if(f.startsWith('restock-')){
+    const it=state.stat.items.find(i=>i.id===f.slice(8)),q=Math.round(+e.target.querySelector('input').value);
+    if(!(q>=1))return toast('Enter a quantity of 1 or more');
+    state.stat.moves.push({id:uid(),item:it.id,date:dateFor(state.smonth),type:'add',qty:q,uid:state.user.id,note:'Stock added',at:new Date()});
+    checkLow(it);toast(q+' '+it.unit+' of '+it.name+' added');render();return;
+  }
+  if(f==='cashForm'){
+    const amt=Math.round(+$('#cAmt').value*100)/100,why=$('#cWhy').value.trim(),err=$('#cErr');
+    if(!(amt>0))return err.textContent='Enter the amount taken.';
+    if(why.length<2)return err.textContent='Say what the cash is for.';
+    const who=state.role==='adm'?$('#cWho').value:state.user.id;
+    state.advances.push({id:uid(),uid:who,date:state.today,at:new Date(),amount:amt,purpose:why,status:'Open'});
+    queue();toast(NAD(amt)+' recorded for '+byId(who).name.split(' ')[0]+'. Change is due back by '+fmtD(addDays(state.today,1))+'.');render();return;
+  }
+  if(f.startsWith('settle-')){
+    const a=state.advances.find(x=>x.id===f.slice(7)),fm=e.target;
+    const spent=Math.round(+fm.elements.spent.value*100)/100,ret=Math.round(+fm.elements.ret.value*100)/100;
+    if(fm.elements.spent.value===''||fm.elements.ret.value==='')return toast('Enter the amount spent and the change returned');
+    if(spent<0||ret<0||spent>a.amount)return toast('Spent cannot be more than the amount taken');
+    const expected=Math.round((a.amount-spent)*100)/100,diff=Math.round((ret-expected)*100)/100;
+    Object.assign(a,{spent,returned:ret,expected,diff,settledAt:new Date(),status:diff===0?'Settled':'Settled with difference'});
+    if(diff!==0)notify('Cash',byId(a.uid).name+' returned '+NAD(ret)+' but '+NAD(expected)+' was expected ('+(diff<0?'short by ':'over by ')+NAD(Math.abs(diff))+').',false);
+    queue();toast(diff===0?'Settled. Change matches.':'Settled with a difference. Admin has been alerted.');render();return;
+  }
+  if(f==='lineForm'){
+    const m=M(),date=$('#sDate').value,desc=$('#sDesc').value.trim(),vend=$('#sVend').value.trim(),amt=parseFloat($('#sAmt').value),err=$('#sErr');
+    if(!date||date.slice(0,7)!==state.month)return err.textContent='Pick a date in '+monthLabel(state.month)+'.';
+    if(!desc&&!vend)return err.textContent='Add a description or vendor.';
+    if(!(amt>0))return err.textContent='Enter an amount above zero.';
+    m.sheet.push({id:uid(),date,amt,desc:desc||vend,vendor:vend||desc});m.sheet.sort((a,b)=>a.date.localeCompare(b.date));
+    if(!m.sheetFile)m.sheetFile=null;toast('Line added');render();return;
+  }
+  if(f==='clientForm'){const nm=$('#cName').value.trim(),rt=parseFloat($('#cRate').value)||0,er=$('#cErr');
+    if(!nm)return er.textContent='Enter the client name.';
+    if(rt<0)return er.textContent='Rate cannot be negative.';
+    if(state.clients.some(c=>c.name.toLowerCase()===nm.toLowerCase()))return er.textContent='That client already exists.';
+    state.clients.push({id:uid(),name:nm,rate:rt,bill:$('#cBill').value==='1'});logA('Client added',nm+' at N$ '+rt+'/h');toast(nm+' added');render();return}
+  if(f==='timeForm'){const h=parseFloat($('#tHrs').value);if(!(h>0))return toast('Enter hours');
+    D().entries.push({day:'Sat 24 Oct',client:$('#tClient').value,task:$('#tTask').value||'Work',hrs:h,status:'Draft'});queue();toast('Entry added');render()}
+  if(f==='leaveForm'){
+    const c=leaveCalc(),d=D(),err=$('#lErr'),reason=$('#lReason').value.trim(),file=$('#lFile').files[0];
+    const bal=d.leaveBal.find(b=>b[0]===c.type);
+    let m='';
+    if(!c.from||!c.to)m='Choose the first and last day.';
+    else if(c.to<c.from)m='The last day cannot be before the first day.';
+    else if(!c.days)m='Those dates have no working days.';
+    else if(bal&&c.days>bal[1])m='You only have '+bal[1]+' '+c.type.toLowerCase()+' days left.';
+    else if(d.leaves.some(l=>(l.status==='Pending'||l.status==='Approved')&&!(c.to<l.from||c.from>l.to)))m='These dates overlap another application.';
+    else if(c.type==='Sick'&&c.days>2&&!file)m='Attach a doctor\'s note for sick leave over 2 days.';
+    else if(reason.length<3)m='Give a short reason.';
+    else if(!$('#lDecl').checked)m='Tick the confirmation to send.';
+    if(m){err.textContent=m;return}
+    const l={id:uid(),type:c.type,from:c.from,to:c.to,days:c.days,reason,cover:$('#lCover').value.trim(),phone:$('#lPhone').value.trim(),file:file?file.name:'',status:'Pending'};
+    d.leaves.unshift(l);
+    state.approvals.push({id:uid(),uid:state.user.id,type:'Leave',who:state.user.name,kind:'leave',obj:l,status:'Pending',
+      detail:c.type+' leave, '+fmtD(c.from)+' to '+fmtD(c.to)+', '+c.days+' day'+(c.days===1?'':'s')+'. Reason: '+reason+(l.cover?'. Cover: '+l.cover:'')});
+    queue();toast('Leave application sent');render();
+  }
+  if(f==='loanForm'){const amt=parseFloat($('#aAmt').value),m=parseInt($('#aMon').value);if(!(amt>0&&m>0))return toast('Check amount and months');
+    const l={label:'Advance '+NAD(amt)+' over '+m+' months',amount:amt,paid:0,per:amt/m,status:'Pending'};D().loans.push(l);
+    state.approvals.push({id:uid(),uid:state.user.id,type:'Loan',who:state.user.name,kind:'loan',obj:l,detail:'Salary advance '+NAD(amt)+' over '+m+' months',status:'Pending'});queue();toast('Advance request sent');render()}
+  if(f==='empForm'){
+    const name=$('#nName').value.trim(),email=$('#nEmail').value.trim().toLowerCase(),pw=$('#nPass').value,err=$('#nErr');
+    let m='';
+    if(name.length<2)m='Enter the full name.';
+    else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))m='Enter a valid email address.';
+    else if(state.users.some(u=>u.email.toLowerCase()===email))m='That email already has an account.';
+    else if(pw.length<8||!/\d/.test(pw))m='Temporary password needs 8 or more characters with a number.';
+    if(m){err.textContent=m;return}
+    const type=$('#nRole').value,id=uid();
+    const u=mk(id,type,name,$('#nTitle').value.trim()||(type==='admin'?'Administrator':'Employee'),email,pw,
+      {access:$('#nAccess').checked,mustChange:$('#nMust').checked,base:type==='emp'?(+$('#nBase').value||0):0,allow:type==='emp'?(+$('#nAllow').value||0):0});
+    state.users.push(u);state.data[id]={entries:[],leaveBal:DEF_BAL(),leaves:[],loans:[]};logA('Employee added',name+' ('+type+')');
+    state.newCred={name,email,password:pw,mustChange:u.mustChange};
+    toast(name+' added');render();window.scrollTo(0,0);
+  }
+});
+document.addEventListener('input',e=>{
+  const sf=e.target.closest&&e.target.closest('form.settle');
+  if(sf){const a=state.advances.find(x=>x.id===sf.id.slice(7)),sp=sf.elements.spent.value===''?null:Math.round(+sf.elements.spent.value*100)/100,box=$('#calc-'+a.id);
+    if(sp===null)box.textContent='Enter what was spent to see the change due back.';
+    else if(sp>a.amount)box.textContent='Spent is more than the amount taken.';
+    else{const exp=Math.round((a.amount-sp)*100)/100;box.textContent='Change due back: '+NAD(exp)+(sf.elements.ret.value===''?'':Math.round((+sf.elements.ret.value-exp)*100)/100===0?'. Matches.':'. Difference: '+NAD(Math.round((+sf.elements.ret.value-exp)*100)/100))}}
+  if(e.target.id==='tol'){state.tol=+e.target.value;$('#tolV').textContent='+/- '+state.tol+' days';$('#pcResults').innerHTML=pcResults()}
+  if(e.target.id==='thr'){state.thr=+e.target.value/100;$('#thrV').textContent=e.target.value+'%';$('#pcResults').innerHTML=pcResults()}
+  if(e.target.closest&&e.target.closest('#leaveForm'))leaveSummary();
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='sgFile'){loadSig(t.files[0]);t.value='';return}
+  if(t.dataset&&t.dataset.rate){const c=state.clients.find(x=>x.id===t.dataset.rate),v=parseFloat(t.value);if(c&&v>=0){c.rate=v;toast('Rate updated');render()}else toast('Enter a valid rate');return}
+  if(t.id==='smSel'){state.smonth=t.value;state.stMsg='';return render()}
+  if(t.id==='stFile'){if(t.files[0])loadStatList(t.files[0]);t.value='';return}
+  if(t.dataset&&t.dataset.cnt){
+    const k=state.smonth,c=state.stat.counts[k]||(state.stat.counts[k]={}),id=t.dataset.cnt;
+    if(t.value==='')delete c[id];else c[id]=Math.max(0,Math.round(+t.value));
+    const s=stock(state.stat.items.find(i=>i.id===id),k);
+    $('#df-'+id).textContent=s.diff==null?'-':s.diff===0?'0':sg(s.diff);$('#stSum').innerHTML=stSummary(k);return;
+  }
+  if(t.id==='mSel'){state.month=t.value;state.shMsg='';return render()}
+  if(t.id==='rcFile'){addReceipts([...t.files]);t.value='';return}
+  if(t.id==='shFile'){if(t.files[0])loadSheet(t.files[0]);t.value='';return}
+  if(t.id==='opening'){M().opening=Math.max(0,parseFloat(t.value)||0);return render()}
+  if(t.dataset&&t.dataset.rid){const r=M().receipts.find(x=>x.id===t.dataset.rid),k=t.dataset.f;if(!r)return;r[k]=k==='amt'?(parseFloat(t.value)||0):t.value;if($('#rcTotals'))$('#rcTotals').innerHTML=rcSummary();return}
+  if(t.closest&&t.closest('#leaveForm'))leaveSummary();
+});
+['dragenter','dragover'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();const z=e.target.closest&&e.target.closest('.drop');document.querySelectorAll('.drop.over').forEach(x=>{if(x!==z)x.classList.remove('over')});if(z)z.classList.add('over')}));
+document.addEventListener('dragleave',e=>{const z=e.target.closest&&e.target.closest('.drop');if(z&&!z.contains(e.relatedTarget))z.classList.remove('over')});
+document.addEventListener('drop',e=>{e.preventDefault();document.querySelectorAll('.drop.over').forEach(x=>x.classList.remove('over'));
+  const z=e.target.closest&&e.target.closest('.drop');if(!z||!e.dataTransfer)return;const fs=[...e.dataTransfer.files];if(!fs.length)return;
+  if(z.id==='rcDrop')addReceipts(fs);else if(z.id==='shDrop')loadSheet(fs[0]);else if(z.id==='stDrop')loadStatList(fs[0]);else if(z.id==='sgDrop')loadSig(fs[0])});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('drop')){e.preventDefault();$('#'+e.target.dataset.input).click()}});
+setInterval(()=>{if(state.user&&state.online)state.user.beat=Date.now();if(state.user&&state.role==='adm'&&state.tab.adm==='activity')render()},30000);
+render();
+</script>
+<script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body></html>

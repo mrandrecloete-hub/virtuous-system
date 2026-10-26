@@ -1232,10 +1232,14 @@ function kField(x,form,ans,errs){
   else if(x.type==='select')inp=`<select ${A}><option value="">Choose...</option>${x.opts.map(o=>`<option ${v===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
   else if(x.type==='radio'||x.type==='yesno'){const os=x.type==='yesno'?['Yes','No']:x.opts;inp=`<div class="row">${os.map(o=>`<label style="display:flex;gap:6px;align-items:center"><input type="radio" name="r-${id}" ${A} value="${esc(o)}" ${v===o?'checked':''} style="width:auto"> ${esc(o)}</label>`).join('')}</div>`}
   else if(x.type==='check')inp=`<div class="row">${x.opts.map(o=>`<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" ${A} data-opt="${esc(o)}" ${(v||[]).includes(o)?'checked':''} style="width:auto"> ${esc(o)}</label>`).join('')}</div>`;
-  else if(x.type==='file')inp=`<input type="file" data-af="${id}" accept="image/*,application/pdf">${v?`<div class="note">Attached: ${esc(v.name)} <button type="button" class="btn ghost sm" data-k="rmFile" data-id="${id}">Remove</button></div>`:''}`;
+  else if(x.type==='file')inp=`<input type="file" data-af="${id}" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">${v?`<div class="note">Attached: ${esc(v.name)} <button type="button" class="btn ghost sm" data-k="rmFile" data-id="${id}">Remove</button></div>`:''}`;
   else if(x.type==='sign')inp=`<div class="sigbox" style="display:block"><canvas data-sig="${id}" width="480" height="150" style="width:100%;max-width:480px;touch-action:none;display:block" aria-label="Signature pad"></canvas></div><button type="button" class="btn ghost sm" data-k="sigClear" data-id="${id}" style="margin-top:6px">Clear signature</button>`;
   else{const t={email:'email',phone:'tel',number:'number',date:'date'}[x.type]||'text';inp=`<input type="${t}" ${A} value="${esc(v??'')}">`}
-  return `<label style="display:block">${esc(x.label)}${x.req?' <span style="color:var(--bad)">*</span>':''}${x.help?`<div class="note">${esc(x.help)}</div>`:''}${inp}</label>${errs[id]?`<div class="err">${esc(errs[id])}</div>`:''}`}
+  /* Fields that hold buttons or several inputs must not sit inside a <label>: the browser would forward every click
+     (for example the end of a signature stroke) to the first button inside it. */
+  const grp=['sign','radio','yesno','check','file'].includes(x.type);
+  const open=grp?`<div role="group" aria-label="${esc(x.label)}" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500">`:`<label style="display:block">`;
+  return `${open}${esc(x.label)}${x.req?' <span style="color:var(--bad)">*</span>':''}${x.help?`<div class="note">${esc(x.help)}</div>`:''}${inp}${grp?'</div>':'</label>'}${errs[id]?`<div class="err">${esc(errs[id])}</div>`:''}`}
 function kFill(){
   const K=state.kyc,f=kForm(K.formId);
   if(K.done){const s=kSub(K.done);return `<div class="panel"><h2>Submitted</h2><p>${esc(f.thanks||'Thank you.')}</p><p class="note">Reference <b class="mono">${esc(s.ref)}</b></p><div class="row"><button class="btn" data-k="again">Submit another</button><button class="btn ghost" data-k="review" data-id="${s.id}">Review this submission</button>${kBack('Forms')}</div></div>`}

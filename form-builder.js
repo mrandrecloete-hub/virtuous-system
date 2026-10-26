@@ -19,7 +19,7 @@
   const copy=(t,msg)=>{if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast(msg||'Copied'),()=>toast('Copy failed'));else toast('Copy is not available here')};
 
   const FB={view:'list',formId:null,mode:'build',dTab:'colors',sTab:'form',pTab:'share',sel:null,preview:false,create:null,v:{},out:{},ana:{id:'',report:false,text:''},
-    cmd:'',cmdOut:'',cond:null,pv:{ans:{},done:false},people:null,assign:{sel:{},msg:'',out:''},pref:{},embedH:'800',inv:null};
+    cmd:'',cmdOut:'',cond:null,pv:{ans:{},done:false},people:null,assign:{sel:{},msg:'',out:''},pref:{},embedH:'800',inv:null,importMsg:'',fromFill:false};
 
   /* ---------- elements, designs ---------- */
   const OPT3=()=>['Option 1','Option 2','Option 3'];
@@ -67,7 +67,7 @@
   .fbmid{text-align:center;min-width:140px;flex:1 1 160px}.fbname{font-weight:700;font-size:1.05em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fbsave{font-size:.8em;opacity:.85}
   .fbtabs{display:flex;gap:4px}.fbtabs button{background:transparent;border:0;color:#0a1b3f;letter-spacing:.08em;font-weight:700;padding:10px 14px;border-radius:8px;cursor:pointer;min-height:40px}
   .fbtabs button[aria-selected=true]{background:rgba(255,255,255,.55);box-shadow:inset 0 -3px 0 #0a1b3f}
-  .fbprev{display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;margin:0}.fbprev input{width:20px;height:20px}
+  .fbact{display:flex;gap:6px;flex-wrap:wrap}.fbback[aria-pressed=true]{background:#0a1b3f;color:#e6b422}
   .fbgrid{display:grid;grid-template-columns:210px minmax(0,1fr) 300px;gap:14px;align-items:start}
   @media(max-width:1060px){.fbgrid{grid-template-columns:1fr}.fbgrid>aside{order:2}.fbgrid>main{order:1}}
   .fbcol{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
@@ -279,7 +279,7 @@
       <label>Status<select data-sf="status"><option value="open" ${f.status!=='closed'?'selected':''}>Accepting responses</option><option value="closed" ${f.status==='closed'?'selected':''}>Closed</option></select></label>
       <label>Who fills it in<select data-sf="audience"><option value="client" ${f.audience!=='staff'?'selected':''}>Clients (anyone with the link)</option><option value="staff" ${f.audience==='staff'?'selected':''}>Staff (signed-in employees)</option></select></label>
       <label>Category<input type="text" data-sf="category" value="${esc(f.category||'General')}" maxlength="40"></label></div>
-      <div class="row" style="margin-top:14px"><button class="btn ghost" data-act="fbClassic" data-id="${esc(f.id)}">Open in the classic editor</button><button class="btn bad" data-act="fbDeleteForm" data-id="${esc(f.id)}">Delete form</button></div>`;
+      <div class="row" style="margin-top:14px;flex-wrap:wrap"><button class="btn ghost" data-act="fbExport" data-id="${esc(f.id)}">Export form file</button><button class="btn ghost" data-act="fbClassic" data-id="${esc(f.id)}">Open in the classic editor</button><button class="btn bad" data-act="fbDeleteForm" data-id="${esc(f.id)}">Delete form</button></div>`;
     else if(st==='emails')body=`<h3 style="margin-top:0">Emails</h3><div class="fbnote" style="margin-bottom:12px">Sending email from this system is not available yet. Write the confirmation message here; it is saved with the form and ready for when email sending is connected, and you can copy it into your own email program now. New responses already alert admins inside the app.</div>
       <div class="form" style="grid-template-columns:1fr"><label>Autoresponder subject<input type="text" data-em="subject" value="${esc(em.subject||'')}" maxlength="200" placeholder="We received your ${esc(f.title)}"></label>
       <label>Autoresponder message<textarea data-em="body" rows="9" maxlength="4000" placeholder="Dear [Name], ...">${esc(em.body||'')}</textarea></label></div>
@@ -314,6 +314,7 @@
     if(pt==='share')body=`<h3 style="margin-top:0">Quick share</h3>${warn(f)}
       <label class="chk" style="display:flex;gap:10px;align-items:center;margin-bottom:12px"><input type="checkbox" id="fbPublic" ${f.publicLink?'checked':''} ${f.audience==='staff'?'disabled':''}> Anyone with the link can fill in this form (no sign-in)</label>
       ${f.status==='closed'?'<div class="fbnote" style="margin-bottom:12px">This form is closed, so the link shows "not available". Reopen it in Settings.</div>':''}
+      <div class="row" style="margin-bottom:12px"><button class="btn ghost" data-act="fbFill" data-id="${esc(f.id)}">Fill in this form now</button></div>
       ${ok?`<label>Form link</label><div class="row" style="flex-wrap:nowrap"><input type="text" readonly value="${esc(url)}" style="flex:1;min-width:0" aria-label="Form link"><button class="btn" data-act="fbCopy" data-v="${esc(url)}">Copy link</button></div>
       ${f.publicLink?'':'<p class="note">Turn on the option above to let people open this link.</p>'}
       <div class="row" style="margin-top:14px;flex-wrap:wrap"><a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(f.title+' '+url)}">Share on WhatsApp</a><a class="btn ghost sm" target="_blank" rel="noopener" href="mailto:?subject=${encodeURIComponent(f.title)}&body=${encodeURIComponent(url)}">Share by email</a><a class="btn ghost sm" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}">Share on Facebook</a><a class="btn ghost sm" target="_blank" rel="noopener" href="https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}">Share on LinkedIn</a></div>`:''}`;
@@ -368,13 +369,14 @@
   function listView(){
     const fs=forms();
     return `<h2>Form builder</h2><p class="sub">Build forms visually, change them in plain words, share them with a link, and review responses. No AI service or key is used.</p>
-    <div class="stack"><div class="row"><button class="btn" data-act="fbCreateOpen">Create form</button></div>${createPanel()}
-    <div class="panel"><h3>Your forms</h3><div class="tbl"><table style="min-width:760px"><thead><tr><th>Form</th><th>For</th><th class="n">Questions</th><th class="n">Responses</th><th>Status</th><th></th></tr></thead><tbody>
+    <div class="stack"><div class="row" style="flex-wrap:wrap"><button class="btn" data-act="fbCreateOpen">Create form</button><button class="btn ghost" data-act="fbImportPick">Import form</button><input type="file" id="fbImportFile" data-fbimport="1" accept=".json,application/json" hidden aria-label="Import a form file"></div>
+    ${FB.importMsg?`<div class="fbnote" role="status">${esc(FB.importMsg)}</div>`:''}${createPanel()}
+    <div class="panel"><h3>Your forms</h3><div class="tbl"><table style="min-width:900px"><thead><tr><th>Form</th><th>For</th><th class="n">Questions</th><th class="n">Responses</th><th>Status</th><th></th></tr></thead><tbody>
     ${fs.map(f=>`<tr><td>${esc(f.title)}<div class="note">${esc(f.category||'General')}${f.publicLink?' · shared link on':''}</div></td><td>${f.audience==='staff'?'Staff':'Clients'}</td><td class="n">${real(f).length}</td><td class="n">${subsOf(f).length}</td><td>${pill(f.status==='closed'?'Closed':'Accepting',f.status==='closed'?'warn':'ok')}</td>
-      <td><div class="row"><button class="btn sm" data-act="fbEdit" data-id="${esc(f.id)}">Edit</button><button class="btn sm ghost" data-act="fbShare" data-id="${esc(f.id)}">Share</button><button class="btn sm ghost" data-act="fbResp" data-id="${esc(f.id)}">Responses</button><button class="btn sm ghost" data-act="fbCopyForm" data-id="${esc(f.id)}">Duplicate</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="note">No forms yet. Click Create form.</td></tr>'}
+      <td><div class="row"><button class="btn sm" data-act="fbEdit" data-id="${esc(f.id)}">Edit</button><button class="btn sm ghost" data-act="fbPreviewRow" data-id="${esc(f.id)}">Preview</button><button class="btn sm ghost" data-act="fbFill" data-id="${esc(f.id)}">Fill now</button><button class="btn sm ghost" data-act="fbShare" data-id="${esc(f.id)}">Share</button><button class="btn sm ghost" data-act="fbResp" data-id="${esc(f.id)}">Responses</button><button class="btn sm ghost" data-act="fbExport" data-id="${esc(f.id)}">Export</button><button class="btn sm ghost" data-act="fbCopyForm" data-id="${esc(f.id)}">Duplicate</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="note">No forms yet. Click Create form.</td></tr>'}
     </tbody></table></div></div>
     ${FB.ana.show?`<div class="panel"><h3>Responses: summary and report</h3><div class="form"><label>Form<select data-v="anaId">${'<option value="">All forms with responses</option>'+fs.map(f=>`<option value="${esc(f.id)}" ${FB.ana.id===f.id?'selected':''}>${esc(f.title)}</option>`).join('')}</select></label>
-      <label class="chk" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-v="anaReport" ${FB.ana.report?'checked':''}> Draft as a report</label></div><button class="btn" data-act="fbAnalyse" style="margin-top:8px">Analyse responses</button>
+      <label class="chk" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-v="anaReport" ${FB.ana.report?'checked':''}> Draft as a report</label></div><div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn" data-act="fbAnalyse">Analyse responses</button>${FB.ana.id?`<button class="btn ghost" data-act="fbRespCsv">Export responses (CSV)</button>`:''}</div>
       ${FB.ana.text?`<div class="fbnote" style="margin-top:10px" role="status">${md(FB.ana.text)}</div>`:''}</div>`:''}
     <div class="panel"><p class="note" style="margin:0"><b>Not available:</b> chat and phone agents, WhatsApp, Messenger, Instagram and website bots, live-chat handoff, an app builder, reading PDF or Word files, payment fields, calculations, multi-page forms, and sending email from here. These need an AI model, outside accounts and a server.</p></div></div>`;
   }
@@ -385,7 +387,7 @@
     return `<div class="fbbar"><div class="fbbarin"><button class="fbback" data-act="fbBack">← Forms</button>
       <div class="fbmid"><div class="fbname" id="fbName">${esc(f.title)}</div><div class="fbsave" id="fbSave" role="status">${esc(saveText())}</div></div>
       <div class="fbtabs" role="tablist" aria-label="Form builder modes">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${FB.mode===k}" data-act="fbMode" data-m="${k}">${l}</button>`).join('')}</div>
-      ${FB.mode==='build'?`<label class="fbprev"><span>Preview form</span><input type="checkbox" id="fbPreview" role="switch" ${FB.preview?'checked':''}></label>`:'<span style="width:110px"></span>'}</div></div>
+      <div class="fbact"><button class="fbback" data-act="fbPreviewBtn" aria-pressed="${FB.preview&&FB.mode==='build'}">${FB.preview&&FB.mode==='build'?'Exit preview':'Preview'}</button><button class="fbback" data-act="fbFill" data-id="${esc(f.id)}">Fill now</button><button class="fbback" data-act="fbExport" data-id="${esc(f.id)}">Export</button></div></div></div>
       ${FB.mode==='build'?buildView(f):FB.mode==='settings'?settingsView(f):publishView(f)}`;
   }
   function vFormBuilder(){
@@ -425,6 +427,69 @@
     FB.out[key]=text;render();
   }
 
+
+  /* ---------- export, import, fill now ---------- */
+  const KINDS=['short','long','email','phone','number','date','idno','select','radio','check','yesno','file','sign','head','para'];
+  const str=(v,max)=>typeof v==='string'?v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').slice(0,max):'';
+  function exportForm(f){
+    const doc={format:'virtuoso-form',version:1,exportedAt:new Date().toISOString(),form:{title:f.title,description:f.desc||'',thanks:f.thanks||'',category:f.category||'General',audience:f.audience==='staff'?'staff':'client',design:f.design||{},
+      settings:{email:(f.settings&&f.settings.email)||undefined},fields:f.fields.map(x=>({id:x.id,type:x.type,label:x.label,help:x.help||'',required:!!x.req,options:x.opts||[],showIf:x.showIf||null,answer:x.answer!=null?x.answer:undefined}))}};
+    kDownloadAnchor((slug(f.title)||'form')+'.form.json','application/json',JSON.stringify(doc,null,2));
+  }
+  /* Accepts only what we understand, remaps ids, and never trusts the file. Returns {form} or {error}. */
+  function cleanImport(text){
+    if(typeof text!=='string'||text.length>1000000)return {error:'That file is too large (limit 1 MB).'};
+    let doc;try{doc=JSON.parse(text)}catch(_){return {error:'That file is not a valid form file (it could not be read as JSON).'}}
+    const src=doc&&typeof doc==='object'?(doc.form&&typeof doc.form==='object'?doc.form:doc):null;
+    if(!src||!Array.isArray(src.fields))return {error:'That file does not look like a form exported from here (no fields found).'};
+    const rawFields=src.fields.slice(0,200),map={},fields=[];
+    rawFields.forEach(r=>{
+      if(!r||typeof r!=='object'||!KINDS.includes(r.type))return;
+      const label=str(r.label,r.type==='para'?2000:300).trim();if(!label)return;
+      const nid=uid();if(typeof r.id==='string')map[r.id]=nid;
+      const opts=Array.isArray(r.options||r.opts)?(r.options||r.opts).filter(o=>typeof o==='string').map(o=>str(o,200).trim()).filter(Boolean).slice(0,100):[];
+      const x={id:nid,type:r.type,label,req:!!(r.required||r.req),help:str(r.help,300),opts:['select','radio','check'].includes(r.type)?(opts.length>=2?opts:['Option 1','Option 2']):[],showIf:null};
+      if(typeof r.answer==='string'&&r.answer)x.answer=str(r.answer,200);
+      x._si=r.showIf&&typeof r.showIf==='object'?{fid:r.showIf.fid,val:str(String(r.showIf.val==null?'':r.showIf.val),100)}:null;
+      fields.push(x);
+    });
+    if(!fields.length)return {error:'That file has no usable fields.'};
+    fields.forEach(x=>{const si=x._si;delete x._si;if(si&&map[si.fid]&&map[si.fid]!==x.id)x.showIf={fid:map[si.fid],val:si.val}});
+    const d={},sd=src.design&&typeof src.design==='object'?src.design:{};
+    ['pageColor','formColor','fontColor','inputBg','accent'].forEach(k=>{if(okColor(sd[k]))d[k]=sd[k]});
+    ['font','size','radius','width','spacing'].forEach(k=>{if(typeof sd[k]==='string'&&MAPS[k]&&MAPS[k][sd[k]])d[k]=sd[k]});
+    if(sd.labelPos==='left'||sd.labelPos==='top')d.labelPos=sd.labelPos;
+    const em=src.settings&&src.settings.email&&typeof src.settings.email==='object'?{subject:str(src.settings.email.subject,200),body:str(src.settings.email.body,4000)}:null;
+    return {form:{title:str(src.title||src.name,120).trim()||'Imported form',desc:str(src.description||src.desc,600),thanks:str(src.thanks,1000)||'Thank you. Your response has been recorded.',
+      category:str(src.category,40).trim()||'General',audience:src.audience==='staff'?'staff':'client',fields,design:d,settings:em&&(em.subject||em.body)?{email:em}:{}}};
+  }
+  function importForm(text){
+    const r=cleanImport(text);if(r.error){FB.importMsg=r.error;return render()}
+    kInit();const f=r.form;
+    let title=f.title;if(forms().some(x=>x.title.toLowerCase()===title.toLowerCase()))title+=' (imported)';
+    const nf={id:'f'+(++state.kseq+10),title,desc:f.desc,thanks:f.thanks,fields:f.fields,status:'open',created:state.today,audience:f.audience,category:f.category,design:f.design,settings:f.settings,publicLink:false};
+    forms().push(nf);FB.importMsg='';toast('Imported "'+title+'" with '+f.fields.filter(x=>!['head','para'].includes(x.type)).length+' questions');
+    openEditor(nf.id,'build');
+  }
+  function openFill(id){
+    kInit();const K=state.kyc;K.formId=id;K.view='fill';K.ans={};K.errs={};K.done=null;FB.fromFill=true;state.tab.adm='kyc';document.body.classList.remove('open');window.scrollTo(0,0);render();
+  }
+  /* The fill screen shows the form's saved design and a way back to the builder. */
+  const origFill=kFill;
+  kFill=function(){
+    const K=state.kyc,f=kForm(K.formId),h=origFill();
+    if(!f)return h;
+    const back=FB.fromFill&&state.user&&state.user.type==='admin'?`<div class="row" style="margin-bottom:10px"><button class="btn ghost sm" data-act="fbFromFill">← Back to Form builder</button></div>`:'';
+    const d=f.design||{};
+    return back+`<div class="fbfill" style="${esc(dvars(d))}">${h}</div>`;
+  };
+  const css2=document.createElement('style');
+  css2.textContent=`.fbfill{background:var(--page,transparent);border-radius:12px;padding:var(--pad,0)}.fbfill:not([style=""]){padding:16px}
+  .fbfill .panel{background:var(--form,var(--surface));color:var(--fg2,var(--fg));font-family:var(--ff,inherit);border-radius:calc(var(--rad,8px) + 4px)}
+  .fbfill input:not([type=checkbox]):not([type=radio]),.fbfill select,.fbfill textarea{background:var(--inbg,var(--bg));color:inherit;border-radius:var(--rad,8px)}
+  .fbfill .btn:not(.ghost):not(.bad){background:var(--acc,var(--accent));border-color:var(--acc,var(--accent))}`;
+  document.head.appendChild(css2);
+
   /* ---------- events ---------- */
   document.addEventListener('input',e=>{
     const t=e.target;if(!t||!document.getElementById('view')||!document.getElementById('view').contains(t))return;
@@ -451,6 +516,7 @@
   document.addEventListener('change',e=>{
     const t=e.target;if(!t||!document.getElementById('view')||!document.getElementById('view').contains(t))return;
     const f=cur();
+    if(t.dataset&&t.dataset.fbimport){e.stopImmediatePropagation();const fl=t.files[0];t.value='';if(!fl)return;if(fl.size>1000000){FB.importMsg='That file is too large (limit 1 MB).';return render()}const rd=new FileReader();rd.onload=()=>importForm(String(rd.result));rd.onerror=()=>{FB.importMsg='That file could not be read.';render()};rd.readAsText(fl);return}
     if(t.dataset&&t.dataset.v){FB.v[t.dataset.v]=t.type==='checkbox'?t.checked:t.value;if(t.dataset.v==='anaId')FB.ana.id=t.value;if(t.dataset.v==='anaReport')FB.ana.report=t.checked;return}
     if(!f)return;
     if(t.id==='fbPreview'){e.stopImmediatePropagation();FB.preview=t.checked;FB.sel=null;FB.pv={ans:{},done:false};return render()}
@@ -514,6 +580,13 @@
       case 'fbQuizGo':{const t=(FB.v.fbQuizText||'').trim(),n=+(FB.v.fbQuizN||5);return runCreate('create',()=>F().makeQuiz('Make a '+n+' question quiz from this text: '+t))}
       case 'fbBlank':{kInit();const nf={id:'f'+(++state.kseq+10),title:'Untitled form',desc:'',thanks:'Thank you. Your response has been recorded.',fields:[],status:'open',created:state.today,audience:'client',category:'General',design:{}};forms().push(nf);FB.create=null;return openEditor(nf.id,'build')}
       case 'fbEdit':return openEditor(d.id,'build');
+      case 'fbPreviewRow':openEditor(d.id,'build');FB.preview=true;return render();
+      case 'fbPreviewBtn':{if(!f)return;if(FB.mode==='build')FB.preview=!FB.preview;else{FB.mode='build';FB.preview=true}FB.sel=null;FB.pv={ans:{},done:false};return render()}
+      case 'fbFill':return openFill(d.id);
+      case 'fbFromFill':{FB.fromFill=false;state.tab.adm='formbuilder';return render()}
+      case 'fbExport':{const sf=forms().find(x=>x.id===d.id);if(sf){exportForm(sf);toast('Form file saved')}return}
+      case 'fbImportPick':{const i=document.getElementById('fbImportFile');if(i)i.click();return}
+      case 'fbRespCsv':{const sf=forms().find(x=>x.id===FB.ana.id);if(!sf)return toast('Choose a form first');if(!subsOf(sf).length)return toast('There are no responses to export yet');kDownload((slug(sf.title)||'form')+'-responses.csv','text/csv',kCsv(sf));return}
       case 'fbShare':return openEditor(d.id,'publish');
       case 'fbResp':FB.ana.show=true;FB.ana.id=d.id;FB.ana.text='';return render();
       case 'fbAnalyse':{const sf=forms().find(x=>x.id===FB.ana.id),rep=FB.ana.report,q=(rep?'draft a report on the ':'summarise the ')+(sf?sf.title+' ':'')+'responses';try{FB.ana.text=F().analyse(q,q.toLowerCase())}catch(_){FB.ana.text='Something went wrong. Try again.'}return render()}

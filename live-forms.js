@@ -26,6 +26,25 @@
       fields:(r.fields||[]).map(x=>key[x.id]!=null?{...x,answer:key[x.id]}:x)}};
   const cleanAns=a=>{const o={};Object.entries(a||{}).forEach(([k,v])=>{o[k]=(v&&typeof v==='object'&&!Array.isArray(v)&&v.name)?{name:v.name,size:v.size||null,type:v.type||null,path:v.path||null}:v});return o};
   const subSig=s=>JSON.stringify([s.status,!!s.signed,(s.notes||[]).length]);
+  /* Files chosen in the app are held as data URLs; save them to private storage and keep only the path. */
+  async function uploadFiles(s){
+    const out={};
+    for(const [k,v] of Object.entries(s.ans||{})){
+      if(v&&typeof v==='object'&&!Array.isArray(v)&&v.name){
+        let path=v.path||null;
+        if(!path&&typeof v.url==='string'&&v.url.startsWith('data:')){
+          try{
+            const blob=await (await fetch(v.url)).blob();
+            const p=`${s.formId}/${crypto.randomUUID()}-${String(v.name).replace(/[^A-Za-z0-9._-]+/g,'_').slice(-80)}`;
+            const up=await sb().storage.from('kyc-uploads').upload(p,blob,{contentType:v.type||blob.type,upsert:false});
+            if(!up.error)path=p;
+          }catch(_){}
+        }
+        out[k]={name:v.name,size:v.size||null,type:v.type||null,path};
+      }else out[k]=v;
+    }
+    return out;
+  }
 
   async function loadAll(){
     if(loading||!sb())return;loading=true;SYNC.status='loading';
@@ -89,7 +108,7 @@
     for(const s of state.subs){
       if(!isUuid(s.id)){
         if(!isUuid(s.formId))continue;
-        const r=await sb().from('form_submissions').insert({form_id:s.formId,answers:cleanAns(s.ans),submitted_by:s.uid||null}).select('id,ref').single();
+        const r=await sb().from('form_submissions').insert({form_id:s.formId,answers:cleanAns(await uploadFiles(s)),submitted_by:s.uid||null}).select('id,ref').single();
         if(r.error){fail(r.error);return}
         s.id=r.data.id;s.ref=r.data.ref;known.subs.set(s.id,subSig(s));
         if(state.kyc&&state.kyc.done&&!isUuid(state.kyc.done))state.kyc.done=s.id;

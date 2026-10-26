@@ -61,7 +61,7 @@
       history.push({role:'assistant',content:j.reply});
       wait.remove();add('a',md(j.reply));
       if(j.looked_at&&j.looked_at.length)note('Checked: '+[...new Set(j.looked_at.map(x=>x.split(':')[1]||x))].join(', '));
-    }catch(e){wait.remove();history.pop();add('a',esc(e.message||'Something went wrong.'))}
+    }catch(e){wait.remove();history.pop();add('a',esc(e instanceof TypeError?'I could not reach the assistant service. It may not be deployed yet or you may be offline. Ask your administrator to check that the assistant function is deployed.':(e.message||'Something went wrong.')))}
     busy=false;send.disabled=false;inp.focus();
   }
   btn.onclick=()=>{const on=panel.classList.toggle('on');btn.setAttribute('aria-expanded',on);if(on){if(!log.children.length||introFor!==ready())intro();inp.focus()}};

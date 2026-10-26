@@ -240,7 +240,14 @@ th{background:rgba(11,63,181,.07);color:var(--fg)}
 .lcard{border-radius:20px;border:1px solid rgba(246,213,106,.7);box-shadow:0 20px 50px rgba(3,10,40,.45)}
 body.auth-out{background:radial-gradient(800px 400px at 80% 0,rgba(246,213,106,.25),transparent 60%),linear-gradient(160deg,#040d2b,#0b2a78);background-attachment:fixed}
 .auth-out .wm{display:none}
-body.auth-out::before{display:block;content:"";position:fixed;inset:0;height:auto;background:url(logo-dark.png) center/min(90vw,1040px) no-repeat;opacity:.62;z-index:0;pointer-events:none}
+body.auth-out::before{display:block;content:"";position:fixed;inset:0;height:auto;background:url(logo-dark.png) 4vw center/min(54vw,calc(88vh*1.37)) auto no-repeat;opacity:.95;z-index:0;pointer-events:none}
+.auth-out #login{justify-content:flex-end;padding-right:max(24px,6vw)}
+body.auth-out #login .lcard{margin:auto 0 auto auto}
+@media (max-width:900px){
+  body.auth-out::before{background-position:center 2vh;background-size:min(84vw,calc(34vh*1.37)) auto}
+  .auth-out #login{justify-content:center;padding:calc(2vh + min(84vw*.73,34vh)) 16px 24px}
+  body.auth-out #login .lcard{margin:auto}
+}
 .auth-out #login{position:relative;z-index:1;overflow:auto;align-items:flex-start;min-height:100dvh}
 .auth-out .lcard{margin:auto}
 .lcard{background:rgba(255,255,255,.93);backdrop-filter:blur(6px)}

@@ -8,7 +8,7 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
-  const VERSION='v30';
+  const VERSION='v31';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
 

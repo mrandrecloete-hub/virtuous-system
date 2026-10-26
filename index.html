@@ -258,6 +258,7 @@ body.auth-out #login .lcard{margin:auto 0 auto auto}
 .wm{left:272px;right:0}
 @media (max-width:820px){
   .shell{display:block}.wm{left:0;right:0}
+  .btn.sm{min-height:40px;padding-inline:14px}
   header{padding:12px 14px 2px}main{padding:6px 14px 20px}.foot{padding-inline:14px}
   #side{position:fixed;left:0;top:0;bottom:0;height:auto;z-index:30;width:286px}h2{font-size:26px}
 }
@@ -451,8 +452,8 @@ const ICON={
  stationery:'<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/>',
  cash:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.7c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.9-2.5.9-2.5 1.9 1 1.8 2.5 1.8 2.5-.8 2.5-1.8"/>'};
 const NAV={
- emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['loans','Loans'],['slip','Payslips'],['stationery','Stationery list'],['cash','Cash taken']]]],
- adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['employees','Employees'],['kyc','Client KYC'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['payroll','Payroll'],['receipts','Receipts'],['sheets','Cash sheets'],['petty','Reconcile'],['cash','Cash taken'],['clients','Clients & billing']]],['Office',[['stationery','Stationery list']]]]};
+ emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['loans','Loans'],['slip','Payslips'],['stationery','Stationery list'],['cash','Petty cash']]]],
+ adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['employees','Employees'],['kyc','Client KYC'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['payroll','Payroll'],['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Clients & billing']]],['Office',[['stationery','Stationery list']]]]};
 function pending(){return state.approvals.filter(a=>a.status==='Pending').length}
 function paintTabs(){
   const cur=state.tab[state.role];let title='Dashboard';
@@ -861,7 +862,7 @@ function addReceipts(files){
 }
 function vSheets(){
   const m=M(),dis=m.locked?'disabled':'',tot=m.sheet.reduce((s,l)=>s+l.amt,0),f=m.sheetFile;
-  return `<h2>Cash sheets</h2><p class="sub">Upload the monthly petty cash sheet. Its lines are what the receipts are matched against.</p>${monthPicker()}
+  return `<h2>Petty cash sheet</h2><p class="sub">Upload the monthly petty cash sheet. Its lines are what the receipts are matched against.</p>${monthPicker()}
   <div class="stack">
   <div class="panel"><h3>Upload sheet</h3>
     <div class="drop ${m.locked?'dis':''}" id="shDrop" data-input="shFile" tabindex="0" role="button" aria-label="Upload monthly sheet"><b>Drop the monthly sheet here</b>or click to choose a file (Excel, CSV or PDF)</div>
@@ -1049,7 +1050,7 @@ async function loadStatList(f){
   render();
 }
 
-/* ---------- Cash taken ---------- */
+/* ---------- Petty cash (cash taken) ---------- */
 function cashStatus(a){return a.status==='Open'?(isOverdue(a)?['Overdue, change not reported','bad']:['Open, change due by '+fmtD(addDays(a.date,1)),'warn']):a.status==='Settled'?['Settled','ok']:['Settled with difference','bad']}
 function cashBanner(){
   if(!state.user||state.user.type!=='emp')return '';
@@ -1077,7 +1078,7 @@ function vCash(){
     return `<tr><td>${fmtD(a.date)}<div class="note">${hhmm(a.at)}</div></td>${adm?`<td>${esc(p.name)}</td>`:''}<td>${esc(a.purpose)}</td><td class="n">${f2(a.amount)}</td>
       <td class="n">${done?f2(a.spent):'-'}</td><td class="n">${done?f2(a.expected):'-'}</td><td class="n">${done?f2(a.returned):'-'}</td><td class="n">${done?(a.diff===0?'0.00':(a.diff>0?'+':'')+f2(a.diff)):'-'}</td>
       <td>${pill(st,c)}</td><td>${settle}</td></tr>`}).join('');
-  return `<h2>Cash taken</h2><p class="sub">Record every time petty cash is taken. Afterwards, record what was spent and the change brought back. The app works out the change due. If change is not reported by the end of the next day, the admin gets an alert.</p>
+  return `<h2>Petty cash</h2><p class="sub">Record every time petty cash is taken. Afterwards, record what was spent and the change brought back. The app works out the change due. If change is not reported by the end of the next day, the admin gets an alert.</p>
   <div class="stack"><div class="tiles">
     <div class="tile"><b>${NAD(month.reduce((s,a)=>s+a.amount,0))}</b><span>Taken in ${monthLabel(cur)}</span></div>
     <div class="tile"><b>${NAD(settled.reduce((s,a)=>s+a.spent,0))}</b><span>Spent, reported</span></div>
@@ -1347,6 +1348,7 @@ function csvOf(rows){return rows.map(r=>r.map(kCsvCell).join(',')).join('\r\n')}
 function repTable(title,head,rows,fname){
   return `<div class="panel"><div class="ph"><h3>${esc(title)}</h3><button class="btn ghost sm" data-k="repCsv" data-id="${fname}">Export CSV</button></div><div class="tbl"><table><thead><tr>${head.map((h,i)=>`<th${i?' class="n"':''}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="n"':''}>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td class="note" colspan="9">No data.</td></tr>'}</tbody></table></div></div>`}
 function repData(){
+  kInit();
   const emps=staff(),rows=emps.map(e=>({e,c:calc(e)}));
   const T=k=>rows.reduce((s,r)=>s+r.c[k],0);
   const pay=rows.map(r=>[r.e.name,r.e.base.toFixed(2),r.e.allow.toFixed(2),r.c.ot.toFixed(2),r.c.gross.toFixed(2),r.c.ded.toFixed(2),(r.c.reimb||0).toFixed(2),r.c.net.toFixed(2)]);
@@ -1393,7 +1395,8 @@ function render(){
   paintAuth();
   if(!state.user||state.user.mustChange)return;
   checkCash();paintTabs();paintNet();
-  $('#view').innerHTML=VIEWS[state.tab[state.role]]();
+  try{$('#view').innerHTML=VIEWS[state.tab[state.role]]()}
+  catch(e){console.error(e);$('#view').innerHTML='<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">This page could not load. Try another page or reload. If it keeps happening, tell your administrator.</div>'}
   if(window.kycAfter)kycAfter();
   if(state.tab[state.role]==='leave'&&state.role==='emp')leaveSummary();
   if(state.tab[state.role]==='alerts')paintTabs();
@@ -1616,6 +1619,7 @@ render();
 <script src="auth.js"></script>
 <script src="live-employees.js"></script>
 <script src="live-time.js"></script>
+<script src="live-petty.js"></script>
 <script src="assistant-engine.js"></script>
 <script src="assistant.js"></script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body></html>

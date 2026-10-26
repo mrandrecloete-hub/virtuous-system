@@ -9,8 +9,10 @@
   async function call(payload){
     const token=await cfg.getAccessToken();
     if(!token)throw new Error('Please sign in again.');
-    const r=await fetch(cfg.supabaseUrl.replace(/\/$/,'')+'/functions/v1/admin-users',{method:'POST',
-      headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,apikey:cfg.anonKey},body:JSON.stringify(payload)});
+    let r;
+    try{r=await fetch(cfg.supabaseUrl.replace(/\/$/,'')+'/functions/v1/admin-users',{method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,apikey:cfg.anonKey},body:JSON.stringify(payload)})}
+    catch(x){throw new Error('Could not reach the user-management service. It may not be deployed yet (function admin-users), or you are offline.')}
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||'Something went wrong. Try again.');
     return j;

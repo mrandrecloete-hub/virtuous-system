@@ -6,6 +6,7 @@
   const live=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   if(!live)return;
 
+  const DEMO_USERS=state.users.slice();
   let sb=null,starting=true,msg='';
   const sbReady=()=>!!sb;
   const friendly=m=>/invalid login/i.test(m||'')?'Email or password is incorrect.':/rate|too many/i.test(m||'')?'Too many attempts. Wait a few minutes and try again.':(m||'Could not sign in. Try again.');
@@ -45,7 +46,8 @@
     if(error||!p)throw new Error('Your account is not set up yet. Contact your administrator.');
     if(!p.access_enabled){await sb.auth.signOut();throw new Error('Your access is switched off. Contact your administrator.')}
     const u=userFromProfile(p);
-    state.users=[u];state.data={};state.data[u.id]={entries:[],leaveBal:DEF_BAL(),leaves:[],loans:[]};
+    /* Keep the sample users so pages not yet connected still render their sample data. */
+    state.users=[u,...DEMO_USERS];state.data[u.id]={entries:[],leaveBal:DEF_BAL(),leaves:[],loans:[]};
     signIn(u);
     sb.rpc('record_login').then(()=>{},()=>{});
     return u;

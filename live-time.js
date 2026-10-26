@@ -5,7 +5,7 @@
   const cfg=window.VIRTUOSO||{};
   if(!(cfg.supabaseUrl&&cfg.anonKey)||/[?&]demo\b/.test(location.search))return;
   const sb=()=>window.VIRTUOSO.client;
-  const fresh=()=>({clients:null,loadC:false,mine:null,loadM:false,weekOff:0,billing:null,recent:null,loadB:false,pend:null,loadP:false,busy:false,uid:null});
+  const fresh=()=>({clients:null,loadC:false,mine:null,loadM:false,weekOff:0,billing:null,recent:null,all:null,tsPeriod:'month',tsInc:'approved',truncated:false,loadB:false,pend:null,loadP:false,busy:false,uid:null});
   let S=fresh();
   const pad=n=>String(n).padStart(2,'0');
   const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -28,10 +28,11 @@
     const {data,error}=await sb().from('time_entries').select('*').eq('user_id',state.user.id).gte('work_date',a).lte('work_date',b).order('work_date');
     S.loadM=false;S.mine=error?[]:data;render()}
   async function loadBilling(){if(S.loadB||!sb())return;S.loadB=true;
-    const ap=await sb().from('time_entries').select('client_id,hours').eq('status','Approved').limit(5000);
-    const rc=await sb().from('time_entries').select('user_id,client_id,work_date,task,hours,status').order('work_date',{ascending:false}).limit(50);
-    const nm=await names();
-    S.loadB=false;S.billing=ap.data||[];S.recent=(rc.data||[]).map(r=>({...r,who:nm[r.user_id]||'Unknown'}));render()}
+    const q=await sb().from('time_entries').select('user_id,client_id,task,hours,status,work_date').order('work_date',{ascending:false}).limit(5000);
+    const nm=await names(),rows=q.data||[];
+    S.loadB=false;S.truncated=rows.length>=5000;
+    S.all=rows.map(r=>({...r,who:nm[r.user_id]||'Unknown'}));
+    S.billing=rows.filter(r=>r.status==='Approved');S.recent=S.all.slice(0,50);render()}
   async function loadPend(silent){if(S.loadP||!sb())return;S.loadP=true;
     const {data}=await sb().from('time_entries').select('user_id,work_date,hours').eq('status','Pending').limit(5000);
     const nm=await names(),g={};
@@ -48,6 +49,39 @@
   },700);
   setInterval(()=>{if(state.user&&isAdm()&&S.pend!==null)loadPend(true)},30000);
 
+  /* Time spent on tasks: client -> task, for a period and status filter. */
+  function periodRange(){
+    const t=new Date(),y=t.getFullYear(),m=t.getMonth();
+    if(S.tsPeriod==='month')return [iso(new Date(y,m,1)),iso(new Date(y,m+1,0))];
+    if(S.tsPeriod==='last')return [iso(new Date(y,m-1,1)),iso(new Date(y,m,0))];
+    return ['0000-01-01','9999-12-31'];
+  }
+  function taskBreakdown(){
+    const [from,to]=periodRange(),by={};
+    (S.all||[]).forEach(r=>{
+      if(r.work_date<from||r.work_date>to)return;
+      if(S.tsInc==='approved'&&r.status!=='Approved')return;
+      const c=by[r.client_id]=by[r.client_id]||{id:r.client_id,hours:0,tasks:{}};
+      const key=String(r.task||'').trim().toLowerCase(),t=c.tasks[key]=c.tasks[key]||{task:String(r.task||'').trim()||'(no description)',hours:0,n:0,who:new Set()};
+      c.hours+= +r.hours;t.hours+= +r.hours;t.n++;t.who.add(r.user_id);
+    });
+    return Object.values(by).map(c=>{const cl=(S.clients||[]).find(x=>x.id===c.id);
+      return {name:cname(c.id),hours:c.hours,amt:cl&&cl.billable?c.hours*cl.hourly_rate:0,billable:!!(cl&&cl.billable),tasks:Object.values(c.tasks).sort((a,b)=>b.hours-a.hours)}})
+      .sort((a,b)=>b.hours-a.hours);
+  }
+  function taskPanel(){
+    const groups=taskBreakdown(),total=groups.reduce((s,g)=>s+g.hours,0);
+    const sel=(k,opts)=>`<select data-tsf="${k}" aria-label="${k==='tsPeriod'?'Period':'Include'}">${opts.map(([v,l])=>`<option value="${v}" ${S[k]===v?'selected':''}>${l}</option>`).join('')}</select>`;
+    return `<div class="panel"><h3>Time spent on tasks</h3>
+      <div class="form" style="margin-bottom:10px"><label>Period${sel('tsPeriod',[['month','This month'],['last','Last month'],['all','All time']])}</label>
+        <label>Include${sel('tsInc',[['approved','Approved time only'],['all','All logged time']])}</label></div>
+      <p class="note" style="margin-top:0">${S.all===null?'Loading…':`<b>${total.toFixed(2)} h</b> across ${groups.length} client${groups.length===1?'':'s'}.`}${S.truncated?' Showing the latest 5,000 entries only.':''}</p>
+      <div class="tbl"><table style="min-width:620px"><thead><tr><th>Client / task</th><th class="n">People</th><th class="n">Entries</th><th class="n">Hours</th><th class="n">Share</th><th class="n">Amount</th></tr></thead><tbody>
+      ${groups.length?groups.map(g=>`<tr class="total"><td><b>${esc(g.name)}</b></td><td></td><td class="n">${g.tasks.reduce((s,t)=>s+t.n,0)}</td><td class="n"><b>${g.hours.toFixed(2)}</b></td><td class="n">${total?Math.round(g.hours/total*100):0}%</td><td class="n">${g.billable?money(g.amt):'Not billable'}</td></tr>
+        ${g.tasks.map(t=>`<tr><td style="padding-left:22px">${esc(t.task)}</td><td class="n">${t.who.size}</td><td class="n">${t.n}</td><td class="n">${t.hours.toFixed(2)}</td><td class="n">${g.hours?Math.round(t.hours/g.hours*100):0}%</td><td class="n"></td></tr>`).join('')}`).join('')
+      :`<tr><td colspan="6" class="note">${S.all===null?'Loading…':'No time recorded for this selection.'}</td></tr>`}
+      </tbody></table></div></div>`;
+  }
   /* ---------- Clients & billing (admin) ---------- */
   function vClients(){
     if(S.clients===null)loadClients();
@@ -68,6 +102,7 @@
       <td><button class="btn ghost sm" data-act="ltRemoveClient" data-id="${esc(x.c.id)}">Remove</button></td></tr>`).join('')
       :`<tr><td colspan="6" class="note">${S.clients===null?'Loading…':'No clients yet. Add one above.'}</td></tr>`}
     </tbody></table></div></div>
+    ${taskPanel()}
     <div class="panel"><h3>Latest time entries</h3><div class="tbl"><table><thead><tr><th>Employee</th><th>Day</th><th>Client</th><th>Task</th><th class="n">Hours</th><th>Status</th></tr></thead><tbody>
     ${(S.recent||[]).length?S.recent.map(r=>`<tr><td>${esc(r.who)}</td><td>${esc(dayLbl(r.work_date))}</td><td>${esc(cname(r.client_id))}</td><td>${esc(r.task)}</td><td class="n">${(+r.hours).toFixed(2)}</td><td>${pill(r.status,stc(r.status))}</td></tr>`).join(''):'<tr><td colspan="6" class="note">No time logged yet.</td></tr>'}
     </tbody></table></div></div></div>`;
@@ -146,7 +181,9 @@
   },true);
 
   document.addEventListener('change',e=>{
-    const t=e.target;if(!t.dataset||!t.dataset.ltrate)return;
+    const t=e.target;
+    if(t.dataset&&t.dataset.tsf){e.stopImmediatePropagation();S[t.dataset.tsf]=t.value;return render()}
+    if(!t.dataset||!t.dataset.ltrate)return;
     e.stopImmediatePropagation();
     const v=parseFloat(t.value);if(!(v>=0)){toast('Enter a valid rate');S.clients=null;return render()}
     act(async()=>must(await sb().from('clients').update({hourly_rate:v}).eq('id',t.dataset.ltrate)),()=>{S.clients=null;toast('Rate updated')});

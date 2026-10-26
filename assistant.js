@@ -30,7 +30,7 @@
 
   const btn=document.createElement('button');btn.id='aiBtn';btn.type='button';btn.textContent='Ask Virtuoso';btn.setAttribute('aria-expanded','false');
   const panel=document.createElement('div');panel.id='aiPanel';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Virtuoso assistant');
-  panel.innerHTML=`<div class="ah"><span>Virtuoso assistant</span><small>built-in, read-only</small></div><div id="aiLog" aria-live="polite"></div><form id="aiForm"><input id="aiIn" placeholder="Ask about leave, hours, payroll, stock…" autocomplete="off" maxlength="1000" aria-label="Your question"><button id="aiSend">Send</button></form>`;
+  panel.innerHTML=`<div class="ah"><span>Virtuoso assistant</span><small>built-in, read-only</small></div><div id="aiLog" aria-live="polite"></div><form id="aiForm"><input id="aiIn" placeholder="Ask about leave, hours, payroll, stock…" autocomplete="off" maxlength="8000" aria-label="Your question"><button id="aiSend">Send</button></form>`;
   document.body.append(btn,panel);
   const log=panel.querySelector('#aiLog'),inp=panel.querySelector('#aiIn'),send=panel.querySelector('#aiSend');
 

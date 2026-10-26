@@ -152,9 +152,9 @@
       for(const [re,txt] of HOW)if(re.test(t))return {reply:txt,looked_at:[]};
     }
     for(const i of INTENTS){
-      if(!i.test(t))continue;
+      if(!i.test(t,raw))continue;
       if(i.admin&&!isAdmin())return {reply:adminOnly,looked_at:[]};
-      try{const reply=await i.run();return {reply,looked_at:[]}}catch(e){return {reply:e.message||'I could not look that up.',looked_at:[]}}
+      try{const reply=await i.run(raw,t);return {reply,looked_at:[]}}catch(e){return {reply:e.message||'I could not look that up.',looked_at:[]}}
     }
     if(/how (do|can|to|should)|where (do|can)|steps|guide/.test(t)||t.startsWith('how ')){
       for(const [re,txt] of HOW)if(re.test(t))return {reply:txt,looked_at:[]};
@@ -162,5 +162,7 @@
     for(const [re,txt] of HOW)if(re.test(t))return {reply:txt,looked_at:[]};
     return {reply:'I did not catch that. I am a simple built-in assistant, so try one of these:\n'+hintsFor().map(h=>'- '+h).join('\n'),looked_at:[]};
   }
-  window.VIRTUOSO_ENGINE={answer,hints:hintsFor};
+  const EXTRA_HINTS=[];
+  window.VIRTUOSO_ENGINE={answer,hints:()=>hintsFor().concat(isAdmin()?EXTRA_HINTS:[]),
+    addIntent:i=>INTENTS.unshift(i),addHints:h=>EXTRA_HINTS.push(...h),today:()=>today(),isAdmin};
 })();

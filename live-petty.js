@@ -57,6 +57,7 @@
   const safeName=n=>n.replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^\.+/,'').slice(-90)||'scan';
   const guess=f=>f.type||(/\.pdf$/i.test(f.name)?'application/pdf':/\.png$/i.test(f.name)?'image/png':/\.jpe?g$/i.test(f.name)?'image/jpeg':'');
 
+  const hint=(m,fallback)=>/relation .* does not exist|schema cache|could not find the table/i.test(m||'')?'the petty_documents table is missing: apply migration 0009':/bucket not found/i.test(m||'')?'the "documents" storage bucket does not exist: apply migration 0010':/row-level security|violates|not allowed|unauthori[sz]ed|permission/i.test(m||'')?'permission denied: apply migration 0010 and check you are signed in as an admin':fallback+' ['+String(m||'').slice(0,80)+']';
   async function upload(ek,kk,files){
     if(S.busy)return;S.busy=true;lockAll(true);S.msg='';err('pfMsg','');
     const msgs=[];let done=0;const m=month();
@@ -69,12 +70,12 @@
         if(LIVE){
           const path=`petty/${m}/${ek}/${kk}/${crypto.randomUUID()}-${safeName(f.name)}`;
           const up=await sb().storage.from('documents').upload(path,f,{contentType:mime,upsert:false});
-          if(up.error)throw new Error('upload');
+          if(up.error)throw new Error('storage: '+hint(up.error.message,'the "documents" storage bucket may be missing or you are not an admin'));
           const ins=await sb().from('petty_documents').insert({month:m+'-01',entity:ek,kind:kk,storage_path:path,name:f.name,size:f.size,mime});
-          if(ins.error){await sb().storage.from('documents').remove([path]);throw new Error('save')}
+          if(ins.error){await sb().storage.from('documents').remove([path]);throw new Error('record: '+hint(ins.error.message,'migration 0009 may not be applied yet'))}
         }else state.pcDocs.unshift({id:uid(),month:m,entity:ek,kind:kk,name:f.name,size:f.size,mime,url:URL.createObjectURL(f),at:new Date().toISOString()});
         done++;
-      }catch(x){msgs.push(f.name+': could not be uploaded. Try again.')}
+      }catch(x){msgs.push(f.name+': could not be uploaded ('+(x.message||'unknown error')+').')}
     }
     S.busy=false;lockAll(false);
     if(done){S.docs=null;toast(done+' file'+(done>1?'s':'')+' uploaded')}

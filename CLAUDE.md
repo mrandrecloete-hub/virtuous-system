@@ -14,5 +14,10 @@ Single-file demo app: `index.html` (vanilla JS, no build step). PWA files: `mani
 - Modules: dashboard, employees, timesheets, clients and billing, leave, loans, payroll and payslips, wet signature, petty cash (receipts, sheets, reconcile), stationery, cash taken, KYC forms builder, staff requests, reports, audit log, alerts.
 - Excel upload uses SheetJS from cdnjs.
 
+## Backend (in progress)
+- `supabase/migrations/` 0001-0007: schema, RLS, audit, payroll lock, storage, assistant usage cap. Tested locally on Postgres with stubbed auth only.
+- `supabase/functions/assistant/`: read-only AI assistant (Edge Function). Panel in `assistant.js`, config in `config.js`. Needs `ANTHROPIC_API_KEY` as a Supabase secret, never in front-end files.
+- Front end still runs on demo `state`; wiring modules to Supabase is not done.
+
 ## Next step
 Replace the demo state with a real backend and database (see the build prompts the owner has: the master build prompt and the synchronization prompt). Keep server-side permissions, payroll locking, audit log.

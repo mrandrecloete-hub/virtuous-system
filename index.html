@@ -320,9 +320,9 @@ const state={
   user:null,role:'emp',tab:{emp:'dash',adm:'dash'},online:true,queue:0,offlineSince:null,
   users:[
     mk('u0','admin','Administrator','Firm owner','admin@firm.example','Admin#2026'),
-    mk('u1','emp','Selma Nghipandulwa','Senior Accountant','selma@firm.example','Welcome#1',{base:28500,allow:1800,ot:6,loan:1000,lastSeen:new Date('2026-10-24T08:55:00'),lastLogin:new Date('2026-10-24T08:55:00')}),
+    mk('u1','emp','Selma Nghipandulwa','Senior Accountant','selma@firm.example','Welcome#1',{base:28500,allow:1800,ot:6,lastSeen:new Date('2026-10-24T08:55:00'),lastLogin:new Date('2026-10-24T08:55:00')}),
     mk('u2','emp','Johannes Amupolo','Audit Clerk','johannes@firm.example','Welcome#2',{base:16200,allow:900,ded:250,lastSeen:new Date('2026-10-24T08:12:00'),lastLogin:new Date('2026-10-24T08:12:00'),beat:Date.now()-40000}),
-    mk('u3','emp','Maria van Wyk','Payroll Officer','maria@firm.example','Welcome#3',{base:21000,allow:1200,ot:3,loan:500,lastSeen:new Date('2026-10-23T17:40:00'),lastLogin:new Date('2026-10-23T08:03:00')}),
+    mk('u3','emp','Maria van Wyk','Payroll Officer','maria@firm.example','Welcome#3',{base:21000,allow:1200,ot:3,lastSeen:new Date('2026-10-23T17:40:00'),lastLogin:new Date('2026-10-23T08:03:00')}),
     mk('u4','emp','Tobias Haufiku','Junior Accountant','tobias@firm.example','Welcome#4',{base:14800,allow:600,ot:10,ded:120,mustChange:true})
   ],
   data:{},
@@ -331,7 +331,6 @@ const state={
   approvals:[
     {id:'a1',uid:'u2',type:'Timesheet',who:'Johannes Amupolo',detail:'Week 12-16 Oct, 41.0 h',status:'Pending'},
     {id:'a2',uid:'u3',type:'Leave',who:'Maria van Wyk',detail:'Annual leave, 2 to 4 Nov, 3 days',status:'Pending'},
-    {id:'a3',uid:'u4',type:'Loan',who:'Tobias Haufiku',detail:'Salary advance N$ 2,500 over 2 months',status:'Pending'},
     {id:'a4',uid:'u4',type:'Timesheet',who:'Tobias Haufiku',detail:'Week 12-16 Oct, 39.5 h',status:'Pending'}
   ],
   clients:[{id:'c1',name:'Kalahari Mining Ltd',rate:850,bill:true},{id:'c2',name:'Benguela Fisheries',rate:750,bill:true},{id:'c3',name:'Swakop Retail Group',rate:700,bill:true},{id:'c4',name:'Internal',rate:0,bill:false}],
@@ -339,7 +338,7 @@ const state={
   finalised:false,
   tol:2,thr:0.6,month:'2026-10',pcm:{},shMsg:''
 };
-state.users.forEach(u=>{state.data[u.id]={entries:[],leaveBal:DEF_BAL(),leaves:[],loans:[]}});
+state.users.forEach(u=>{state.data[u.id]={entries:[],leaveBal:DEF_BAL(),leaves:[]}});
 Object.assign(state.data.u1,{
   entries:[
     {day:'Mon 19 Oct',client:'Kalahari Mining Ltd',task:'Year-end audit prep',hrs:7.5,status:'Draft'},
@@ -348,8 +347,7 @@ Object.assign(state.data.u1,{
     {day:'Thu 22 Oct',client:'Kalahari Mining Ltd',task:'Fixed asset register',hrs:8,status:'Draft'},
     {day:'Fri 23 Oct',client:'Internal',task:'Team training',hrs:7.5,status:'Draft'}],
   leaveBal:[],
-  leaves:[{id:'lv0',type:'Annual',from:'2026-09-14',to:'2026-09-16',days:3,reason:'Family trip',cover:'Maria van Wyk',status:'Approved'}],
-  loans:[{label:'Salary advance, 6 instalments',amount:6000,paid:3,per:1000,status:'Active'}]
+  leaves:[{id:'lv0',type:'Annual',from:'2026-09-14',to:'2026-09-16',days:3,reason:'Family trip',cover:'Maria van Wyk',status:'Approved'}]
 });
 const staff=()=>state.users.filter(u=>u.type==='emp');
 
@@ -439,7 +437,6 @@ const ICON={
  clients:'<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/>',
  time:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
  leave:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
- loans:'<circle cx="9" cy="9" r="6"/><path d="M15 9.5a6 6 0 1 1-5.5 8"/>',
  slip:'<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
  approvals:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
  employees:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.8c1.8.7 3 2.3 3.5 5.2"/>',
@@ -452,7 +449,7 @@ const ICON={
  stationery:'<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/>',
  cash:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.7c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.9-2.5.9-2.5 1.9 1 1.8 2.5 1.8 2.5-.8 2.5-1.8"/>'};
 const NAV={
- emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['loans','Loans'],['slip','Payslips'],['stationery','Stationery list'],['cash','Petty cash']]]],
+ emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['slip','Payslips'],['stationery','Stationery list'],['cash','Petty cash']]]],
  adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['kyc','Client KYC'],['leave','Leave'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Timesheet']]],['Office',[['stationery','Stationery list']]]]};
 function pending(){return state.approvals.filter(a=>a.status==='Pending').length}
 function paintTabs(){
@@ -589,27 +586,15 @@ function leaveSummary(){
   $('#lDocNote').textContent=c.type==='Sick'&&c.days>2?'(required for sick leave over 2 days)':'(optional)';
   $('#lSum').textContent=c.days?`${c.days} working day${c.days===1?'':'s'}`:'Pick working days to see the length.';
 }
-function vLoans(){
-  const d=D(),L=d.loans.find(l=>l.status==='Active'),bal=L?L.amount-L.paid*L.per:0;
-  const rows=L?Array.from({length:Math.round(L.amount/L.per)},(_,i)=>`<tr><td>Instalment ${i+1}</td><td class="n">${NAD(L.per)}</td><td>${pill(i<L.paid?'Paid':'Scheduled',i<L.paid?'ok':'')}</td></tr>`).join(''):'';
-  return `<h2>Loans</h2><p class="sub">Instalments are deducted automatically in each payroll run.</p>
-  <div class="stack"><div class="tiles"><div class="tile"><b>${NAD(bal)}</b><span>Outstanding</span></div><div class="tile"><b>${L?L.paid+' / '+Math.round(L.amount/L.per):'None'}</b><span>Instalments paid</span></div></div>
-  ${L?`<div class="panel"><h3>${esc(L.label)}</h3><div class="tbl"><table><tbody>${rows}</tbody></table></div></div>`:''}
-  <div class="panel"><h3>Request an advance</h3><form class="form" id="loanForm">
-    <label>Amount (N$)<input id="aAmt" type="number" min="100" step="100" value="2000"></label>
-    <label>Repay over (months)<input id="aMon" type="number" min="1" max="12" value="4"></label>
-    <button class="btn" type="submit">Send request</button></form>
-    ${d.loans.filter(l=>l!==L).map(l=>`<p class="note">${esc(l.label)}: ${pill(l.status,stc(l.status))}</p>`).join('')}</div></div>`;
-}
 function vSlip(){
-  const e=state.user,c=calc(e),L=D().loans.find(l=>l.status==='Active'),bal=L?L.amount-L.paid*L.per-e.loan:0;
+  const e=state.user,c=calc(e);
   return `<h2>Payslip</h2><p class="sub">${state.online?'Rendered from the live template.':'Offline: rendered on this device from the cached template.'}</p>
   <div class="panel slip"><div class="hd"><div><b>Virtuous Accounting Solutions CC</b><div class="note">Windhoek, Namibia</div></div><div style="text-align:right"><b>Payslip, October 2026</b><div>${pill(state.finalised?'Final':'Draft',state.finalised?'ok':'warn')}</div></div></div>
   <div class="note" style="margin-bottom:10px">${esc(e.name)} · ${esc(e.title)}</div>
   <h3>Earnings</h3><dl><dt>Basic salary</dt><dd>${NAD(e.base)}</dd><dt>Allowances</dt><dd>${NAD(e.allow)}</dd><dt>Overtime (${e.ot} h at 1.5x)</dt><dd>${NAD(c.ot)}</dd><dt><b>Gross pay</b></dt><dd><b>${NAD(c.gross)}</b></dd></dl>
-  <h3>Deductions</h3><dl><dt>Loan instalment</dt><dd>${NAD(e.loan)}</dd><dt>Other deductions</dt><dd>${NAD(e.ded)}</dd><dt><b>Total deductions</b></dt><dd><b>${NAD(c.ded)}</b></dd></dl>
+  <h3>Deductions</h3><dl><dt>Other deductions</dt><dd>${NAD(e.ded)}</dd><dt><b>Total deductions</b></dt><dd><b>${NAD(c.ded)}</b></dd></dl>
   <div class="net-pay"><span>Net pay</span><span class="mono">${NAD(c.net)}</span></div>
-  ${c.reimb?`<p class="note" style="margin:8px 0 0">Net pay includes ${NAD(c.reimb)} approved expense reimbursement (not part of gross pay).</p>`:''}<p class="note" style="margin:10px 0 0">Loan balance after this payslip: ${NAD(Math.max(0,bal))}. No tax is calculated in this version.</p>
+  ${c.reimb?`<p class="note" style="margin:8px 0 0">Net pay includes ${NAD(c.reimb)} approved expense reimbursement (not part of gross pay).</p>`:''}<p class="note" style="margin:10px 0 0">No tax is calculated in this version.</p>
   ${state.finalised&&state.runSig&&state.runSigUrl?`<div class="signline"><span class="sigbox"><img src="${state.runSigUrl}" alt="Authorised signature"></span><br>Authorised signature</div>`:`<div class="signline">${state.finalised?'Not signed':'Authorised signature (added when the run is finalised)'}</div>`}</div>`;
 }
 
@@ -764,7 +749,6 @@ function dEmp(){
   const total=d.entries.reduce((s,x)=>s+x.hrs,0);
   const days=['Mon','Tue','Wed','Thu','Fri','Sat'];
   const per=days.map(k=>d.entries.filter(x=>x.day.startsWith(k)).reduce((s,x)=>s+x.hrs,0));
-  const L=d.loans.find(l=>l.status==='Active'),bal=L?L.amount-L.paid*L.per:0;
   const mine=state.approvals.filter(a=>a.uid===e.id).slice(-4).reverse();
   const draft=d.entries.some(x=>x.status==='Draft');
   const hr=new Date().getHours(),greet=hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
@@ -773,7 +757,6 @@ function dEmp(){
   <div class="tiles">
     <button class="tile link" data-tab="time"><b>${total.toFixed(1)} h</b><span>Hours this week</span><small>Target 40 h</small></button>
     <button class="tile link" data-tab="leave"><b>${d.leaves.filter(l=>l.status==='Pending').length}</b><span>Leave applications waiting</span><small>${d.leaves.length} sent in total</small></button>
-    <button class="tile link" data-tab="loans"><b>${NAD(bal)}</b><span>Loan balance</span><small>${L?L.paid+' of '+Math.round(L.amount/L.per)+' instalments paid':'No active loan'}</small></button>
     <button class="tile link" data-tab="slip"><b>${NAD(c.net)}</b><span>October net pay</span><small>${state.finalised?'Final':'Draft until payroll closes'}</small></button>
   </div>
   <div class="dgrid">
@@ -792,7 +775,7 @@ function dAdm(){
   const pc=pcSummary(),tot=Math.max(1,pc.rec+pc.dis+pc.mis+pc.orp);
   const pend=state.approvals.filter(a=>a.status==='Pending');
   const tsOpen=pend.some(a=>a.type==='Timesheet'),reqOpen=pend.some(a=>a.type!=='Timesheet');
-  const chk=[['All timesheets approved',!tsOpen,'approvals'],['Leave and loan requests reviewed',!reqOpen,'approvals'],['Petty cash locked for '+monthLabel(state.month),state.locked,'petty']];
+  const chk=[['All timesheets approved',!tsOpen,'approvals'],['Leave requests reviewed',!reqOpen,'approvals'],['Petty cash locked for '+monthLabel(state.month),state.locked,'petty']];
   const doneN=chk.filter(x=>x[1]).length;
   const seg=(n,c)=>n?`<i style="width:${n/tot*100}%;background:${c}"></i>`:'';
   return `<div class="hello"><div><h2>Dashboard</h2><p class="sub" style="margin:0">October 2026 close, financial year 2027. ${doneN} of ${chk.length} month-end steps done.</p></div></div>
@@ -1395,7 +1378,7 @@ document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest
   if(t.dataset.k==='repCsv')repCsv(t.dataset.id);
   if(t.dataset.k==='auditCsv')kDownload('audit_log.csv','text/csv',csvOf([['When','Who','Action','Details']].concat((state.audit||[]).map(a=>[fmtDT(a.at),a.by,a.action,a.detail]))))});
 document.addEventListener('input',e=>{if(e.target.id==='auQ'){state.auditQ=e.target.value;kRender();const q=$('#auQ');q&&(q.focus(),q.setSelectionRange(q.value.length,q.value.length))}});
-const VIEWS={reports:vReports,audit:vAudit,requests:vRequests,kyc:vKyc,clients:vClients,dash:()=>state.role==='emp'?dEmp():dAdm(),time:vTime,leave:vLeave,loans:vLoans,slip:vSlip,employees:vEmployees,approvals:vApprovals,payroll:vPayroll,activity:vActivity,receipts:vReceipts,sheets:vSheets,petty:vPetty,alerts:vAlerts,stationery:vStat,cash:vCash};
+const VIEWS={reports:vReports,audit:vAudit,requests:vRequests,kyc:vKyc,clients:vClients,dash:()=>state.role==='emp'?dEmp():dAdm(),time:vTime,leave:vLeave,slip:vSlip,employees:vEmployees,approvals:vApprovals,payroll:vPayroll,activity:vActivity,receipts:vReceipts,sheets:vSheets,petty:vPetty,alerts:vAlerts,stationery:vStat,cash:vCash};
 
 function render(){
   paintAuth();
@@ -1415,7 +1398,6 @@ function resolveApproval(x,ok){
   if(x.kind==='leave'&&x.obj){x.obj.status=x.status;
     if(ok){const b=d.leaveBal.find(b=>b[0]===x.obj.type);if(b)b[1]=Math.max(0,b[1]-x.obj.days)}}
   if(x.kind==='time'&&x.list)x.list.forEach(e=>e.status=ok?'Approved':'Draft');
-  if(x.kind==='loan'&&x.obj){x.obj.status=ok?'Active':'Rejected';if(ok)u.loan+=Math.round(x.obj.per)}
 }
 
 /* ---------- Events ---------- */
@@ -1570,9 +1552,6 @@ document.addEventListener('submit',e=>{
       detail:c.type+' leave, '+fmtD(c.from)+' to '+fmtD(c.to)+', '+c.days+' day'+(c.days===1?'':'s')+'. Reason: '+reason+(l.cover?'. Cover: '+l.cover:'')});
     queue();toast('Leave application sent');render();
   }
-  if(f==='loanForm'){const amt=parseFloat($('#aAmt').value),m=parseInt($('#aMon').value);if(!(amt>0&&m>0))return toast('Check amount and months');
-    const l={label:'Advance '+NAD(amt)+' over '+m+' months',amount:amt,paid:0,per:amt/m,status:'Pending'};D().loans.push(l);
-    state.approvals.push({id:uid(),uid:state.user.id,type:'Loan',who:state.user.name,kind:'loan',obj:l,detail:'Salary advance '+NAD(amt)+' over '+m+' months',status:'Pending'});queue();toast('Advance request sent');render()}
   if(f==='empForm'){
     const name=$('#nName').value.trim(),email=$('#nEmail').value.trim().toLowerCase(),pw=$('#nPass').value,err=$('#nErr');
     let m='';
@@ -1584,7 +1563,7 @@ document.addEventListener('submit',e=>{
     const type=$('#nRole').value,id=uid();
     const u=mk(id,type,name,$('#nTitle').value.trim()||(type==='admin'?'Administrator':'Employee'),email,pw,
       {access:$('#nAccess').checked,mustChange:$('#nMust').checked,base:type==='emp'?(+$('#nBase').value||0):0,allow:type==='emp'?(+$('#nAllow').value||0):0});
-    state.users.push(u);state.data[id]={entries:[],leaveBal:DEF_BAL(),leaves:[],loans:[]};logA('Employee added',name+' ('+type+')');
+    state.users.push(u);state.data[id]={entries:[],leaveBal:DEF_BAL(),leaves:[]};logA('Employee added',name+' ('+type+')');
     state.newCred={name,email,password:pw,mustChange:u.mustChange};
     toast(name+' added');render();window.scrollTo(0,0);
   }

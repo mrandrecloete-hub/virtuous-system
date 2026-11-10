@@ -1,11 +1,11 @@
-/* Live Leave and Loans for staff. Rules (balance, overlaps, one active loan, withdrawals) are enforced
+/* Live Leave for staff. Rules (balance, overlaps, withdrawals) are enforced
    by the database; the checks here only give quick feedback. Approvals are in live-time.js.
    Starting leave balances are placeholders until an admin sets real entitlements. */
 (function(){
   const cfg=window.VIRTUOSO||{};
   if(!(cfg.supabaseUrl&&cfg.anonKey)||/[?&]demo\b/.test(location.search))return;
   const sb=()=>window.VIRTUOSO.client;
-  const fresh=()=>({uid:null,bal:null,reqs:null,loans:null,loadL:false,loadN:false,busy:false});
+  const fresh=()=>({uid:null,bal:null,reqs:null,loadL:false,busy:false});
   let S=fresh();
   const pad=n=>String(n).padStart(2,'0');
   const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -20,9 +20,6 @@
   async function loadLeave(){if(S.loadL||!sb())return;S.loadL=true;
     const r=await sb().from('leave_requests').select('*').eq('user_id',state.user.id).order('from_date',{ascending:false}).limit(50);
     S.loadL=false;S.bal=[];S.reqs=r.error?[]:r.data;render()}
-  async function loadLoans(){if(S.loadN||!sb())return;S.loadN=true;
-    const r=await sb().from('loans').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false}).limit(50);
-    S.loadN=false;S.loans=r.error?[]:r.data;render()}
 
   /* ---------- Leave ---------- */
   function vLeave(){
@@ -57,36 +54,12 @@
     $('#lSum').textContent=c.days?`${c.days} working day${c.days===1?'':'s'}`:'Pick working days to see the length.';
   };
 
-  /* ---------- Loans ---------- */
-  function vLoans(){
-    if(S.loans===null)loadLoans();
-    const loans=S.loans||[],L=loans.find(l=>l.status==='Active'),n=L?Math.max(1,Math.round(L.amount/L.instalment)):0,bal=L?L.amount-L.instalments_paid*L.instalment:0;
-    const rows=L?Array.from({length:n},(_,i)=>`<tr><td>Instalment ${i+1}</td><td class="n">${money(L.instalment)}</td><td>${pill(i<L.instalments_paid?'Paid':'Scheduled',i<L.instalments_paid?'ok':'')}</td></tr>`).join(''):'';
-    return `<h2>Loans</h2><p class="sub">Request a salary advance. Once payroll is connected, instalments are deducted in each payroll run.</p>
-    <div class="stack"><div class="tiles"><div class="tile"><b>${money(bal)}</b><span>Outstanding</span></div><div class="tile"><b>${L?L.instalments_paid+' / '+n:'None'}</b><span>Instalments paid</span></div></div>
-    ${L?`<div class="panel"><h3>${esc(L.label)}</h3><div class="tbl"><table><tbody>${rows}</tbody></table></div></div>`:''}
-    <div class="panel"><h3>Request an advance</h3><form class="form" id="loanForm" novalidate>
-      <label>Amount (N$)<input id="aAmt" type="number" min="100" step="100" value="2000"></label>
-      <label>Repay over (months)<input id="aMon" type="number" min="1" max="12" value="4"></label>
-      <button class="btn" type="submit">Send request</button></form><div class="err" id="aErr" role="alert"></div>
-      ${loans.filter(l=>l!==L).map(l=>`<p class="note" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${esc(l.label)}: ${pill(l.status,stc(l.status))}${l.status==='Pending'?`<button class="btn sm ghost" data-act="llLoanWithdraw" data-id="${esc(l.id)}">Withdraw</button>`:''}</p>`).join('')}</div></div>`;
-  }
-  VIEWS.leave=vLeave;VIEWS.loans=vLoans;
+  VIEWS.leave=vLeave;
 
   const lockAll=on=>document.querySelectorAll('#view button').forEach(b=>{b.disabled=on});
   document.addEventListener('submit',async e=>{
-    const f=e.target.id;if(f!=='leaveForm'&&f!=='loanForm')return;
+    const f=e.target.id;if(f!=='leaveForm')return;
     e.preventDefault();e.stopImmediatePropagation();if(S.busy)return;
-    if(f==='loanForm'){
-      const amt=Math.round(parseFloat($('#aAmt').value)*100)/100,m=parseInt($('#aMon').value),er=$('#aErr');
-      if(!(amt>=100))return er.textContent='Enter an amount of N$ 100 or more.';if(!(m>=1&&m<=12))return er.textContent='Choose 1 to 12 months.';
-      if((S.loans||[]).some(l=>l.status==='Pending'))return er.textContent='You already have a request waiting for approval.';
-      er.textContent='';S.busy=true;lockAll(true);
-      const r=await sb().from('loans').insert({label:'Advance '+money(amt)+' over '+m+' month'+(m>1?'s':''),amount:amt,instalment:Math.round(amt/m*100)/100});
-      S.busy=false;lockAll(false);
-      if(r.error)return er.textContent=safeMsg(r.error.message);
-      S.loans=null;toast('Advance request sent');return render();
-    }
     const c=leaveCalc(),err=$('#lErr'),reason=$('#lReason').value.trim(),file=$('#lFile').files[0],b=(S.bal||[]).find(x=>x.leave_type===c.type),reqs=S.reqs||[];
     let m='';
     if(!c.from||!c.to)m='Choose the first and last day.';
@@ -125,12 +98,12 @@
       return LP.open({ref:'LV-'+String(l.id).slice(0,8).toUpperCase(),status:l.status,name:u.name,title:u.title,email:u.email,type:l.leave_type,from:String(l.from_date).slice(0,10),to:String(l.to_date).slice(0,10),days:+l.days,half:!!l.half_day,reason:l.reason||'',phone:l.phone||'',cover:l.cover_name||'',doc:!!l.doc_path});
     }
     if(S.busy)return;
-    const kind=b.dataset.act==='llWithdraw'?'leave':'loan';
+    const kind='leave';
     if(!confirm('Withdraw this request?'))return;
     S.busy=true;lockAll(true);
     const r=await sb().rpc('withdraw_request',{p_kind:kind,p_id:b.dataset.id});
     S.busy=false;lockAll(false);
     if(r.error)return toast(safeMsg(r.error.message));
-    if(kind==='leave')S.reqs=null;else S.loans=null;toast('Request withdrawn');render();
+    S.reqs=null;toast('Request withdrawn');render();
   },true);
 })();

@@ -23,11 +23,10 @@
       return {rows:(await sel('leave_balances','leave_type,days',q=>q.eq('user_id',state.user.id))).map(r=>[r.leave_type,+r.days]),src:'leave_balances'};
     },
     async myRequests(){
-      if(!live()){const d=D();return {leave:d.leaves.map(l=>`${l.type} leave ${l.from} to ${l.to}: ${l.status}`),loans:d.loans.map(l=>`${l.label}: ${l.status}`),ts:d.entries.filter(e=>e.status!=='Draft').length,src:'requests'}}
+      if(!live()){const d=D();return {leave:d.leaves.map(l=>`${l.type} leave ${l.from} to ${l.to}: ${l.status}`),ts:d.entries.filter(e=>e.status!=='Draft').length,src:'requests'}}
       const me=state.user.id;
       const lv=await sel('leave_requests','leave_type,from_date,to_date,status',q=>q.eq('user_id',me).order('from_date',{ascending:false}).limit(10));
-      const ln=await sel('loans','label,status',q=>q.eq('user_id',me).limit(10));
-      return {leave:lv.map(l=>`${l.leave_type} leave ${l.from_date} to ${l.to_date}: ${l.status}`),loans:ln.map(l=>`${l.label}: ${l.status}`),ts:0,src:'leave_requests, loans'};
+      return {leave:lv.map(l=>`${l.leave_type} leave ${l.from_date} to ${l.to_date}: ${l.status}`),ts:0,src:'leave_requests'};
     },
     async hoursThisWeek(){
       const [a,b]=weekRange();
@@ -85,7 +84,6 @@
     [/(disable|remove|block|deactivate).*(user|employee|access|account|staff)/,'**Switch off access** (admins): open **Employees** and click **Disable**. They are signed out and cannot sign in. Use **Enable** to restore.'],
     [/finali[sz]e.*payroll|run payroll|close payroll|payroll.*finali/,'**Finalise payroll** (admins): approve every pending timesheet first, then open **Payroll**, choose how to sign, and click **Finalise run**. A finalised run is locked.'],
     [/(request|apply|take|book).*leave|leave.*(request|apply)/,'**Request leave**: open **Leave**, choose the type and dates, add a reason and a person to cover, then submit. Your administrator approves it.'],
-    [/(request|apply|ask).*(loan|advance)|salary advance/,'**Request a salary advance**: open **Loans**, enter the amount and the number of months, then submit for approval.'],
     [/(log|enter|submit|fill).*(time|hours|timesheet)|timesheet.*(submit|how)/,'**Timesheet**: open **Timesheet**, add your hours per day and client, then submit the week for approval.'],
     [/(lock|close).*(petty|month)|petty.*lock/,'**Lock petty cash** (admins): open **Reconcile**, check the results, then click **Lock** for the month. Unlocking is logged.'],
     [/(take|get|collect).*(stationery|pen|paper|stock)|stationery.*(take|how)/,'**Stationery list**: open **Stationery list** to see what is in stock and what to buy this month. An administrator keeps it up to date.'],
@@ -113,10 +111,10 @@
       run:async()=>{const p=await Q.pendingTimesheets();return p.rows.length?`**${p.rows.length}** with timesheets waiting for approval:\n`+list(p.rows)+'\n\nApprove them in **Approvals**.':'No timesheets are waiting for approval.'}},
     {id:'leave',test:t=>has(t,'leave')&&has(t,'balance','left','remaining','how much','how many','days','entitle')&&!/request|apply|book/.test(t),
       run:async()=>{const b=await Q.leaveBalance();return b.rows.length?'Your leave balance:\n'+list(b.rows.map(([t,d])=>`${t}: **${d}** day${d===1?'':'s'}`)):'No leave balances are recorded for you yet. Ask your administrator to set them up.'}},
-    {id:'requests',test:t=>/my (request|leave|loan|advance)|status of my|my approvals|were my/.test(t)||(has(t,'status')&&has(t,'request')),
+    {id:'requests',test:t=>/my (request|leave)|status of my|my approvals|were my/.test(t)||(has(t,'status')&&has(t,'request')),
       run:async()=>{const r=await Q.myRequests(),o=[];
-        if(r.leave.length)o.push('**Leave**\n'+list(r.leave));if(r.loans.length)o.push('**Loans and advances**\n'+list(r.loans));
-        return o.length?o.join('\n\n'):'You have no leave or loan requests on record.'}},
+        if(r.leave.length)o.push('**Leave**\n'+list(r.leave));
+        return o.length?o.join('\n\n'):'You have no leave requests on record.'}},
     {id:'hours',test:t=>has(t,'hours','timesheet','logged','worked')&&!has(t,'unapproved','pending','who has')&&!/how (do|can|to)/.test(t),
       run:async()=>{const h=await Q.hoursThisWeek();return h.rows.length?`This week (${h.a} to ${h.b}) you have logged **${h.total} hours**:\n`+list(h.rows):`You have not logged any hours for the week of ${h.a}.`}},
     {id:'stock',test:t=>has(t,'stock','stationery','running low','reorder','supplies','low on'),

@@ -453,7 +453,7 @@ const ICON={
  cash:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.7c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.9-2.5.9-2.5 1.9 1 1.8 2.5 1.8 2.5-.8 2.5-1.8"/>'};
 const NAV={
  emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['loans','Loans'],['slip','Payslips'],['stationery','Stationery list'],['cash','Petty cash']]]],
- adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['kyc','Client KYC'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Timesheet']]],['Office',[['stationery','Stationery list']]]]};
+ adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['kyc','Client KYC'],['leave','Leave'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Timesheet']]],['Office',[['stationery','Stationery list']]]]};
 function pending(){return state.approvals.filter(a=>a.status==='Pending').length}
 function paintTabs(){
   const cur=state.tab[state.role];let title='Dashboard';
@@ -1399,7 +1399,7 @@ function render(){
   try{$('#view').innerHTML=VIEWS[state.tab[state.role]]()}
   catch(e){console.error(e);$('#view').innerHTML='<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">This page could not load. Try another page or reload. If it keeps happening, tell your administrator.</div>'}
   if(window.kycAfter)kycAfter();
-  if(state.tab[state.role]==='leave'&&state.role==='emp')leaveSummary();
+  if(state.tab[state.role]==='leave')leaveSummary();
   if(state.tab[state.role]==='alerts')paintTabs();
 }
 

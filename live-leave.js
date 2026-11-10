@@ -18,9 +18,8 @@
   setInterval(()=>{const u=state.user?state.user.id:null;if(u!==S.uid){S=fresh();S.uid=u}},700);
 
   async function loadLeave(){if(S.loadL||!sb())return;S.loadL=true;
-    const b=await sb().from('leave_balances').select('leave_type,days').eq('user_id',state.user.id).order('leave_type');
     const r=await sb().from('leave_requests').select('*').eq('user_id',state.user.id).order('from_date',{ascending:false}).limit(50);
-    S.loadL=false;S.bal=b.error?[]:b.data;S.reqs=r.error?[]:r.data;render()}
+    S.loadL=false;S.bal=[];S.reqs=r.error?[]:r.data;render()}
   async function loadLoans(){if(S.loadN||!sb())return;S.loadN=true;
     const r=await sb().from('loans').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false}).limit(50);
     S.loadN=false;S.loans=r.error?[]:r.data;render()}
@@ -29,10 +28,10 @@
   function vLeave(){
     if(S.bal===null||S.reqs===null)loadLeave();
     const bal=S.bal||[],reqs=S.reqs||[],d=nextWorkday();
-    return `<h2>Leave</h2><p class="sub">Fill in the form below. Your administrator reviews it and your balance updates once it is approved.</p>
-    <div class="stack"><div class="tiles">${bal.length?bal.map(b=>`<div class="tile"><b>${+b.days}</b><span>${esc(b.leave_type)} days left</span></div>`).join(''):`<div class="tile"><b>-</b><span>${S.bal===null?'Loading balances…':'No leave balances set yet'}</span></div>`}</div>
+    return `<h2>Leave</h2><p class="sub">Fill in the form below and send it. Your administrator reviews it, and you can follow its status under My applications.</p>
+    <div class="stack">
     <div class="panel"><h3>Leave application</h3><form class="form" id="leaveForm" novalidate>
-      <label>Leave type<select id="lType">${[...new Set(['Annual','Sick','Family responsibility',...bal.map(b=>b.leave_type),'Unpaid'])].map(t=>`<option>${esc(t)}</option>`).join('')}</select></label>
+      <label>Leave type<select id="lType">${['Annual','Sick','Study','Compassionate','Unpaid'].map(t=>`<option>${t}</option>`).join('')}</select></label>
       <label>First day<input id="lFrom" type="date" value="${d}" required></label>
       <label>Last day<input id="lTo" type="date" value="${d}" required></label>
       <label>Length<select id="lPortion"><option value="full">Full days</option><option value="half">Half day (one day only)</option></select></label>
@@ -55,7 +54,7 @@
     const c=leaveCalc(),b=(S.bal||[]).find(x=>x.leave_type===c.type);
     $('#lPortion').disabled=!c.single;if(!c.single)$('#lPortion').value='full';
     $('#lDocNote').textContent=c.type==='Sick'&&c.days>2?'(required for sick leave over 2 days)':'(optional)';
-    $('#lSum').textContent=c.days?`${c.days} working day${c.days===1?'':'s'}`+(b?`. Balance after approval: ${(+b.days-c.days).toFixed(1)} days.`:'. Unpaid leave does not use a balance.'):'Pick working days to see the length.';
+    $('#lSum').textContent=c.days?`${c.days} working day${c.days===1?'':'s'}`:'Pick working days to see the length.';
   };
 
   /* ---------- Loans ---------- */

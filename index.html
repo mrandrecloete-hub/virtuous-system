@@ -297,7 +297,7 @@ const fmtDT=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+', '+
 let seq=100;const uid=()=>'x'+(++seq);
 
 const calc=e=>{const ot=Math.round(e.ot*(e.base/173.33)*1.5*100)/100;const gross=e.base+e.allow+ot;const ded=e.loan+e.ded;const re=e.reimb||0;return{ot,gross,ded,reimb:re,net:gross-ded+re}};
-const DEF_BAL=()=>[['Annual',15],['Sick',10],['Family responsibility',3]];
+const DEF_BAL=()=>[];
 const mk=(id,type,name,title,email,password,o={})=>Object.assign({id,type,name,title,email,password,access:true,mustChange:false,base:0,allow:0,ot:0,loan:0,ded:0,lastSeen:null,lastLogin:null,beat:null},o);
 
 const SEED_SHEET=[
@@ -347,7 +347,7 @@ Object.assign(state.data.u1,{
     {day:'Wed 21 Oct',client:'Swakop Retail Group',task:'VAT working papers',hrs:7.5,status:'Draft'},
     {day:'Thu 22 Oct',client:'Kalahari Mining Ltd',task:'Fixed asset register',hrs:8,status:'Draft'},
     {day:'Fri 23 Oct',client:'Internal',task:'Team training',hrs:7.5,status:'Draft'}],
-  leaveBal:[['Annual',14.5],['Sick',8],['Family responsibility',3]],
+  leaveBal:[],
   leaves:[{id:'lv0',type:'Annual',from:'2026-09-14',to:'2026-09-16',days:3,reason:'Family trip',cover:'Maria van Wyk',status:'Approved'}],
   loans:[{label:'Salary advance, 6 instalments',amount:6000,paid:3,per:1000,status:'Active'}]
 });
@@ -551,10 +551,10 @@ function vClients(){
 }
 function vLeave(){
   const d=D();
-  return `<h2>Leave</h2><p class="sub">Fill in the form below. Your administrator reviews it and your balance updates once it is approved.</p>
-  <div class="stack"><div class="tiles">${d.leaveBal.map(([k,v])=>`<div class="tile"><b>${v}</b><span>${k} days left</span></div>`).join('')}</div>
+  return `<h2>Leave</h2><p class="sub">Fill in the form below and send it. Your administrator reviews it, and you can follow its status under My applications.</p>
+  <div class="stack">
   <div class="panel"><h3>Leave application</h3><form class="form" id="leaveForm" novalidate>
-    <label>Leave type<select id="lType"><option>Annual</option><option>Sick</option><option>Family responsibility</option><option>Unpaid</option></select></label>
+    <label>Leave type<select id="lType"><option>Annual</option><option>Sick</option><option>Study</option><option>Compassionate</option><option>Unpaid</option></select></label>
     <label>First day<input id="lFrom" type="date" value="2026-11-09" required></label>
     <label>Last day<input id="lTo" type="date" value="2026-11-10" required></label>
     <label>Length<select id="lPortion"><option value="full">Full days</option><option value="half">Half day (one day only)</option></select></label>
@@ -582,7 +582,7 @@ function leaveSummary(){
   const c=leaveCalc();const bal=D().leaveBal.find(b=>b[0]===c.type);
   $('#lPortion').disabled=!c.single;if(!c.single)$('#lPortion').value='full';
   $('#lDocNote').textContent=c.type==='Sick'&&c.days>2?'(required for sick leave over 2 days)':'(optional)';
-  $('#lSum').textContent=c.days?`${c.days} working day${c.days===1?'':'s'}`+(bal?`. Balance after approval: ${(bal[1]-c.days).toFixed(1)} days.`:'. Unpaid leave does not use a balance.'):'Pick working days to see the length.';
+  $('#lSum').textContent=c.days?`${c.days} working day${c.days===1?'':'s'}`:'Pick working days to see the length.';
 }
 function vLoans(){
   const d=D(),L=d.loans.find(l=>l.status==='Active'),bal=L?L.amount-L.paid*L.per:0;
@@ -767,7 +767,7 @@ function dEmp(){
     <div class="row"><button class="btn" data-tab="time">Log time</button><button class="btn ghost" data-tab="leave">Apply for leave</button></div></div>
   <div class="tiles">
     <button class="tile link" data-tab="time"><b>${total.toFixed(1)} h</b><span>Hours this week</span><small>Target 40 h</small></button>
-    <button class="tile link" data-tab="leave"><b>${d.leaveBal[0][1]} d</b><span>Annual leave left</span><small>Sick ${d.leaveBal[1][1]} d, family ${d.leaveBal[2][1]} d</small></button>
+    <button class="tile link" data-tab="leave"><b>${d.leaves.filter(l=>l.status==='Pending').length}</b><span>Leave applications waiting</span><small>${d.leaves.length} sent in total</small></button>
     <button class="tile link" data-tab="loans"><b>${NAD(bal)}</b><span>Loan balance</span><small>${L?L.paid+' of '+Math.round(L.amount/L.per)+' instalments paid':'No active loan'}</small></button>
     <button class="tile link" data-tab="slip"><b>${NAD(c.net)}</b><span>October net pay</span><small>${state.finalised?'Final':'Draft until payroll closes'}</small></button>
   </div>

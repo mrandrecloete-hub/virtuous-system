@@ -36,8 +36,8 @@
     <div class="err" id="fgErr" role="alert">${esc(msg)}</div><div class="note" id="fgInfo" role="status">${esc(info)}</div>
     <button class="btn" type="submit">Send reset link</button><button class="btn ghost" type="button" id="fgBack">Back to sign in</button></form>`;
     return `${logo}<div class="brand" style="text-align:center"><small>Sign in with the details your administrator gave you</small></div>
-    <form id="loginForm"><label>Email<input id="liEmail" type="email" autocomplete="username" required></label>
-    <label>Password<input id="liPass" type="password" autocomplete="current-password" required></label>
+    <form id="loginForm" method="post"><label>Email<input id="liEmail" name="email" type="email" autocomplete="username" required></label>
+    <label>Password<input id="liPass" name="password" type="password" autocomplete="current-password" required></label>
     <div class="err" id="liErr" role="alert">${esc(msg)}</div>${info?`<div class="note" role="status">${esc(info)}</div>`:''}<button class="btn" type="submit">${starting?'Connecting…':'Sign in'}</button></form>
     <p class="note" style="text-align:center"><a href="#" id="liForgot">Forgot your password?</a></p>`;
   };
@@ -92,6 +92,7 @@
       err.textContent='';
       const {data,error}=await sb.auth.signInWithPassword({email:em,password:pw});
       if(error){err.textContent=friendly(error.message);return}
+      storeCred(em,pw);
       try{const u=await enter(data.session);msg='';render();if(!u.mustChange)toast('Signed in as '+u.name)}
       catch(x){msg=x.message;await sb.auth.signOut().catch(()=>{});state.user=null;paintAuth()}
       return;
@@ -102,6 +103,7 @@
     const {error}=await sb.auth.updateUser({password:n});
     if(error){err.textContent=friendly(error.message);return}
     await sb.rpc('password_changed');
+    storeCred(u.email,n);
     u.mustChange=false;render();toast('Password saved. Welcome, '+u.name.split(' ')[0]);
   },true);
 

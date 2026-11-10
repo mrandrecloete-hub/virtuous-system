@@ -202,6 +202,7 @@
         S.busy=true;const r=await sb().auth.updateUser({password:n});S.busy=false;
         if(r.error){S.pwErr=/same|different/i.test(r.error.message)?'Choose a password different from the current one.':'Could not change the password. Sign in again and retry.';return render()}
       }else u.password=n;
+      if(typeof storeCred==='function')storeCred(u.email,n);
       S.pwMsg='Password changed.';toast('Password changed');
     }
     render();

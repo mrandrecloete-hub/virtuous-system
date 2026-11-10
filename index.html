@@ -471,6 +471,7 @@ const stc=s=>({Approved:'ok',Rejected:'bad',Pending:'warn',Submitted:'warn',With
 function weekdays(a,b){if(!a||!b)return 0;let d=new Date(a+'T00:00:00'),e=new Date(b+'T00:00:00'),n=0;if(e<d)return 0;for(;d<=e;d.setDate(d.getDate()+1)){const w=d.getDay();if(w&&w<6)n++}return n}
 
 /* ---------- Authentication ---------- */
+const storeCred=(id,pw)=>{try{if(window.PasswordCredential&&navigator.credentials&&navigator.credentials.store)navigator.credentials.store(new PasswordCredential({id,password:pw,name:id})).catch(()=>{})}catch(e){}};
 function authHTML(){
   const u=state.user;
   if(u&&u.mustChange)return `<div class="brand">Set a new password<small>${esc(u.name)}, your administrator gave you a temporary password. Choose your own to continue.</small></div>
@@ -478,9 +479,13 @@ function authHTML(){
   <label>Confirm new password<input id="cpConf" type="password" autocomplete="new-password" required></label>
   <div class="note">At least 8 characters, with a number.</div><div class="err" id="cpErr" role="alert"></div>
   <button class="btn" type="submit">Save and continue</button><button class="btn ghost" type="button" data-act="signout">Cancel</button></form>`;
+  if(state.authView==='forgot')return `<img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System"><div class="brand" style="text-align:center">Forgot your password?<small>Enter your email and we will send you a link to choose a new one.</small></div>
+  <form id="forgotForm" method="post"><label>Email<input id="fgEmail" name="email" type="email" autocomplete="username" required></label>
+  <div class="err" id="fgMsg" role="alert"></div><button class="btn" type="submit">Send reset link</button><button class="btn ghost" type="button" data-act="demoBack">Back to sign in</button></form>`;
   return `<img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System"><div class="brand" style="text-align:center"><small>Sign in with the details your administrator gave you</small></div>
-  <form id="loginForm"><label>Email<input id="liEmail" type="email" autocomplete="username" required></label>
-  <label>Password<input id="liPass" type="password" autocomplete="current-password" required></label>
+  <form id="loginForm" method="post"><label>Email<input id="liEmail" name="email" type="email" autocomplete="username" required></label>
+  <label>Password<input id="liPass" name="password" type="password" autocomplete="current-password" required></label>
+  <div style="text-align:right;margin:-2px 0 4px"><button type="button" style="background:none;border:0;padding:4px 0;color:inherit;text-decoration:underline;cursor:pointer;font:inherit;font-size:13px;min-height:40px" data-act="demoForgot">Forgot password?</button></div>
   <div class="err" id="liErr" role="alert"></div><button class="btn" type="submit">Sign in</button></form>
   <div class="demo"><h3>Demo accounts</h3><p class="note" style="margin:0 0 6px">For this preview only. New employees you add as admin can sign in too.</p>
   <div class="li"><div class="tx"><b>Admin</b><div class="note mono">admin@firm.example<br>Admin#2026</div></div><button class="btn sm ghost" data-act="fill" data-e="admin@firm.example" data-p="Admin#2026">Use</button></div>
@@ -1434,6 +1439,8 @@ document.addEventListener('click',async e=>{
   if(a==='removeR'){const m=M(),r=m.receipts.find(x=>x.id===id);if(r&&r.url)URL.revokeObjectURL(r.url);m.receipts=m.receipts.filter(x=>x.id!==id);delete m.links[id];toast('Receipt removed')}
   if(a==='removeLine'){const m=M();m.sheet=m.sheet.filter(x=>x.id!==id);Object.keys(m.links).forEach(k=>{if(m.links[k]===id)delete m.links[k]});delete m.overrides[id]}
   if(a==='clearSheet'){const m=M();m.sheet=[];m.sheetFile=null;m.overrides={};m.links={};state.shMsg='';toast('Sheet removed')}
+  if(a==='demoForgot'){state.authView='forgot';return paintAuth()}
+  if(a==='demoBack'){state.authView=null;return paintAuth()}
   if(a==='fill'){$('#liEmail').value=t.dataset.e;$('#liPass').value=t.dataset.p;return}
   if(a==='signout')return signOut();
   if(a==='genpw'){$('#nPass').value=genPw();return}
@@ -1467,20 +1474,24 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{
   e.preventDefault();const f=e.target.id;
+  if(f==='forgotForm'){
+    const em=$('#fgEmail').value.trim(),m=$('#fgMsg');
+    m.textContent='Sample mode: no email is sent. In the live system a reset link would be sent to '+em+' if it belongs to an account.';m.className='note';return;
+  }
   if(f==='loginForm'){
     const em=$('#liEmail').value.trim().toLowerCase(),pw=$('#liPass').value,err=$('#liErr');
     const u=state.users.find(x=>x.email.toLowerCase()===em);
     if((state.failed[em]||0)>=5){err.textContent='Too many attempts. Ask your administrator to reset your password.';return}
     if(!u||u.password!==pw){state.failed[em]=(state.failed[em]||0)+1;err.textContent='Email or password is incorrect.';return}
     if(!u.access){err.textContent='Your access is switched off. Contact your administrator.';return}
-    state.failed[em]=0;signIn(u);render();if(!u.mustChange)toast('Signed in as '+u.name);return;
+    state.failed[em]=0;storeCred(em,pw);signIn(u);render();if(!u.mustChange)toast('Signed in as '+u.name);return;
   }
   if(f==='pwForm'){
     const n=$('#cpNew').value,c=$('#cpConf').value,err=$('#cpErr'),u=state.user;
     if(n.length<8||!/\d/.test(n)){err.textContent='Use at least 8 characters, including a number.';return}
     if(n===u.password){err.textContent='Choose a password different from the temporary one.';return}
     if(n!==c){err.textContent='The two passwords do not match.';return}
-    u.password=n;u.mustChange=false;render();toast('Password saved. Welcome, '+u.name.split(' ')[0]);return;
+    u.password=n;u.mustChange=false;storeCred(u.email,n);render();toast('Password saved. Welcome, '+u.name.split(' ')[0]);return;
   }
   if(f==='takeForm'){
     const adm=state.role==='adm',it=state.stat.items.find(i=>i.id===$('#tItem').value),err=$('#tErr');

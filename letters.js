@@ -162,11 +162,15 @@ ${paras}
     const K=state.kyc;
     if(K&&K.view==='letters'&&isAdm()){
       const tabs=`<div class="seg" role="tablist" style="margin-bottom:14px"><button class="btn ghost sm" data-k="go" data-v="forms" aria-pressed="false">Forms</button><button class="btn ghost sm" data-k="go" data-v="subs" aria-pressed="false">Submissions (${(state.subs||[]).length})</button><button class="btn ghost sm" data-k="go" data-v="letters" aria-pressed="true">Letters</button></div>`;
-      return `<h2>Client onboarding (KYC)</h2><p class="sub">Generate client letters on the firm's letterhead.</p>${tabs}${view()}`;
+      return `<h2>Client letters</h2><p class="sub">A page inside Client KYC: generate the management representation letter, letter of transmittal and accountant's letter on the firm's letterhead.</p>${tabs}
+      <div class="row" style="margin:-6px 0 12px"><button class="btn ghost sm" data-k="go" data-v="forms">&larr; Back to KYC</button></div>${view()}`;
     }
     let html=kycView();
     const K2=state.kyc;/* kInit() inside the original view creates state.kyc on the first visit */
-    if(isAdm()&&K2&&(K2.view==='forms'||K2.view==='subs'))html=html.replace(/(Submissions \(\d+\)<\/button>)(<\/div>)/,'$1<button class="btn ghost sm" data-k="go" data-v="letters" aria-pressed="false">Letters</button>$2');
+    if(isAdm()&&K2&&(K2.view==='forms'||K2.view==='subs')){
+      html=html.replace(/(Submissions \(\d+\)<\/button>)(<\/div>)/,'$1<button class="btn ghost sm" data-k="go" data-v="letters" aria-pressed="false">Letters</button>$2');
+      if(K2.view==='forms')html=html.replace('<div class="stack">','<div class="stack"><div class="panel" style="border-left:4px solid var(--accent)"><div class="ph"><h3>Client letters</h3><button class="btn sm" data-k="go" data-v="letters">Open letters page</button></div><p class="note" style="margin:0">Generate a management representation letter, a letter of transmittal or an accountant\'s letter for a client, on the firm\'s letterhead, ready to print or save as PDF.</p></div>');
+    }
     return html;
   };
 

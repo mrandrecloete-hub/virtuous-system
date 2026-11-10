@@ -1176,7 +1176,7 @@ function kForms(){
   <div class="panel"><h3>Your forms</h3><div class="tbl"><table><thead><tr><th>Form</th><th>Status</th><th class="n">Fields</th><th class="n">Submissions</th><th>Link</th><th></th></tr></thead><tbody>
   ${state.forms.map(f=>`<tr><td>${esc(f.title)}<div class="note">${esc(f.category||'KYC')} · ${f.audience==='staff'?'Staff form':'Client form'} · Created ${esc(f.created)}</div></td><td>${pill(f.status==='open'?'Accepting':'Closed',f.status==='open'?'ok':'warn')}</td><td class="n">${f.fields.filter(x=>!['head','para'].includes(x.type)).length}</td><td class="n">${state.subs.filter(s=>s.formId===f.id).length}</td>
    <td><button class="btn ghost sm" data-k="copy" data-id="${f.id}">Copy link</button></td>
-   <td><div class="row"><button class="btn sm" data-k="edit" data-id="${f.id}">Edit</button><button class="btn ghost sm" data-k="fill" data-id="${f.id}">Fill</button><button class="btn ghost sm" data-k="toggleForm" data-id="${f.id}">${f.status==='open'?'Close':'Reopen'}</button><button class="btn ghost sm" data-k="dupForm" data-id="${f.id}">Duplicate</button><button class="btn ghost sm" data-k="csv" data-id="${f.id}">Export CSV</button><button class="btn sm bad" data-k="delForm" data-id="${f.id}">Delete</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="note">No forms yet.</td></tr>'}
+   <td><div class="row"><button class="btn sm" data-k="edit" data-id="${f.id}">Edit</button><button class="btn ghost sm" data-k="fill" data-id="${f.id}">Fill</button><button class="btn ghost sm" data-k="kycBlank" data-id="${f.id}">Print preview</button><button class="btn ghost sm" data-k="toggleForm" data-id="${f.id}">${f.status==='open'?'Close':'Reopen'}</button><button class="btn ghost sm" data-k="dupForm" data-id="${f.id}">Duplicate</button><button class="btn ghost sm" data-k="csv" data-id="${f.id}">Export CSV</button><button class="btn sm bad" data-k="delForm" data-id="${f.id}">Delete</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="note">No forms yet.</td></tr>'}
   </tbody></table></div>${state.kyc.msg?`<p class="note">${esc(state.kyc.msg)}</p>`:''}</div></div>`}
 function kSubs(){
   const K=state.kyc,q=K.q.toLowerCase();
@@ -1238,7 +1238,7 @@ function kReview(){
   const K=state.kyc,s=kSub(K.subId),f=kForm(s.formId);
   return `<style>${KDOC_CSS}@media print{body *{visibility:hidden!important}#kycDoc,#kycDoc *{visibility:visible!important}#kycDoc{position:absolute;left:0;top:0;width:100%}.wm{display:none!important}}</style>
   <div class="row" style="margin-bottom:10px;justify-content:space-between"><div>${kBack('Submissions')}</div>
-  <div class="row"><button class="btn ghost" data-k="print">Print</button><button class="btn ghost" data-k="dlHtml">Download document</button>${state.user.type==='admin'?`<button class="btn ghost" data-k="dlJson">Download data (JSON)</button><button class="btn ghost" data-k="csv" data-id="${f.id}">Export form CSV</button>`:''}</div></div>
+  <div class="row"><button class="btn" data-k="kycPreview">Preview document</button><button class="btn ghost" data-k="print">Print</button><button class="btn ghost" data-k="dlHtml">Download document</button>${state.user.type==='admin'?`<button class="btn ghost" data-k="dlJson">Download data (JSON)</button><button class="btn ghost" data-k="csv" data-id="${f.id}">Export form CSV</button>`:''}</div></div>
   <h2>${esc(s.ref)} · ${esc(kNameOf(s))}</h2><p class="sub">Status ${pill(s.status,{Approved:'ok',Rejected:'bad',Pending:'warn','Needs info':'warn'}[s.status])}</p>
   <div class="stack">${state.user.type!=='admin'?`<div class="panel"><b>Status: ${esc(s.status)}</b>${s.flag?`<div class="note">${esc(s.flag)}</div>`:''}</div>`:`<div class="panel"><h3>Decision</h3><div class="row">${sigChoice('k')}
    <button class="btn" data-k="decide" data-v="Approved">Approve</button><button class="btn ghost" data-k="decide" data-v="Needs info">Request more information</button><button class="btn sm bad" data-k="decide" data-v="Rejected">Reject</button></div>
@@ -1295,6 +1295,8 @@ document.addEventListener('click',e=>{
   if(k==='sigClear'){delete K.ans[id];return kRender()}
   if(k==='review'){const q=kSub(id);if(state.user.type!=='admin'&&(!q||q.uid!==state.user.id))return toast('You can only open your own requests');K.subId=id;K.view='review';return kRender()}
   if(k==='delSub'){if(state.user.type!=='admin')return;const q=kSub(id);if(q&&q.applied)kApply(q,false);logA('Submission deleted',q?q.ref:id);state.subs=state.subs.filter(s=>s.id!==id);toast('Submission deleted');return kRender()}
+  if(k==='kycPreview'){const q=kSub(K.subId);if(q&&window.VIRTUOSO_KYCPRINT)window.VIRTUOSO_KYCPRINT.submission(q);else toast('The print preview is not available.');return}
+  if(k==='kycBlank'){const q=kForm(id);if(q&&window.VIRTUOSO_KYCPRINT)window.VIRTUOSO_KYCPRINT.blank(q);else toast('The print preview is not available.');return}
   if(k==='print'){try{window.print()}catch(_){toast('Printing is blocked here. Use Download document, then print the file.')}return}
   if(k==='dlHtml'){const s=kSub(K.subId);kDownload(s.ref+'.html','text/html','<!doctype html><meta charset="utf-8"><title>'+esc(s.ref)+'</title><style>'+KDOC_CSS+'</style>'+kDocHtml(s));return toast('Document downloaded')}
   if(k==='dlJson'){const s=kSub(K.subId),f=kForm(s.formId);const o={reference:s.ref,form:f.title,received:s.date,status:s.status,answers:Object.fromEntries(f.fields.filter(x=>!['head','para'].includes(x.type)&&kVis(x,f,s.ans)).map(x=>[x.label,x.type==='file'?(s.ans[x.id]?s.ans[x.id].name:null):x.type==='sign'?(s.ans[x.id]?'signed':null):(s.ans[x.id]??null)])),notes:s.notes};kDownload(s.ref+'.json','application/json',JSON.stringify(o,null,2));return toast('Data downloaded')}
@@ -1612,6 +1614,7 @@ render();
 <script src="live-time.js"></script>
 <script src="live-petty.js"></script>
 <script src="leave-print.js"></script>
+<script src="kyc-print.js"></script>
 <script src="live-leave.js"></script>
 <script src="live-payroll.js"></script>
 <script src="live-forms.js"></script>

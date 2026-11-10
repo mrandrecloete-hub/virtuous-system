@@ -73,27 +73,27 @@ table.f td.k{width:30%;background:#f3f5fa;color:#33406b;font-weight:600}
 </div></body></html>`;
   }
 
-  async function open(d){
-    close();
-    const html=docHTML(d,await logoData());
+  /* Shared by the Leave, KYC and Form builder previews: overlay with Print, Save as PDF, Download, Close. */
+  async function overlay(html,o){
+    close();o=o||{};
     const wrap=document.createElement('div');wrap.id='lpOverlay';
-    wrap.setAttribute('role','dialog');wrap.setAttribute('aria-modal','true');wrap.setAttribute('aria-label','Leave application form preview');
+    wrap.setAttribute('role','dialog');wrap.setAttribute('aria-modal','true');wrap.setAttribute('aria-label',(o.title||'Form')+' preview');
     wrap.style.cssText='position:fixed;inset:0;z-index:100;background:rgba(10,18,44,.72);display:flex;flex-direction:column';
     const bar=document.createElement('div');
     bar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:#0f1f4d;color:#fff';
-    bar.innerHTML='<b style="flex:1;min-width:160px">Leave application form: preview</b>'
+    bar.innerHTML='<b style="flex:1;min-width:160px">'+esc(o.title||'Form')+': preview</b>'
       +'<button class="btn sm" id="lpPrint" type="button">Print</button>'
       +'<button class="btn sm ghost" id="lpPdf" type="button" style="color:#fff;border-color:rgba(255,255,255,.5)">Save as PDF</button>'
       +'<button class="btn sm ghost" id="lpDl" type="button" style="color:#fff;border-color:rgba(255,255,255,.5)">Download</button>'
       +'<button class="btn sm ghost" id="lpClose" type="button" style="color:#fff;border-color:rgba(255,255,255,.5)">Close</button>';
     const fr=document.createElement('iframe');
-    fr.title='Leave application form';fr.style.cssText='flex:1;border:0;width:100%;background:#e9ecf3';fr.srcdoc=html;
+    fr.title=o.title||'Form';fr.style.cssText='flex:1;border:0;width:100%;background:#e9ecf3';fr.srcdoc=html;
     wrap.append(bar,fr);document.body.appendChild(wrap);
     const printIt=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){toast('Printing is not available here. Use Download instead.')}};
     bar.querySelector('#lpPrint').onclick=printIt;
     bar.querySelector('#lpPdf').onclick=()=>{toast('In the print window, choose "Save as PDF" as the destination.');printIt()};
     bar.querySelector('#lpDl').onclick=()=>{
-      const nm=('Leave-Application-'+(d.name||'form')+(d.from?'-'+d.from:'')).replace(/[^A-Za-z0-9._-]+/g,'_')+'.html';
+      const nm=String(o.name||o.title||'form').replace(/[^A-Za-z0-9._-]+/g,'_')+'.html';
       const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download=nm;
       document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Form downloaded');
     };
@@ -101,6 +101,11 @@ table.f td.k{width:30%;background:#f3f5fa;color:#33406b;font-weight:600}
     wrap.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
     bar.querySelector('#lpPrint').focus();
   }
+  async function open(d){
+    const html=docHTML(d,await logoData());
+    return overlay(html,{title:'Leave application form',name:'Leave-Application-'+(d.name||'form')+(d.from?'-'+d.from:'')});
+  }
   function close(){const o=document.getElementById('lpOverlay');if(o)o.remove()}
   window.VIRTUOSO_LEAVEPRINT={open,close,html:docHTML};
+  window.VIRTUOSO_DOCS={logoData,overlay,close,esc};
 })();

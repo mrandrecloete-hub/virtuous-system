@@ -48,12 +48,9 @@
       return {pending:pt.rows,finalised:run[0]?run[0].status==='Finalised':false,hasRun:run.length>0,src:'payroll_runs, time_entries'};
     },
     async lowStock(){
-      if(!live()){const l=lowItems();return {rows:l.map(it=>{const s=stock(it,curMonth());return `${it.name}: ${s.left} ${it.unit} left`}),thr:state.stat.thr,src:'stationery'}}
-      const items=await sel('stationery_items','id,name,unit,opening_qty');const mv=await sel('stationery_moves','item_id,move_type,qty');
-      const st=await sel('app_settings','value',q=>q.eq('key','stationery_low_threshold'));const thr=st[0]?+st[0].value:2;
-      const rows=items.map(it=>({it,left:it.opening_qty+mv.filter(m=>m.item_id===it.id).reduce((s,m)=>s+(m.move_type==='add'?m.qty:-m.qty),0)}))
-        .filter(x=>x.left<=thr).map(x=>`${x.it.name}: ${x.left} ${x.it.unit} left`);
-      return {rows,thr,src:'stationery_items, stationery_moves'};
+      const O=window.VIRTUOSO_OFFICE;
+      if(!O||!(await O.load()))return {rows:[],month:'',src:'office_list'};
+      return {rows:O.toBuy(),month:O.monthLabel(),src:'office_list'};
     },
     async overdueCash(){
       if(!live())return {rows:overdueAdv().map(a=>`${byId(a.uid).name}: ${NAD(a.amount)} taken ${a.date}`),src:'cash'};
@@ -91,7 +88,7 @@
     [/(request|apply|ask).*(loan|advance)|salary advance/,'**Request a salary advance**: open **Loans**, enter the amount and the number of months, then submit for approval.'],
     [/(log|enter|submit|fill).*(time|hours|timesheet)|timesheet.*(submit|how)/,'**Timesheet**: open **Timesheet**, add your hours per day and client, then submit the week for approval.'],
     [/(lock|close).*(petty|month)|petty.*lock/,'**Lock petty cash** (admins): open **Reconcile**, check the results, then click **Lock** for the month. Unlocking is logged.'],
-    [/(take|get|collect).*(stationery|pen|paper|stock)|stationery.*(take|how)/,'**Take stationery**: open **Stationery**, choose the item and quantity, and confirm. It is recorded under your name.'],
+    [/(take|get|collect).*(stationery|pen|paper|stock)|stationery.*(take|how)/,'**Stationery list**: open **Stationery list** to see what is in stock and what to buy this month. An administrator keeps it up to date.'],
     [/sign.?out|log.?out/,'**Sign out**: use the **Sign out** button in the menu.'],
     [/install|app|download/,'**Install the app**: use your browser\'s **Install** or **Add to home screen** option on the Virtuoso System page.']
   ];
@@ -123,7 +120,7 @@
     {id:'hours',test:t=>has(t,'hours','timesheet','logged','worked')&&!has(t,'unapproved','pending','who has')&&!/how (do|can|to)/.test(t),
       run:async()=>{const h=await Q.hoursThisWeek();return h.rows.length?`This week (${h.a} to ${h.b}) you have logged **${h.total} hours**:\n`+list(h.rows):`You have not logged any hours for the week of ${h.a}.`}},
     {id:'stock',test:t=>has(t,'stock','stationery','running low','reorder','supplies','low on'),
-      run:async()=>{const s=await Q.lowStock();return s.rows.length?`Items at or below ${s.thr} left:\n`+list(s.rows)+'\n\nTime to reorder.':`Nothing is at or below the low-stock level of ${s.thr}.`+(live()?' (Based on recorded additions and takes.)':'')}},
+      run:async()=>{const s=await Q.lowStock();return s.rows.length?`On the **To Buy** list for ${s.month}:\n`+list(s.rows):`Nothing is on the To Buy list${s.month?' for '+s.month:''}.`}},
     {id:'cash',admin:true,test:t=>(has(t,'cash','advance')&&has(t,'overdue','outstanding','change','taken','returned','unsettled'))||/overdue/.test(t),
       run:async()=>{const c=await Q.overdueCash();return c.rows.length?`**${c.rows.length}** cash advance${c.rows.length>1?'s are':' is'} overdue (change not reported):\n`+list(c.rows):'No cash advances are overdue.'}},
     {id:'petty',admin:true,test:t=>has(t,'petty','reconcil','receipts','cash sheet'),
@@ -136,14 +133,14 @@
       run:async()=>{const k=await Q.kyc();return k.n?`**${k.n}** KYC submission${k.n>1?'s are':' is'} waiting for review. Open **Client KYC** to review them.`:'No KYC submissions are waiting for review.'}},
     {id:'summary',admin:true,test:t=>/(what|anything).*(needs|attention|wrong|urgent|today)|summary|overview|any(thing)? (alerts|issues)/.test(t),
       run:async()=>{const [pt,ls,oc,k]=await Promise.all([Q.pendingTimesheets(),Q.lowStock(),Q.overdueCash(),Q.kyc()]),o=[];
-        if(pt.rows.length)o.push(`${pt.rows.length} timesheet group(s) awaiting approval`);if(ls.rows.length)o.push(`${ls.rows.length} stationery item(s) low`);
+        if(pt.rows.length)o.push(`${pt.rows.length} timesheet group(s) awaiting approval`);if(ls.rows.length)o.push(`${ls.rows.length} office item(s) to buy`);
         if(oc.rows.length)o.push(`${oc.rows.length} overdue cash advance(s)`);if(k.n)o.push(`${k.n} KYC submission(s) to review`);
         return o.length?'Needs attention:\n'+list(o):'All clear: no pending timesheets, low stock, overdue cash or KYC reviews.'}}
   ];
 
   function hintsFor(){return isAdmin()
-    ?['What needs attention today?','What is blocking payroll this month?','Who has unapproved timesheets?','Any overdue cash advances?','What stationery is running low?','Summarise petty cash','How do I add an employee?']
-    :['How much leave do I have left?','What is the status of my requests?','How many hours have I logged this week?','What stationery is running low?','How do I request leave?']}
+    ?['What needs attention today?','What is blocking payroll this month?','Who has unapproved timesheets?','Any overdue cash advances?','What is on the office To Buy list?','Summarise petty cash','How do I add an employee?']
+    :['How do I request leave?','What is the status of my requests?','How many hours have I logged this week?','What is on the office To Buy list?','How do I request leave?']}
 
   async function answer(raw){
     const t=raw.toLowerCase().replace(/[?!.,]+/g,' ').replace(/\s+/g,' ').trim();

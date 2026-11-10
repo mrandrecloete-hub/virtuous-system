@@ -1,6 +1,6 @@
 /* SETTINGS page. Two kinds of settings:
    - My settings (everyone): profile, appearance, password, Bruno and voice. Saved on this device only (localStorage).
-   - Firm settings (admin only): company details, payroll inputs, petty cash and stationery limits. Saved in app_settings
+   - Firm settings (admin only): company details, payroll inputs, petty cash limits. Saved in app_settings
      (live) or in memory (?demo). Row-level security lets only admins write; every change lands in the audit log.
    Payroll stays NON-TAX: nothing here is a PAYE or SSC rate. Defaults shown are the demo's values, not statutory. */
 (function(){
@@ -8,7 +8,7 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
-  const VERSION='v35';
+  const VERSION='v38';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
 
@@ -74,8 +74,7 @@
       {k:'payroll_overtime_multiplier',l:'Overtime multiplier',h:'Overtime pay = hours x hourly rate x this number. 1.5 is the demo value. Confirm what your contracts and the law require.',t:'num',min:1,max:5,step:'0.01',def:1.5}],
     office:[
       {k:'petty_tolerance',l:'Receipt date tolerance (days)',h:'How many days apart a receipt and a bank/sheet line may be and still match.',t:'num',min:0,max:5,step:'1',def:2},
-      {k:'petty_match_threshold',l:'Vendor name match (0.3 to 1)',h:'How alike two vendor names must be to match. Higher is stricter.',t:'num',min:0.3,max:1,step:'0.05',def:0.6},
-      {k:'stationery_low_threshold',l:'Low stock warning at',h:'Alerts show an item as low when its stock is at or below this number.',t:'num',min:0,max:100,step:'1',def:2}]
+      {k:'petty_match_threshold',l:'Vendor name match (0.3 to 1)',h:'How alike two vendor names must be to match. Higher is stricter.',t:'num',min:0.3,max:1,step:'0.05',def:0.6}]
   };
   const ALLKEYS=Object.values(FIELDS).flat().map(f=>f.k);
   const S={tab:'profile',vals:{},loaded:false,loading:false,busy:false,msg:'',err:'',uid:null,pwMsg:'',pwErr:''};
@@ -100,7 +99,7 @@
   /* ---------- view ---------- */
   const TABS=()=>{
     const t=[['My settings',[['profile','My profile'],['appearance','Appearance'],['security','Password and sign-in'],['bruno','Bruno and voice']]]];
-    if(isAdm())t.push(['Firm settings (admin)',[['company','Company details'],['office','Petty cash and stationery'],['system','Data and system']]]);
+    if(isAdm())t.push(['Firm settings (admin)',[['company','Company details'],['office','Petty cash'],['system','Data and system']]]);
     return t;
   };
   const chk=(id,on,l,h)=>`<div class="strow"><div class="l"><b>${l}</b><span>${h}</span></div><label class="chk"><input type="checkbox" id="${id}" data-st="pref" ${on?'checked':''}> On</label></div>`;
@@ -146,7 +145,7 @@
         ${chk('stBruno',prefs.bruno,'Show the Bruno button','The bear in the corner. You can still open AI Tools from the menu.')}
         ${chk('stVoice',prefs.voice,'Show the Voice button','Dictate to Bruno. It uses your browser\'s speech service, so audio may go to your browser vendor. Off if you prefer typing.')}</div></div>`;
       case 'company':return firmForm('company','<h3>Company details</h3><p class="note" style="margin:0">Master details for the firm. Leave blank anything you do not have.</p>');
-      case 'office':return firmForm('office','<h3>Petty cash and stationery</h3><p class="note" style="margin:0">Controls how receipts are matched on Reconcile and when stationery shows as low.</p>');
+      case 'office':return firmForm('office','<h3>Petty cash</h3><p class="note" style="margin:0">Controls how receipts are matched on Reconcile.</p>');
       case 'system':return `<div class="panel stsec"><h3>Data and system</h3>
         <dl class="stkv"><dt>Mode</dt><dd>${LIVE?'Live (connected to the database)':'Sample data (resets when you reload)'}</dd><dt>App version</dt><dd>${VERSION}</dd><dt>Signed in as</dt><dd>${esc(u.name)} (${esc(u.email)})</dd><dt>Online</dt><dd>${navigator.onLine?'Yes':'No'}</dd></dl>
         <div class="stbar">${LIVE?'<button class="btn ghost" type="button" data-act="stTest">Test connection</button>':''}<button class="btn ghost" type="button" data-act="stExport">Download my settings</button></div>

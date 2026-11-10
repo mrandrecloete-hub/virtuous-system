@@ -795,7 +795,7 @@ function dAdm(){
     <button class="tile link" data-tab="approvals"><b>${pend.length}</b><span>Waiting for approval</span><small>${pend.filter(a=>a.type==='Timesheet').length} timesheets</small></button>
     <button class="tile link" data-tab="kyc"><b>${kPend()}</b><span>Forms awaiting review</span><small>KYC and staff requests</small></button>
     <button class="tile link" data-tab="activity"><b>${act}</b><span>Active now</span><small>${state.online?'Live heartbeat':'Offline, using last sync'}</small></button>
-    <button class="tile link" data-tab="stationery"><b>${lowItems().length}</b><span>Low stock items</span><small>${lowItems().length?esc(lowItems().map(i=>i.name).join(', ')):'Everything above '+state.stat.thr}</small></button>
+    <button class="tile link" data-tab="stationery"><b>${(()=>{const n=window.VIRTUOSO_OFFICE?VIRTUOSO_OFFICE.buyCount():null;return n===null?'-':n})()}</b><span>Office items to buy</span><small>${window.VIRTUOSO_OFFICE&&VIRTUOSO_OFFICE.buyCount()?esc(VIRTUOSO_OFFICE.toBuy().slice(0,3).map(x=>x.split(':')[0]).join(', ')+(VIRTUOSO_OFFICE.toBuy().length>3?'…':'')):'Nothing on the To Buy list'}</small></button>
     <button class="tile link" data-tab="cash"><b>${overdueAdv().length}</b><span>Cash not reported</span><small>${NAD(state.advances.filter(a=>a.status==='Open').reduce((s,a)=>s+a.amount,0))} still with staff</small></button>
     <button class="tile link" data-tab="petty"><b>${pc.open}</b><span>Petty cash items open</span><small>${state.locked?'Month locked':'Resolve before locking'}</small></button>
   </div>
@@ -1631,6 +1631,7 @@ render();
 <script src="form-builder.js"></script>
 <script src="ai-tools.js"></script>
 <script src="settings.js"></script>
+<script src="office-list.js"></script>
 <script>/* Employees and Payroll pages are removed from the app (backend tables and functions are untouched). */delete VIEWS.employees;delete VIEWS.payroll;</script>
 <script src="assistant.js"></script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body></html>

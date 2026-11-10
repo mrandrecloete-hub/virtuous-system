@@ -15,7 +15,12 @@
     ['mgmt','Management representation letter','Written by the client\'s management to the firm, confirming the information given for the engagement. Print on the client\'s letterhead and have management sign it.'],
     ['trans','Letter of transmittal','From the firm to the client, sending the completed financial statements and listing what is enclosed.'],
     ['acct','Accountant\'s letter','From the firm, stating that the financial statements were compiled from the client\'s records and setting out the firm\'s and management\'s responsibilities.']];
-  const L={type:'mgmt',sub:'',client:'',contact:'',addr:'',entity:'company',fye:lastFYE(),date:todayISO(),ref:'',signName:'',signTitle:'',encl:'Annual financial statements\nTrial balance\nTax computation',extra:'',body:null,bodyFor:null,msg:''};
+  const cfg=window.VIRTUOSO||{};
+  const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
+  const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
+  const isUuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v));
+  const SV={list:null,loading:false,busy:false,err:'',uid:null};
+  const L={id:null,type:'mgmt',sub:'',client:'',contact:'',addr:'',entity:'company',fye:lastFYE(),date:todayISO(),ref:'',signName:'',signTitle:'',encl:'Annual financial statements\nTrial balance\nTax computation',extra:'',body:null,bodyFor:null,msg:''};
 
   const entityWord=()=>({company:'the company',cc:'the close corporation',trust:'the trust',individual:'you',other:'the entity'})[L.entity]||'the entity';
   const Entity=()=>{const w=entityWord();return w==='you'?'You':w.charAt(0).toUpperCase()+w.slice(1)};
@@ -23,6 +28,56 @@
   const firmName=()=>firm('firm_name')||'Virtuous Accounting Solutions CC';
   const signer=()=>L.signName||(state.user&&state.user.name)||'';
   const signTitle=()=>L.signTitle||(state.user&&state.user.title)||'';
+
+  setInterval(()=>{const u=state.user?state.user.id:null;if(u!==SV.uid){SV.uid=u;SV.list=null;SV.err='';L.id=null}},700);
+  const dbMsg=m=>/client_letters|schema cache|does not exist|relation/i.test(m||'')?'Saving needs migration 0016 (client_letters). Run it in the Supabase SQL editor, then try again.':/row-level|policy|permission|not permitted/i.test(m||'')?'You are not allowed to do that.':'Something went wrong. Try again.';
+  const FIELDKEYS=['sub','client','contact','addr','entity','fye','date','ref','encl','extra','signName','signTitle'];
+  const kindName=k=>(TYPES.find(x=>x[0]===k)||[k,k])[1];
+  async function loadSaved(){
+    if(SV.loading||SV.list!==null)return;
+    if(!LIVE){SV.list=(state.letters||[]).slice().sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));return}
+    if(!sb())return;
+    SV.loading=true;
+    const r=await sb().from('client_letters').select('id,kind,title,client_name,fields,body,created_at,updated_at').order('updated_at',{ascending:false}).limit(200);
+    SV.loading=false;
+    if(r.error){SV.err=dbMsg(r.error.message);SV.list=[]}else{SV.err='';SV.list=r.data||[]}
+    if(state.kyc&&state.kyc.view==='letters')render();
+  }
+  async function saveLetter(asNew){
+    if(SV.busy)return;
+    if(!L.client){L.msg='Enter the client name before saving.';return render()}
+    if(!L.body)currentBody();
+    const fields={};FIELDKEYS.forEach(k=>{fields[k]=L[k]});
+    const row={kind:L.type,title:kindName(L.type)+': '+L.client,client_name:L.client.slice(0,200),fields,body:L.body};
+    if(isUuid(L.sub))row.submission_id=L.sub;
+    SV.busy=true;L.msg='';
+    if(!LIVE){
+      state.letters=state.letters||[];const now=new Date().toISOString();
+      const ex=!asNew&&L.id&&state.letters.find(x=>x.id===L.id);
+      if(ex)Object.assign(ex,row,{updated_at:now});else{const n={id:uid(),created_at:now,updated_at:now,...row};state.letters.unshift(n);L.id=n.id}
+      if(typeof logA==='function')logA('Letter saved',row.title);
+    }else{
+      let r;
+      if(!asNew&&L.id)r=await sb().from('client_letters').update(row).eq('id',L.id).select('id').single();
+      else r=await sb().from('client_letters').insert(row).select('id').single();
+      if(r.error){SV.busy=false;L.msg=dbMsg(r.error.message);return render()}
+      L.id=(r.data&&r.data.id)||L.id;
+    }
+    SV.busy=false;SV.list=null;toast('Letter saved');render();
+  }
+  function openSaved(id){
+    const r=(SV.list||[]).find(x=>x.id===id);if(!r)return;
+    L.type=r.kind;const f=r.fields||{};FIELDKEYS.forEach(k=>{if(f[k]!=null)L[k]=String(f[k])});
+    L.body=r.body;L.bodyFor=JSON.stringify([L.type,L.client,L.contact,L.addr,L.entity,L.fye,L.encl,L.extra,L.signName,L.signTitle]);
+    L.id=r.id;L.msg='';
+  }
+  async function deleteSaved(id){
+    const r=(SV.list||[]).find(x=>x.id===id);if(!r||!confirm('Delete the saved letter "'+r.title+'"? This cannot be undone.'))return;
+    if(!LIVE){state.letters=(state.letters||[]).filter(x=>x.id!==id)}
+    else{const d=await sb().from('client_letters').delete().eq('id',id);if(d.error){SV.err=dbMsg(d.error.message);return render()}}
+    if(L.id===id)L.id=null;SV.list=null;SV.err='';toast('Letter deleted');render();
+  }
+  const when=s=>{const d=new Date(s);return isNaN(d)?'':d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+', '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})};
 
   /* ---------- the three templates (plain text; blank line = new paragraph) ---------- */
   function bodyText(){
@@ -148,12 +203,22 @@ ${paras}
       ${L.type==='trans'?`<label class="wide">Enclosed documents (one per line)<textarea id="ltEncl" rows="3" maxlength="600">${esc(L.encl)}</textarea></label>`:''}
       ${L.type!=='mgmt'?`<label>Signed by<input id="ltSign" value="${esc(L.signName)}" maxlength="100" placeholder="${esc((state.user&&state.user.name)||'')}"></label><label>Signatory title<input id="ltSignT" value="${esc(L.signTitle)}" maxlength="80" placeholder="${esc((state.user&&state.user.title)||'')}"></label>`:''}
       <label class="wide">Extra paragraph (optional)<textarea id="ltExtra" rows="2" maxlength="800" placeholder="Anything specific to this client">${esc(L.extra)}</textarea></label>
-      <div class="wide note" style="margin:0">The text is a template. Review it, edit it on the right if needed, then preview, print, save as PDF or download. Letters are not stored in the system.</div>
-      <div class="wide row"><button class="btn" type="button" data-act="wlPreview">Preview and print</button><button class="btn ghost" type="button" data-act="wlRegen">Reset text to template</button><button class="btn ghost" type="button" data-act="wlCopy">Copy text</button></div>
+      <div class="wide note" style="margin:0">${L.id?'Editing a saved letter. ':''}The text is a template. Review it, edit it on the right if needed, then save it, preview, print, save as PDF or download.</div>
+      <div class="wide row"><button class="btn" type="button" data-act="wlPreview">Preview and print</button><button class="btn" type="button" data-act="wlSave" ${SV.busy?'disabled':''}>${L.id?'Save changes':'Save letter'}</button>${L.id?'<button class="btn ghost" type="button" data-act="wlSaveNew">Save as new</button><button class="btn ghost" type="button" data-act="wlNew">Start a new letter</button>':''}<button class="btn ghost" type="button" data-act="wlRegen">Reset text to template</button><button class="btn ghost" type="button" data-act="wlCopy">Copy text</button></div>
     </form>
     <div class="panel"><div class="ph"><h3>${esc(t[1])}</h3><span class="note">Editable</span></div>
       <textarea id="ltBody" aria-label="Letter text" spellcheck="true">${esc(currentBody())}</textarea>
-      <div class="err" id="ltErr" role="alert">${esc(L.msg)}</div></div></div>`;
+      <div class="err" id="ltErr" role="alert">${esc(L.msg)}</div></div></div>
+    <div class="panel" style="margin-top:14px"><div class="ph"><h3>Saved letters</h3><span class="note">${LIVE?'Stored in the database':'Sample mode: kept until you reload'}</span></div>${savedHTML()}</div>`;
+  }
+  function savedHTML(){
+    loadSaved();
+    if(SV.err&&(SV.list||[]).length===0)return `<div class="err" role="alert">${esc(SV.err)}</div>`;
+    if(SV.list===null)return '<p class="note" style="margin:0">Loading…</p>';
+    if(!SV.list.length)return '<p class="note" style="margin:0">No saved letters yet. Fill in the details above and press Save letter.</p>';
+    return `${SV.err?`<div class="err" role="alert">${esc(SV.err)}</div>`:''}<div class="tbl"><table style="min-width:620px"><thead><tr><th>Client</th><th>Letter</th><th>Year end</th><th>Last saved</th><th></th></tr></thead><tbody>
+      ${SV.list.map(r=>`<tr class="${r.id===L.id?'sel':''}"><td>${esc(r.client_name)}</td><td>${esc(kindName(r.kind))}</td><td>${esc((r.fields&&r.fields.fye)?long(r.fields.fye):'')}</td><td class="note">${esc(when(r.updated_at))}</td>
+      <td><div class="row"><button class="btn sm" data-act="wlOpen" data-id="${esc(r.id)}">Open</button><button class="btn sm ghost" data-act="wlView" data-id="${esc(r.id)}">Preview</button><button class="btn sm ghost bad" data-act="wlDel" data-id="${esc(r.id)}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>`;
   }
 
   /* Add a Letters tab to the KYC page without touching its code. */
@@ -205,13 +270,19 @@ ${paras}
   const bodyTextFor=key=>{const saved={...L};try{const [type,client,contact,addr,entity,fye,encl,extra,signName,signTitle]=JSON.parse(key||'[]');Object.assign(L,{type,client,contact,addr,entity,fye,encl,extra,signName,signTitle});return bodyText()}catch(e){return null}finally{Object.assign(L,saved)}};
   document.addEventListener('click',async e=>{
     const b=e.target.closest&&e.target.closest('[data-act^="wl"]');if(!b)return;
-    const a=b.dataset.act;if(!['wlType','wlPreview','wlRegen','wlCopy'].includes(a))return;
+    const a=b.dataset.act;if(!['wlType','wlPreview','wlRegen','wlCopy','wlSave','wlSaveNew','wlNew','wlOpen','wlView','wlDel'].includes(a))return;
     e.stopImmediatePropagation();if(!isAdm())return;
     readForm();
     if(a==='wlType'){L.type=b.dataset.t;L.body=null;L.msg='';return render()}
     if(a==='wlRegen'){L.body=null;L.msg='';return render()}
     if(a==='wlCopy'){if(navigator.clipboard)navigator.clipboard.writeText(L.body||currentBody()).then(()=>toast('Letter text copied'),()=>toast('Copy failed'));return}
-    if(a==='wlPreview'){
+    if(a==='wlSave')return saveLetter(false);
+    if(a==='wlSaveNew')return saveLetter(true);
+    if(a==='wlNew'){L.id=null;L.body=null;L.msg='';return render()}
+    if(a==='wlOpen'){openSaved(b.dataset.id);window.scrollTo(0,0);return render()}
+    if(a==='wlDel')return deleteSaved(b.dataset.id);
+    if(a==='wlView'){openSaved(b.dataset.id);render()}
+    if(a==='wlPreview'||a==='wlView'){
       if(!L.client){L.msg='Enter the client name first.';return render()}
       if(!L.fye){L.msg='Choose the financial year end.';return render()}
       L.msg='';const D=window.VIRTUOSO_DOCS;if(!D){toast('Preview is not available');return}

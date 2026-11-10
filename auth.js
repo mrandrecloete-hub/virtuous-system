@@ -7,7 +7,13 @@
   if(!live)return;
 
   const DEMO_USERS=state.users.slice();
-  let sb=null,starting=true,msg='';
+  let sb=null,starting=true,msg='',info='',mode='login';
+  /* Password-recovery links from the reset email land here with #type=recovery (or an error if the link expired). */
+  const hash=location.hash||'';
+  let recovery=/type=recovery/.test(hash);
+  if(/error_code=|error_description=/.test(hash)&&!recovery){msg='That reset link is invalid or has expired. Request a new one.';mode='forgot'}
+  if(recovery)mode='reset';
+  const cleanUrl=()=>{try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}};
   const sbReady=()=>!!sb;
   const friendly=m=>/invalid login/i.test(m||'')?'Email or password is incorrect.':/rate|too many/i.test(m||'')?'Too many attempts. Wait a few minutes and try again.':(m||'Could not sign in. Try again.');
 
@@ -19,11 +25,21 @@
     <label>Confirm new password<input id="cpConf" type="password" autocomplete="new-password" required></label>
     <div class="note">At least 8 characters, with a number.</div><div class="err" id="cpErr" role="alert"></div>
     <button class="btn" type="submit">Save and continue</button><button class="btn ghost" type="button" data-act="signout">Cancel</button></form>`;
-    return `<img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System"><div class="brand" style="text-align:center"><small>Sign in with the details your administrator gave you</small></div>
+    const logo='<img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System">';
+    if(mode==='reset')return `${logo}<div class="brand" style="text-align:center">Reset your password<small>Choose a new password for your account.</small></div>
+    <form id="rsForm"><label>New password<input id="rsNew" type="password" autocomplete="new-password" required></label>
+    <label>Confirm new password<input id="rsConf" type="password" autocomplete="new-password" required></label>
+    <div class="note">At least 8 characters, with a number.</div><div class="err" id="rsErr" role="alert"></div>
+    <button class="btn" type="submit">Save new password</button><button class="btn ghost" type="button" id="fgBack">Cancel</button></form>`;
+    if(mode==='forgot')return `${logo}<div class="brand" style="text-align:center">Forgot your password?<small>Enter your email and we will send you a link to reset it.</small></div>
+    <form id="fgForm"><label>Email<input id="fgEmail" type="email" autocomplete="username" required></label>
+    <div class="err" id="fgErr" role="alert">${esc(msg)}</div><div class="note" id="fgInfo" role="status">${esc(info)}</div>
+    <button class="btn" type="submit">Send reset link</button><button class="btn ghost" type="button" id="fgBack">Back to sign in</button></form>`;
+    return `${logo}<div class="brand" style="text-align:center"><small>Sign in with the details your administrator gave you</small></div>
     <form id="loginForm"><label>Email<input id="liEmail" type="email" autocomplete="username" required></label>
     <label>Password<input id="liPass" type="password" autocomplete="current-password" required></label>
-    <div class="err" id="liErr" role="alert">${esc(msg)}</div><button class="btn" type="submit">${starting?'Connecting…':'Sign in'}</button></form>
-    <p class="note" style="text-align:center">Forgot your password? Ask your administrator to reset it.</p>`;
+    <div class="err" id="liErr" role="alert">${esc(msg)}</div>${info?`<div class="note" role="status">${esc(info)}</div>`:''}<button class="btn" type="submit">${starting?'Connecting…':'Sign in'}</button></form>
+    <p class="note" style="text-align:center"><a href="#" id="liForgot">Forgot your password?</a></p>`;
   };
 
   /* Honest labelling while modules are still on sample data. */
@@ -56,8 +72,29 @@
   /* Capture-phase handlers run before the demo handlers and stop them. */
   document.addEventListener('submit',async e=>{
     const f=e.target.id;
-    if(f!=='loginForm'&&f!=='pwForm')return;
+    if(f!=='loginForm'&&f!=='pwForm'&&f!=='fgForm'&&f!=='rsForm')return;
     e.preventDefault();e.stopImmediatePropagation();
+    if(f==='fgForm'){
+      const err=$('#fgErr'),em=$('#fgEmail').value.trim().toLowerCase();
+      if(!sbReady()){err.textContent='Still connecting. Try again in a moment.';return}
+      err.textContent='';
+      const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
+      if(error){err.textContent=friendly(error.message);return}
+      /* Same message whether or not the email has an account, so accounts cannot be guessed. */
+      $('#fgInfo').textContent='If that email has an account, a reset link is on its way. Check your inbox and spam folder.';
+      return;
+    }
+    if(f==='rsForm'){
+      const n=$('#rsNew').value,c=$('#rsConf').value,err=$('#rsErr');
+      if(n.length<8||!/\d/.test(n)){err.textContent='Use at least 8 characters, including a number.';return}
+      if(n!==c){err.textContent='The two passwords do not match.';return}
+      const {error}=await sb.auth.updateUser({password:n});
+      if(error){err.textContent=friendly(error.message);return}
+      await sb.rpc('password_changed').then(()=>{},()=>{});
+      await sb.auth.signOut().catch(()=>{});
+      recovery=false;cleanUrl();mode='login';msg='';info='Password updated. Sign in with your new password.';paintAuth();
+      return;
+    }
     if(f==='loginForm'){
       const err=$('#liErr'),em=$('#liEmail').value.trim().toLowerCase(),pw=$('#liPass').value;
       if(!sbReady()){err.textContent='Still connecting. Try again in a moment.';return}
@@ -77,6 +114,15 @@
     u.mustChange=false;render();toast('Password saved. Welcome, '+u.name.split(' ')[0]);
   },true);
 
+  /* Links on the sign-in screen. */
+  document.addEventListener('click',async e=>{
+    const t=e.target.closest&&e.target.closest('#liForgot,#fgBack');if(!t)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    if(t.id==='liForgot'){mode='forgot';msg='';info=''}
+    else{if(recovery){recovery=false;cleanUrl();if(sb)await sb.auth.signOut().catch(()=>{})}mode='login';msg='';info=''}
+    paintAuth();
+  },true);
+
   /* Sign-out also ends the Supabase session. */
   const demoSignOut=signOut;
   signOut=function(){demoSignOut();if(sb)sb.auth.signOut().catch(()=>{})};
@@ -88,6 +134,8 @@
   function start(){
     sb=window.supabase.createClient(cfg.supabaseUrl,cfg.anonKey,{auth:{persistSession:true,autoRefreshToken:true}});
     window.VIRTUOSO.client=sb;
+    sb.auth.onAuthStateChange(ev=>{if(ev==='PASSWORD_RECOVERY'){recovery=true;mode='reset';starting=false;paintAuth()}});
+    if(recovery){starting=false;paintAuth();return}
     sb.auth.getSession().then(async({data})=>{
       starting=false;
       if(data.session){try{await enter(data.session);render();return}catch(x){msg=x.message;await sb.auth.signOut().catch(()=>{})}}

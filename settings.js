@@ -8,7 +8,7 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
-  const VERSION='v47';
+  const VERSION='v48';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
 
@@ -77,6 +77,8 @@
       {k:'petty_match_threshold',l:'Vendor name match (0.3 to 1)',h:'How alike two vendor names must be to match. Higher is stricter.',t:'num',min:0.3,max:1,step:'0.05',def:0.6}]
   };
   const ALLKEYS=Object.values(FIELDS).flat().map(f=>f.k);
+  /* Read-only access to firm settings for other modules (letters, documents). get(key) returns the saved value or the default. */
+  window.VIRTUOSO_SETTINGS={get:k=>{const f=Object.values(FIELDS).flat().find(x=>x.k===k);return f?val(f):undefined},load:()=>load()};
   const S={tab:'profile',vals:{},loaded:false,loading:false,busy:false,msg:'',err:'',uid:null,pwMsg:'',pwErr:''};
   state.settings=state.settings||{};
   const val=f=>{const v=LIVE?S.vals[f.k]:state.settings[f.k];return v===undefined||v===null?f.def:v};

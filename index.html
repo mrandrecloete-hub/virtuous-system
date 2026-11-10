@@ -1386,6 +1386,7 @@ function render(){
   paintAuth();
   if(!state.user||state.user.mustChange)return;
   checkCash();paintTabs();paintNet();
+  if(state.role==='emp'&&!NAV.emp.some(g=>g[1].some(x=>x[0]===state.tab.emp)))state.tab.emp='dash';
   try{$('#view').innerHTML=VIEWS[state.tab[state.role]]()}
   catch(e){console.error(e);$('#view').innerHTML='<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">This page could not load. Try another page or reload. If it keeps happening, tell your administrator.</div>'}
   if(window.kycAfter)kycAfter();
@@ -1626,6 +1627,8 @@ render();
 <script src="ai-tools.js"></script>
 <script src="settings.js"></script>
 <script src="office-list.js"></script>
+<script src="team.js"></script>
+<script src="dash-employee.js"></script>
 <script>/* Employees and Payroll pages are removed from the app (backend tables and functions are untouched). */delete VIEWS.employees;delete VIEWS.payroll;</script>
 <script src="assistant.js"></script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body></html>

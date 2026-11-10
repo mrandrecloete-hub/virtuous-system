@@ -8,7 +8,7 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
-  const VERSION='v46';
+  const VERSION='v47';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
 
@@ -162,7 +162,26 @@
   }
   window.ICON=window.ICON||{};
   ICON.settings='<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>';
-  [NAV.adm,NAV.emp].forEach(nav=>{if(!nav.some(g=>g[1].some(x=>x[0]==='settings')))nav.push(['Account',[['settings','Settings']]])});
+  [NAV.adm,NAV.emp].forEach(nav=>{if(!nav.some(g=>g[1].some(x=>x[0]==='settings')))nav.push(['Account',[['profile','My profile'],['settings','Settings']]])});
+  ICON.profile='<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>';
+  /* MY PROFILE: everyone's own details and change password, reachable from the menu and the dashboard. */
+  function vProfile(){
+    const u=state.user||{},init=String(u.name||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    return `<h2>My profile</h2><p class="sub">Your details, and where you change your password.</p>
+    <div class="stsec" style="max-width:760px">
+    <div class="panel stsec"><div class="row" style="gap:14px;align-items:center;flex-wrap:nowrap"><div aria-hidden="true" style="flex:0 0 64px;width:64px;height:64px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-size:24px;font-weight:700">${esc(init)}</div>
+      <div style="min-width:0"><h3 style="margin:0">${esc(u.name)}</h3><div class="note">${esc(u.title||'')}</div><div style="margin-top:4px">${pill(isAdm()?'Administrator':'Employee')}</div></div></div>
+      <dl class="stkv"><dt>Email (your sign-in)</dt><dd>${esc(u.email)}</dd><dt>Job title</dt><dd>${esc(u.title||'Not set')}</dd><dt>Access</dt><dd>${isAdm()?'Administrator: sees every page':'Employee: your own dashboard, timesheet, leave and requests'}</dd>${u.lastLogin?`<dt>Last sign-in</dt><dd>${esc(fmtDT(new Date(u.lastLogin)))}</dd>`:''}</dl>
+      <p class="note" style="margin:0">To change your name, title or email, ask an administrator.</p></div>
+    <form id="pfPw" class="panel stsec" novalidate><h3>Change password</h3>
+      <div>${LIVE?'':`<div class="strow"><label class="l" for="pfPwOld"><b>Current password</b></label><input id="pfPwOld" type="password" autocomplete="current-password"></div>`}
+      <div class="strow"><label class="l" for="pfPwNew"><b>New password</b><span>At least 8 characters, with a number.</span></label><input id="pfPwNew" type="password" autocomplete="new-password"></div>
+      <div class="strow"><label class="l" for="pfPwCon"><b>Confirm new password</b></label><input id="pfPwCon" type="password" autocomplete="new-password"></div></div>
+      <div class="err" id="pfPwErr" role="alert">${esc(S.pwErr)}</div>${S.pwMsg?`<div class="banner ok" role="status">${esc(S.pwMsg)}</div>`:''}
+      <div class="stbar"><button class="btn" type="submit" ${S.busy?'disabled':''}>Save password</button></div></form>
+    <div class="panel stsec"><div class="stbar"><button class="btn ghost" data-tab="settings">Appearance and more settings</button><button class="btn ghost" data-act="signout">Sign out</button></div></div></div>`;
+  }
+  VIEWS.profile=vProfile;
   VIEWS.settings=vSettings;
 
   /* ---------- actions ---------- */
@@ -189,10 +208,10 @@
     pushToState();S.err='';S.msg='Saved.'+(tab==='payroll'?' Recalculate the draft on the Payroll page to apply it.':'');
     toast('Settings saved');render();
   }
-  async function savePassword(){
-    const n=$('#stPwNew').value,c=$('#stPwCon').value,u=state.user;
+  async function savePassword(px){
+    px=px||'st';const n=$('#'+px+'PwNew').value,c=$('#'+px+'PwCon').value,u=state.user;
     S.pwMsg='';
-    if(!LIVE&&$('#stPwOld').value!==u.password)S.pwErr='The current password is not correct.';
+    if(!LIVE&&$('#'+px+'PwOld').value!==u.password)S.pwErr='The current password is not correct.';
     else if(n.length<8||!/\d/.test(n))S.pwErr='Use at least 8 characters, including a number.';
     else if(n!==c)S.pwErr='The two passwords do not match.';
     else if(!LIVE&&n===u.password)S.pwErr='Choose a password different from the current one.';
@@ -220,10 +239,10 @@
     savePrefs();applyPrefs();toast('Saved on this device');
   }
   document.addEventListener('submit',e=>{
-    const id=e.target.id;if(id!=='stForm'&&id!=='stPw')return;
+    const id=e.target.id;if(id!=='stForm'&&id!=='stPw'&&id!=='pfPw')return;
     e.preventDefault();e.stopImmediatePropagation();
     if(S.busy)return;
-    if(id==='stForm')saveFirm(e.target);else savePassword();
+    if(id==='stForm')saveFirm(e.target);else savePassword(id==='pfPw'?'pf':'st');
   },true);
   document.addEventListener('change',e=>{
     const t=e.target;if(!t||t.dataset.st!=='pref')return;

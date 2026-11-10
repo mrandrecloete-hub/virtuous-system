@@ -8,7 +8,7 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
-  const VERSION='v33';
+  const VERSION='v34';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
 
@@ -95,12 +95,12 @@
     if(state.tab&&state.tab[state.role]==='settings')render();
   }
   setInterval(()=>{const u=state.user?state.user.id:null;if(u!==S.uid){S.uid=u;S.loaded=false;S.loading=false;S.vals={};S.msg='';S.err='';S.pwMsg='';S.pwErr='';
-    if(!isAdm()&&['company','payroll','office','system'].includes(S.tab))S.tab='profile'}},700);
+    if(!isAdm()&&['company','office','system'].includes(S.tab))S.tab='profile'}},700);
 
   /* ---------- view ---------- */
   const TABS=()=>{
     const t=[['My settings',[['profile','My profile'],['appearance','Appearance'],['security','Password and sign-in'],['bruno','Bruno and voice']]]];
-    if(isAdm())t.push(['Firm settings (admin)',[['company','Company details'],['payroll','Payroll inputs'],['office','Petty cash and stationery'],['system','Data and system']]]);
+    if(isAdm())t.push(['Firm settings (admin)',[['company','Company details'],['office','Petty cash and stationery'],['system','Data and system']]]);
     return t;
   };
   const chk=(id,on,l,h)=>`<div class="strow"><div class="l"><b>${l}</b><span>${h}</span></div><label class="chk"><input type="checkbox" id="${id}" data-st="pref" ${on?'checked':''}> On</label></div>`;
@@ -125,7 +125,7 @@
     switch(S.tab){
       case 'profile':return `<div class="panel stsec"><h3>My profile</h3>
         <dl class="stkv"><dt>Name</dt><dd>${esc(u.name)}</dd><dt>Job title</dt><dd>${esc(u.title)}</dd><dt>Email</dt><dd>${esc(u.email)}</dd><dt>Access</dt><dd>${isAdm()?'Administrator':'Employee'}</dd></dl>
-        <p class="note" style="margin:0">Your name, title and access are managed by an administrator on the Employees page.</p></div>
+        <p class="note" style="margin:0">Your name, title and access are managed by an administrator.</p></div>
         <div class="panel stsec"><h3>Fixed facts</h3><dl class="stkv"><dt>Country</dt><dd>Namibia</dd><dt>Currency</dt><dd>Namibian dollar (NAD, shown as N$)</dd><dt>Financial year</dt><dd>March to February (FY2027 = March 2026 to February 2027)</dd></dl>
         <p class="note" style="margin:0">These are built into reports and payroll, so they are not editable.</p></div>`;
       case 'appearance':return `<div class="panel stsec"><h3>Appearance</h3><p class="note" style="margin:0">Saved on this device only.</p><div>
@@ -146,8 +146,6 @@
         ${chk('stBruno',prefs.bruno,'Show the Bruno button','The bear in the corner. You can still open AI Tools from the menu.')}
         ${chk('stVoice',prefs.voice,'Show the Voice button','Dictate to Bruno. It uses your browser\'s speech service, so audio may go to your browser vendor. Off if you prefer typing.')}</div></div>`;
       case 'company':return firmForm('company','<h3>Company details</h3><p class="note" style="margin:0">Master details for the firm. Leave blank anything you do not have.</p>');
-      case 'payroll':return firmForm('payroll','<h3>Payroll inputs</h3><div class="banner" style="margin:0">Payroll here is <b>non-tax</b>: there are no PAYE or social security rates in this system. They need verified, effective-dated rules before they can be added. After changing these, recalculate the draft on the Payroll page.</div>')
-        +`<div class="panel stsec"><h3>Leave and loan limits</h3><p class="note" style="margin:0">Leave balances (placeholders 15 / 10 / 3 days) are set per employee on the Employees page. One active loan per person is enforced by the database.</p></div>`;
       case 'office':return firmForm('office','<h3>Petty cash and stationery</h3><p class="note" style="margin:0">Controls how receipts are matched on Reconcile and when stationery shows as low.</p>');
       case 'system':return `<div class="panel stsec"><h3>Data and system</h3>
         <dl class="stkv"><dt>Mode</dt><dd>${LIVE?'Live (connected to the database)':'Sample data (resets when you reload)'}</dd><dt>App version</dt><dd>${VERSION}</dd><dt>Signed in as</dt><dd>${esc(u.name)} (${esc(u.email)})</dd><dt>Online</dt><dd>${navigator.onLine?'Yes':'No'}</dd></dl>

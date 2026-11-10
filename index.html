@@ -453,7 +453,7 @@ const ICON={
  cash:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.7c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.9-2.5.9-2.5 1.9 1 1.8 2.5 1.8 2.5-.8 2.5-1.8"/>'};
 const NAV={
  emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['loans','Loans'],['slip','Payslips'],['stationery','Stationery list'],['cash','Petty cash']]]],
- adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['employees','Employees'],['kyc','Client KYC'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['payroll','Payroll'],['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Timesheet']]],['Office',[['stationery','Stationery list']]]]};
+ adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['kyc','Client KYC'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Timesheet']]],['Office',[['stationery','Stationery list']]]]};
 function pending(){return state.approvals.filter(a=>a.status==='Pending').length}
 function paintTabs(){
   const cur=state.tab[state.role];let title='Dashboard';
@@ -787,16 +787,13 @@ function dAdm(){
   const pc=pcSummary(),tot=Math.max(1,pc.rec+pc.dis+pc.mis+pc.orp);
   const pend=state.approvals.filter(a=>a.status==='Pending');
   const tsOpen=pend.some(a=>a.type==='Timesheet'),reqOpen=pend.some(a=>a.type!=='Timesheet');
-  const chk=[['All timesheets approved',!tsOpen,'approvals'],['Leave and loan requests reviewed',!reqOpen,'approvals'],['Payroll run finalised',state.finalised,'payroll'],['Petty cash locked for '+monthLabel(state.month),state.locked,'petty']];
+  const chk=[['All timesheets approved',!tsOpen,'approvals'],['Leave and loan requests reviewed',!reqOpen,'approvals'],['Petty cash locked for '+monthLabel(state.month),state.locked,'petty']];
   const doneN=chk.filter(x=>x[1]).length;
   const seg=(n,c)=>n?`<i style="width:${n/tot*100}%;background:${c}"></i>`:'';
-  return `<div class="hello"><div><h2>Dashboard</h2><p class="sub" style="margin:0">October 2026 close, financial year 2027. ${doneN} of ${chk.length} month-end steps done.</p></div>
-    <div class="row"><button class="btn" data-tab="employees">Add employee</button><button class="btn ghost" data-tab="payroll">Open payroll</button></div></div>
+  return `<div class="hello"><div><h2>Dashboard</h2><p class="sub" style="margin:0">October 2026 close, financial year 2027. ${doneN} of ${chk.length} month-end steps done.</p></div></div>
   <div class="tiles">
     <button class="tile link" data-tab="approvals"><b>${pend.length}</b><span>Waiting for approval</span><small>${pend.filter(a=>a.type==='Timesheet').length} timesheets</small></button>
     <button class="tile link" data-tab="kyc"><b>${kPend()}</b><span>Forms awaiting review</span><small>KYC and staff requests</small></button>
-    <button class="tile link" data-tab="payroll"><b>${NAD(net)}</b><span>Net payroll, October</span><small>${state.finalised?'Finalised':'Draft'}</small></button>
-    <button class="tile link" data-tab="employees"><b>${state.users.filter(u=>u.access).length} of ${state.users.length}</b><span>Accounts with access</span><small>${staff().length} employees on payroll</small></button>
     <button class="tile link" data-tab="activity"><b>${act}</b><span>Active now</span><small>${state.online?'Live heartbeat':'Offline, using last sync'}</small></button>
     <button class="tile link" data-tab="stationery"><b>${lowItems().length}</b><span>Low stock items</span><small>${lowItems().length?esc(lowItems().map(i=>i.name).join(', ')):'Everything above '+state.stat.thr}</small></button>
     <button class="tile link" data-tab="cash"><b>${overdueAdv().length}</b><span>Cash not reported</span><small>${NAD(state.advances.filter(a=>a.status==='Open').reduce((s,a)=>s+a.amount,0))} still with staff</small></button>
@@ -1634,5 +1631,6 @@ render();
 <script src="form-builder.js"></script>
 <script src="ai-tools.js"></script>
 <script src="settings.js"></script>
+<script>/* Employees and Payroll pages are removed from the app (backend tables and functions are untouched). */delete VIEWS.employees;delete VIEWS.payroll;</script>
 <script src="assistant.js"></script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body></html>

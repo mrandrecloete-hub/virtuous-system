@@ -42,10 +42,10 @@
       <div class="wide note" id="lSum"></div>
       <label class="chk wide"><input id="lDecl" type="checkbox"> I confirm the details above are correct.</label>
       <div class="wide err" id="lErr" role="alert"></div>
-      <div class="wide"><button class="btn" type="submit">Send application</button></div></form></div>
+      <div class="wide row"><button class="btn" type="submit">Send application</button><button class="btn ghost" type="button" data-act="llPreview">Preview, print or save form</button></div></form></div>
     <div class="panel"><h3>My applications</h3><div class="tbl"><table style="min-width:640px"><thead><tr><th>Type</th><th>Dates</th><th class="n">Days</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
       ${reqs.length?reqs.map(l=>`<tr><td>${esc(l.leave_type)}</td><td>${esc(fd(l.from_date))} to ${esc(fd(l.to_date))}</td><td class="n">${+l.days}</td><td>${esc(l.reason||'')}${l.doc_path?'<div class="note">Document attached</div>':''}</td><td>${pill(l.status,stc(l.status))}</td>
-        <td>${l.status==='Pending'?`<button class="btn sm ghost" data-act="llWithdraw" data-id="${esc(l.id)}">Withdraw</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" class="note">${S.reqs===null?'Loading…':'No applications yet.'}</td></tr>`}
+        <td><button class="btn sm ghost" data-act="llView" data-id="${esc(l.id)}">View form</button> ${l.status==='Pending'?`<button class="btn sm ghost" data-act="llWithdraw" data-id="${esc(l.id)}">Withdraw</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" class="note">${S.reqs===null?'Loading…':'No applications yet.'}</td></tr>`}
     </tbody></table></div></div></div>`;
   }
   /* The app calls this after every render of the Leave page and on input; use live balances. */
@@ -113,7 +113,18 @@
 
   document.addEventListener('click',async e=>{
     const b=e.target.closest&&e.target.closest('[data-act^="ll"]');if(!b)return;
-    e.stopImmediatePropagation();if(S.busy)return;
+    e.stopImmediatePropagation();
+    const LP=window.VIRTUOSO_LEAVEPRINT,u=state.user||{};
+    if(b.dataset.act==='llPreview'){
+      if(!LP)return toast('The form preview is not available.');
+      const c=leaveCalc(),f=$('#lFile').files[0];
+      return LP.open({name:u.name,title:u.title,email:u.email,type:c.type,from:c.from,to:c.to,days:c.days,half:c.half,reason:$('#lReason').value.trim(),phone:$('#lPhone').value.trim(),cover:$('#lCover').value.trim(),doc:f?true:undefined});
+    }
+    if(b.dataset.act==='llView'){
+      const l=(S.reqs||[]).find(x=>x.id===b.dataset.id);if(!l||!LP)return;
+      return LP.open({ref:'LV-'+String(l.id).slice(0,8).toUpperCase(),status:l.status,name:u.name,title:u.title,email:u.email,type:l.leave_type,from:String(l.from_date).slice(0,10),to:String(l.to_date).slice(0,10),days:+l.days,half:!!l.half_day,reason:l.reason||'',phone:l.phone||'',cover:l.cover_name||'',doc:!!l.doc_path});
+    }
+    if(S.busy)return;
     const kind=b.dataset.act==='llWithdraw'?'leave':'loan';
     if(!confirm('Withdraw this request?'))return;
     S.busy=true;lockAll(true);

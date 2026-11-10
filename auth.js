@@ -42,15 +42,6 @@
     <p class="note" style="text-align:center"><a href="#" id="liForgot">Forgot your password?</a></p>`;
   };
 
-  /* Honest labelling while modules are still on sample data. */
-  const bar=document.createElement('div');
-  bar.id='liveBar';bar.setAttribute('role','note');
-  bar.style.cssText='display:none;position:sticky;top:0;z-index:12;background:#fff4d6;color:#4a3800;border-bottom:1px solid #e3c870;padding:6px 12px;font-size:13px;text-align:center';
-  bar.textContent='Signed in to the live system. Pages other than sign-in still show sample data until they are connected.';
-  document.body.prepend(bar);
-  const showBar=()=>{bar.style.display=state.user&&!state.user.mustChange?'block':'none'};
-  setInterval(showBar,800);
-
   function userFromProfile(p){
     const u=Object.assign({},{id:p.id,type:p.role==='admin'?'admin':'emp',name:p.name,title:p.title||'',email:p.email,password:null,
       access:p.access_enabled,mustChange:!!p.must_change_password,base:0,allow:0,ot:0,loan:0,ded:0,

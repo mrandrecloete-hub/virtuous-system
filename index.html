@@ -894,20 +894,22 @@ function toISO(v){
 const toNum=v=>typeof v==='number'?v:parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''))||0;
 function rowsToLines(rows){
   const norm=c=>String(c==null?'':c).trim();
-  const h=rows.findIndex(r=>r.some(c=>/date/i.test(norm(c)))&&r.some(c=>/amount|amt|value|total|debit|paid|payment|expense|spent|cost|out\b/i.test(norm(c))));
+  const h=rows.findIndex(r=>r.some(c=>/date/i.test(norm(c)))&&r.some(c=>/amount|amt|value|total|debit|paid|payment|expense|spent|cost|disburs|out\b/i.test(norm(c))));
   if(h<0)return null;
   const hdr=rows[h].map(c=>norm(c).toLowerCase()),ci=re=>hdr.findIndex(x=>re.test(x));
-  const di=ci(/date/),ai=ci(/amount|amt|value|total|debit|paid|payment|expense|spent|cost|out\b/),ni=ci(/desc|detail|item|particular/),vi=ci(/vendor|supplier|payee|shop/);
-  const lines=[];let skipped=0,other=0;const months={};
+  const di=ci(/date/),ai=ci(/amount|amt|value|total|debit|paid|payment|expense|spent|cost|disburs|out\b/),bi=ci(/balance/),ni=ci(/desc|detail|item|particular/),vi=ci(/vendor|supplier|payee|shop/);
+  const lines=[];let skipped=0,other=0,opening=null,deposits=0;const months={};
   for(const r of rows.slice(h+1)){
     const iso=toISO(r[di]),amt=toNum(r[ai]);
-    if(!iso||!(amt>0)){if(r.some(c=>norm(c)))skipped++;continue}
+    if(opening==null&&bi>=0&&/opening balance/i.test(norm(r[ni>=0?ni:0])+' '+norm(r[vi>=0?vi:0]))&&toNum(r[bi])>0)opening=toNum(r[bi]);
+    if(iso&&amt<0&&iso.slice(0,7)===state.month){deposits+=-amt;continue}
+    if(!iso||!(amt>0)){if(r.some(c=>norm(c))&&(iso||amt))skipped++;continue}
     if(iso.slice(0,7)!==state.month){other++;months[iso.slice(0,7)]=1;continue}
     const desc=ni>=0?norm(r[ni]):'';let vendor=vi>=0?norm(r[vi]):'';
     if(!vendor){const p=desc.split(/\s[-–—]\s/);vendor=p.length>1?p[p.length-1]:desc}
     lines.push({id:uid(),date:iso,amt,desc:desc||vendor||'Petty cash',vendor:vendor||desc});
   }
-  return {lines,skipped,other,months:Object.keys(months).sort()};
+  return {lines,skipped,other,opening,deposits,months:Object.keys(months).sort()};
 }
 async function loadSheet(f){
   let m=M();if(m.locked)return toast('This month is locked');
@@ -933,7 +935,7 @@ async function loadSheet(f){
         else{m=m2;m.sheetFile={name:f.name,size:f.size,at:new Date()};r=rowsToLines(raw);msg='The sheet is for '+monthLabel(state.month)+', so that month was opened. '}}
       if(!r)msg='Sheet stored, but no Date and Amount columns were found in any sheet of the file. The header row needs a Date column and an Amount (or Debit/Paid/Total) column.';
       else if(!r.lines.length)msg='Sheet stored, but no lines dated in '+monthLabel(state.month)+' were found'+(r.other?'. The file has '+r.other+' lines dated in other months ('+r.months.slice(0,6).map(monthLabel).join(', ')+'). Switch to that month, or check the dates.':'.')+(r.skipped?' '+r.skipped+' rows could not be read (no valid date or an amount above 0).':'');
-      else{m.sheet=r.lines;m.overrides={};m.links={};
+      else{m.sheet=r.lines;m.overrides={};m.links={};if(r.opening>0){m.opening=Math.round((r.opening+(r.deposits||0))*100)/100;msg+='Opening balance N$ '+r.opening.toFixed(2)+(r.deposits?' plus N$ '+r.deposits.toFixed(2)+' of funds deposited':'')+' taken from the sheet. '}
         const t=r.lines.reduce((s,l)=>s+l.amt,0);
         msg+='Read '+r.lines.length+(typeof usedSheet!=='undefined'&&usedSheet?' lines from sheet "'+usedSheet+'"':' lines')+' totalling '+NAD(t)+' for '+monthLabel(state.month)+'.'+(r.other?' '+r.other+' lines dated in other months were left out.':'')+(r.skipped?' '+r.skipped+' rows could not be read.':'')}
     }

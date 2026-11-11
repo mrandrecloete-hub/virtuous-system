@@ -302,8 +302,9 @@
     const calc=open!=null?r2(open-deb+cre):null,alt=open!=null?r2(open+deb-cre):null;
     let diff=calc!=null&&close!=null?r2(calc-close):null;
     const flip=diff!=null&&Math.abs(diff)>=.005&&close!=null&&Math.abs(r2(calc+close))<.005;if(flip)diff=0;
-    const ok=diff==null?null:(Math.abs(diff)<.005||flip);
-    const altOk=diff!=null&&!ok&&Math.abs(r2(alt-close))<.005;
+    const altOk=diff!=null&&Math.abs(diff)>=.005&&!flip&&close!=null&&Math.abs(r2(alt-close))<.005;
+    const ok=diff==null?null:(Math.abs(diff)<.005||flip||altOk);
+    if(altOk)diff=0;
     return {rs,deb,cre,open,close,closeSrc,calc,diff,ok,altOk,flip,lastBal,flagged:f.rows.filter(r=>r.flags&&r.flags.length).length};
   }
   function cardHTML(f,i){
@@ -320,7 +321,7 @@
       <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:''}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
       <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>`}).join('');
     const cls=T.ok==null?'warn':T.ok?'ok':'bad';
-    const msg=T.ok==null?'Cannot verify yet: '+(T.open==null?'opening balance not found (type it below)':'closing balance not found (type it below)'):T.ok?(T.flip?'AGREES: closing balance on the statement is the amount owed ('+f2(T.close)+'), which equals opening (credit) less debits plus credits':'AGREES: opening - debits + credits = closing balance'):'DOES NOT AGREE: difference '+f2(T.diff)+(T.altOk?'. It would agree if debits ADD to the balance (card-style statement): check the Debit/Credit columns.':'. Check the marked lines against the statement.');
+    const msg=T.ok==null?'Cannot verify yet: '+(T.open==null?'opening balance not found (type it below)':'closing balance not found (type it below)'):T.ok?(T.altOk?'AGREES (card statement: balances are amounts owed): opening '+f2(T.open)+' + debits '+f2(T.deb)+' - credits '+f2(T.cre)+' = closing '+f2(T.close):T.flip?'AGREES: closing balance on the statement is the amount owed ('+f2(T.close)+'), which equals opening (credit) less debits plus credits':'AGREES: opening - debits + credits = closing balance'):'DOES NOT AGREE: difference '+f2(T.diff)+(T.altOk?'. It would agree if debits ADD to the balance (card-style statement): check the Debit/Credit columns.':'. Check the marked lines against the statement.');
     const inp=(k,v,ph)=>`<input data-scb="${k}" data-i="${i}" value="${esc(v||'')}" inputmode="decimal" placeholder="${ph}" style="width:120px;text-align:right">`;
     const box=`<div class="scver ${cls}" style="border:2px solid ${T.ok==null?'#c9a227':T.ok?'#2e9e5b':'#d33'};border-radius:10px;padding:10px 12px;margin:0 0 10px">
       <b>${esc(msg)}</b>

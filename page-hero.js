@@ -35,7 +35,12 @@
     save:'<path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
     copy:'<rect x="9" y="9" width="11" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
     info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
-    folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+    folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    print:'<path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/>',
+    share:'<circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="6" r="2.6"/><circle cx="18" cy="18" r="2.6"/><path d="M8.3 10.8l7.4-3.6M8.3 13.2l7.4 3.6"/>',
+    cube:'<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/>',
+    question:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8M12 17h.01"/>',
+    target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>'
   };
   const icon=(n,s)=>`<svg viewBox="0 0 24 24" width="${s||20}" height="${s||20}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]||P.doc}</svg>`;
 
@@ -49,10 +54,14 @@
       <rect x="110" y="24" width="190" height="122" rx="16" fill="url(#phk1)" opacity=".92" stroke="#bcd7ff" stroke-width="2"/><circle cx="160" cy="68" r="17" fill="#e8f1ff"/><path d="M130 124c4-22 20-30 30-30s26 8 30 30z" fill="#e8f1ff"/><rect x="210" y="54" width="70" height="8" rx="4" fill="#e8f1ff"/><rect x="210" y="74" width="56" height="8" rx="4" fill="#e8f1ff" opacity=".8"/><rect x="210" y="94" width="64" height="8" rx="4" fill="#e8f1ff" opacity=".6"/>
       <circle cx="288" cy="112" r="26" fill="#1fb86a" stroke="#fff" stroke-width="4"/><path d="M276 112l8 8 14-16" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
   };
+  ART.formbuilder=`<svg viewBox="0 0 360 170" aria-hidden="true"><defs><linearGradient id="phf1" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#9ec3ff"/><stop offset="1" stop-color="#2a63d8"/></linearGradient><linearGradient id="phf2" x1="0" x2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs>
+      <rect x="60" y="14" width="200" height="124" rx="10" fill="#0c2a78" stroke="#8fb6f5" stroke-width="3"/><rect x="70" y="26" width="180" height="100" rx="5" fill="url(#phf1)" opacity=".85"/><rect x="82" y="38" width="70" height="8" rx="4" fill="#fff"/><rect x="82" y="56" width="140" height="12" rx="4" fill="#e8f1ff"/><rect x="82" y="78" width="140" height="12" rx="4" fill="#e8f1ff"/><rect x="82" y="100" width="46" height="14" rx="7" fill="#fff"/><path d="M40 146h240l-18 14H58z" fill="#7fa6e8" opacity=".7"/>
+      <g transform="rotate(40 290 70)"><rect x="280" y="6" width="22" height="92" rx="8" fill="url(#phf2)"/><path d="M278 98h26l-7 28c-1 4-11 4-12 0z" fill="#f4f6fb"/><path d="M286 126h10l-5 16z" fill="#2a63d8"/></g></svg>`;
   ART.letters=`<svg viewBox="0 0 360 170" aria-hidden="true"><defs><linearGradient id="phl1" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#cfe1ff"/><stop offset="1" stop-color="#7fa8ec"/></linearGradient><linearGradient id="phl2" x1="0" x2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs>
       <g transform="rotate(-8 150 90)"><rect x="60" y="30" width="170" height="120" rx="8" fill="url(#phl1)" opacity=".9"/><rect x="78" y="52" width="100" height="8" rx="4" fill="#4b6fb8"/><rect x="78" y="72" width="130" height="6" rx="3" fill="#6f8fcb"/><rect x="78" y="88" width="120" height="6" rx="3" fill="#6f8fcb"/><rect x="78" y="104" width="126" height="6" rx="3" fill="#6f8fcb"/><rect x="78" y="120" width="80" height="6" rx="3" fill="#6f8fcb"/></g>
       <g transform="rotate(35 280 80)"><rect x="268" y="6" width="22" height="104" rx="8" fill="#1a2f6e"/><rect x="268" y="14" width="22" height="10" fill="url(#phl2)"/><path d="M266 110h26l-6 36c-1 5-13 5-14 0z" fill="url(#phl2)"/></g></svg>`;
   const hasIcon={
+    form:`<svg viewBox="0 0 64 64" width="76" height="76" aria-hidden="true"><defs><linearGradient id="phi4" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#7fb4ff"/><stop offset="1" stop-color="#1b55d6"/></linearGradient><linearGradient id="phi5" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs><rect x="6" y="6" width="42" height="50" rx="9" fill="url(#phi4)" stroke="#cfe1ff" stroke-width="2"/><rect x="14" y="16" width="26" height="6" rx="3" fill="#fff"/><rect x="14" y="28" width="26" height="6" rx="3" fill="#fff" opacity=".85"/><rect x="14" y="40" width="16" height="6" rx="3" fill="#fff" opacity=".7"/><circle cx="46" cy="44" r="11" fill="none" stroke="url(#phi5)" stroke-width="7" stroke-dasharray="6 4"/><circle cx="46" cy="44" r="5" fill="#061a5c"/></svg>`,
     folder:`<svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><defs><linearGradient id="phi3" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs><path d="M6 14a4 4 0 0 1 4-4h14l6 6h24a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4z" fill="url(#phi3)"/><rect x="18" y="22" width="30" height="26" rx="3" fill="#2f6fe4" stroke="#bcd7ff" stroke-width="2"/><path d="M24 30h18M24 36h18M24 42h11" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`,
     gear:`<svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><defs><linearGradient id="phi1" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs><circle cx="32" cy="32" r="22" fill="none" stroke="url(#phi1)" stroke-width="12" stroke-dasharray="9 6"/><circle cx="32" cy="32" r="18" fill="none" stroke="url(#phi1)" stroke-width="5"/><circle cx="32" cy="32" r="8" fill="#04134a" stroke="url(#phi1)" stroke-width="4"/></svg>`,
     shield:`<svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><defs><linearGradient id="phi2" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs><path d="M32 4l24 9v18c0 15-10 26-24 30C18 57 8 46 8 31V13z" fill="#0a2a7a" stroke="url(#phi2)" stroke-width="4"/><path d="M20 32l8 8 17-18" fill="none" stroke="url(#phi2)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
@@ -69,6 +78,7 @@
   .pgh-title{margin:0;color:#fff;font-size:clamp(30px,4.4vw,48px);line-height:1.05;font-weight:800;letter-spacing:-.01em;text-wrap:balance}
   .pgh-title span{background:linear-gradient(180deg,#ffe17a,#f0a800);-webkit-background-clip:text;background-clip:text;color:transparent}
   .pgh-sub{margin:8px 0 0;color:#e3ecff;font-size:15px;line-height:1.4;max-width:60ch}
+  .pgh-act{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
   .pgh-art{flex:none;width:min(36%,360px);position:relative;z-index:1;filter:drop-shadow(0 10px 18px rgba(0,0,0,.35))}
   .pgh-art svg{display:block;width:100%;height:auto}
   @media (min-width:821px){.pghero{margin-top:-64px;padding-top:76px}}
@@ -98,7 +108,7 @@
   function hero(o){
     const t=String(o.title||''),cut=o.gold?t.length-o.gold:Math.ceil(t.length*.55);
     const title=`${esc(t.slice(0,cut))}<span>${esc(t.slice(cut))}</span>`;
-    return `<section class="pghero" aria-label="${esc(t)}">${o.icon&&hasIcon[o.icon]?`<div class="pgh-ic">${hasIcon[o.icon]}</div><div class="pgh-div"></div>`:''}<div class="pgh-t"><h1 class="pgh-title">${title}</h1><p class="pgh-sub">${esc(o.sub||'')}</p></div>${o.art&&ART[o.art]?`<div class="pgh-art">${ART[o.art]}</div>`:''}</section>`;
+    return `<section class="pghero" aria-label="${esc(t)}">${o.icon&&hasIcon[o.icon]?`<div class="pgh-ic">${hasIcon[o.icon]}</div><div class="pgh-div"></div>`:''}<div class="pgh-t"><h1 class="pgh-title">${title}</h1><p class="pgh-sub">${esc(o.sub||'')}</p>${o.actions?`<div class="pgh-act">${o.actions}</div>`:''}</div>${o.art&&ART[o.art]?`<div class="pgh-art">${ART[o.art]}</div>`:''}</section>`;
   }
   /* items: [[key,label,iconName]]; attrs builds the data-* part for each button */
   function tabs(items,active,attrs){

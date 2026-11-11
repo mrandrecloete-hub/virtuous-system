@@ -366,19 +366,30 @@
     return `<div class="panel"><div class="row" style="justify-content:space-between"><h3 style="margin:0">Create a form</h3><button class="btn ghost sm" data-act="fbCreateClose">Close</button></div>
       <div class="row" role="tablist" style="margin:10px 0;flex-wrap:wrap">${tabs.map(([k,l])=>`<button class="btn ${t===k?'':'ghost'} sm" role="tab" aria-selected="${t===k}" data-act="fbCreateTab" data-t="${k}">${l}</button>`).join('')}</div>${body}${FB.out.create?`<div class="fbnote" style="margin-top:12px" role="status">${md(FB.out.create)}</div>`:''}</div>`;
   }
+  const TILE=['#2f6fe4','#8a3fd1','#e08a00','#1f9d55','#1d5fd6','#c2410c'];
+  const tileFor=(f,i)=>{let h=0;String(f.id+f.title).split('').forEach(c=>{h=(h*31+c.charCodeAt(0))%997});return TILE[(h+i)%TILE.length]};
   function listView(){
-    const fs=forms();
-    return `<h2>Form builder</h2><p class="sub">Build forms visually, change them in plain words, share them with a link, and review responses. No AI service or key is used.</p>
-    <div class="stack"><div class="row" style="flex-wrap:wrap"><button class="btn" data-act="fbCreateOpen">Create form</button><button class="btn ghost" data-act="fbImportPick">Import form</button><input type="file" id="fbImportFile" data-fbimport="1" accept=".json,application/json" hidden aria-label="Import a form file"></div>
+    const UI=window.VIRTUOSO_UI,I=UI?UI.icon:()=>'';
+    const q=(FB.q||'').trim().toLowerCase(),all=forms(),fs=all.filter(f=>!q||(f.title+' '+(f.category||'')).toLowerCase().includes(q));
+    const act=(a,id,ic,l)=>`<button class="fbpill" data-act="${a}" data-id="${esc(id)}">${I(ic,15)} ${l}</button>`;
+    const hero=UI?UI.hero({title:'Form builder',sub:'Build forms visually, change them in plain words, share them with a link, and review responses. No API service or key is used.',icon:'form',art:'formbuilder',gold:7,
+      actions:`<button class="kxgold" data-act="fbCreateOpen" type="button">${I('plus',22)} Create form</button><button class="kxlite" data-act="fbImportPick" type="button">${I('upload',22)} Import form</button><input type="file" id="fbImportFile" data-fbimport="1" accept=".json,application/json" hidden aria-label="Import a form file">`}):'<h2>Form builder</h2>';
+    return `${hero}
+    <div class="stack">
     ${FB.importMsg?`<div class="fbnote" role="status">${esc(FB.importMsg)}</div>`:''}${createPanel()}
-    <div class="panel"><h3>Your forms</h3><div class="tbl"><table style="min-width:900px"><thead><tr><th>Form</th><th>For</th><th class="n">Questions</th><th class="n">Responses</th><th>Status</th><th></th></tr></thead><tbody>
-    ${fs.map(f=>`<tr><td>${esc(f.title)}<div class="note">${esc(f.category||'General')}${f.publicLink?' · shared link on':''}</div></td><td>${f.audience==='staff'?'Staff':'Clients'}</td><td class="n">${real(f).length}</td><td class="n">${subsOf(f).length}</td><td>${pill(f.status==='closed'?'Closed':'Accepting',f.status==='closed'?'warn':'ok')}</td>
-      <td><div class="row"><button class="btn sm" data-act="fbEdit" data-id="${esc(f.id)}">Edit</button><button class="btn sm ghost" data-act="fbPreviewRow" data-id="${esc(f.id)}">Preview</button><button class="btn sm ghost" data-act="fbDocPreview" data-id="${esc(f.id)}">Print preview</button><button class="btn sm ghost" data-act="fbFill" data-id="${esc(f.id)}">Fill now</button><button class="btn sm ghost" data-act="fbShare" data-id="${esc(f.id)}">Share</button><button class="btn sm ghost" data-act="fbResp" data-id="${esc(f.id)}">Responses</button><button class="btn sm ghost" data-act="fbExport" data-id="${esc(f.id)}">Export</button><button class="btn sm ghost" data-act="fbCopyForm" data-id="${esc(f.id)}">Duplicate</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="note">No forms yet. Click Create form.</td></tr>'}
-    </tbody></table></div></div>
+    <div class="sdbox" style="margin-bottom:0"><div class="sdbar" style="justify-content:space-between;flex-wrap:wrap"><span style="display:flex;align-items:center;gap:12px">${I('cube',26)} Your forms</span>
+      <span class="fbsearch">${I('search',18)}<input id="fbSearch" type="search" value="${esc(FB.q||'')}" placeholder="Search forms..." aria-label="Search forms"></span></div>
+      <div class="in" style="padding:14px 16px 16px"><p class="fbinfo">${I('info',20)} Manage all your forms, view their status, and take actions like editing, previewing, or sharing.</p>
+      <div class="tbl"><table class="kxt fbt" style="min-width:1180px"><colgroup><col style="width:18%"><col style="width:6%"><col style="width:7%"><col style="width:8%"><col style="width:10%"><col style="width:51%"></colgroup><thead><tr><th><span class="hi">${I('doc',19)} Form</span></th><th><span class="hi">${I('target',19)} For</span></th><th class="n"><span class="hi">${I('question',19)} Questions</span></th><th class="n"><span class="hi">${I('chart',19)} Responses</span></th><th><span class="hi">${I('shield',19)} Status</span></th><th><span class="hi">${I('gear',19)} Actions</span></th></tr></thead><tbody>
+      ${fs.map((f,i)=>`<tr><td><div class="fbcell"><span class="fbtile" style="background:${tileFor(f,i)}" aria-hidden="true">${I(f.audience==='staff'?'doc':'idcard',22)}</span><span class="fbfn"><b>${esc(f.title)}</b><small>${esc(f.category||'General')}${f.publicLink?' &middot; shared link on':''}</small></span></div></td>
+        <td class="fbfor">${f.audience==='staff'?'Staff':'Clients'}</td><td class="n fbnum">${real(f).length}</td><td class="n fbnum">${subsOf(f).length}</td>
+        <td><span class="kxp ${f.status==='closed'?'warn':'ok'}">${I(f.status==='closed'?'clock':'check',16)} ${f.status==='closed'?'Closed':'Accepting'}</span></td>
+        <td><div class="fbacts">${act('fbEdit',f.id,'edit','Edit')}${act('fbPreviewRow',f.id,'eye','Preview')}${act('fbDocPreview',f.id,'print','Print preview')}${act('fbShare',f.id,'share','Share')}${act('fbResp',f.id,'chart','Responses')}${act('fbExport',f.id,'download','Export')}${act('fbCopyForm',f.id,'copy','Duplicate')}</div></td></tr>`).join('')||`<tr><td colspan="6" class="note" style="padding:20px">${all.length?'No forms match your search.':'No forms yet. Click Create form.'}</td></tr>`}
+      </tbody></table></div></div></div>
     ${FB.ana.show?`<div class="panel"><h3>Responses: summary and report</h3><div class="form"><label>Form<select data-v="anaId">${'<option value="">All forms with responses</option>'+fs.map(f=>`<option value="${esc(f.id)}" ${FB.ana.id===f.id?'selected':''}>${esc(f.title)}</option>`).join('')}</select></label>
       <label class="chk" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-v="anaReport" ${FB.ana.report?'checked':''}> Draft as a report</label></div><div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn" data-act="fbAnalyse">Analyse responses</button>${FB.ana.id?`<button class="btn ghost" data-act="fbRespCsv">Export responses (CSV)</button>`:''}</div>
       ${FB.ana.text?`<div class="fbnote" style="margin-top:10px" role="status">${md(FB.ana.text)}</div>`:''}</div>`:''}
-    <div class="panel"><p class="note" style="margin:0"><b>Not available:</b> chat and phone agents, WhatsApp, Messenger, Instagram and website bots, live-chat handoff, an app builder, reading PDF or Word files, payment fields, calculations, multi-page forms, and sending email from here. These need an AI model, outside accounts and a server.</p></div></div>`;
+    <div class="fbna"><span>${I('info',18)}</span><span><b>Not available:</b> chat and phone agents, WhatsApp, Messenger, Instagram and website bots, live-chat handoff, an app builder, reading PDF or Word files, payment fields, calculations, multi-page forms, and sending email from here. These need an AI model, outside accounts and a server.</span></div></div>`;
   }
 
   /* ---------- the page ---------- */
@@ -398,6 +409,23 @@
   const people=NAV.adm.find(g=>g[0]==='People');
   if(people&&!people[1].some(x=>x[0]==='formbuilder')){const i=people[1].findIndex(x=>x[0]==='kyc');people[1].splice(i+1,0,['formbuilder','Form builder'])}
   VIEWS.formbuilder=vFormBuilder;
+  {const c=document.createElement('style');c.textContent=`
+  .fbsearch{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.55);border-radius:999px;padding:0 16px;min-height:44px;min-width:min(100%,300px)}
+  .fbsearch svg{color:#fff;flex:none}.fbsearch input{flex:1;min-width:0;background:transparent;border:0;color:#fff;font:inherit;font-weight:600;min-height:40px;box-shadow:none;padding:0}
+  .fbsearch input::placeholder{color:rgba(255,255,255,.8)}
+  .fbinfo{display:flex;align-items:center;gap:10px;margin:0 0 12px;color:#173a85}.fbinfo svg{color:#1646c0;flex:none}
+  table.fbt td{padding:9px 10px}table.fbt{table-layout:fixed}table.fbt td:first-child .fbcell{min-width:0}table.fbt .fbnum{text-align:center;font-weight:800;font-size:17px}table.fbt .fbfor{font-weight:600;color:#1646c0}
+  table.fbt th.n{text-align:center}
+  .fbcell{display:flex;align-items:center;gap:12px;min-width:0}
+  table.fbt thead th{white-space:nowrap}
+  .fbtile{flex:none;display:inline-grid;place-items:center;width:44px;height:44px;border-radius:12px;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.2)}
+  .fbfn{display:block}.fbfn b{display:block;color:#0a2a7a;font-size:16px}.fbfn small{color:var(--muted);font-size:12.5px}
+  .fbacts{display:flex;flex-wrap:wrap;gap:5px}
+  .fbpill{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #bcd0f3;background:#fff;color:#0a3aa8;border-radius:999px;font:inherit;font-weight:700;font-size:12.5px;min-height:32px;padding:0 10px;cursor:pointer;white-space:nowrap}
+  .fbpill:hover{background:#eef4ff;border-color:#8fb0ee}
+  .fbna{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--fg);padding:4px 6px}.fbna svg{color:#1646c0;flex:none}
+  `;document.head.appendChild(c);
+  document.addEventListener('input',e=>{const t=e.target;if(!t||t.id!=='fbSearch')return;e.stopImmediatePropagation();FB.q=t.value;const pos=t.selectionStart;render();const n=document.getElementById('fbSearch');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(x){}}},true)}
   window.VIRTUOSO_FB={open:(id,mode)=>openEditor(id,mode)};
 
   /* ---------- model changes ---------- */

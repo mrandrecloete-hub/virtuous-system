@@ -377,7 +377,7 @@ const dateFor=k=>k===curMonth()?state.today:k+'-01';
 const sg=n=>n>0?'+'+n:String(n);
 function recips(staffToo){return state.users.filter(u=>u.access&&(u.type==='admin'||(staffToo&&u.type==='emp'))).map(u=>u.email)}
 function notify(kind,msg,staffToo,at){state.notes.unshift({id:uid(),kind,msg,staff:staffToo,at:at||new Date(),emails:recips(staffToo),readBy:{}})}
-const visibleNotes=()=>state.notes.filter(n=>state.user&&(n.to?(state.user.id===n.to||state.user.type==='admin'):(state.user.type==='admin'||n.staff)));
+const visibleNotes=()=>state.notes.filter(n=>state.user&&!(n.hidden&&n.hidden[state.user.id])&&(n.to?(state.user.id===n.to||state.user.type==='admin'):(state.user.type==='admin'||n.staff)));
 function logA(action,detail){(state.audit=state.audit||[]).unshift({id:uid(),at:new Date(),by:state.user?state.user.name:'System',action,detail:detail||''})}
 function notifyTo(uidTo,kind,msg){state.notes.unshift({id:uid(),kind,msg,staff:false,to:uidTo,at:new Date(),emails:[(byId(uidTo)||{}).email].filter(Boolean),readBy:{}})}
 const unreadCount=()=>state.user?visibleNotes().filter(n=>!n.readBy[state.user.id]).length:0;
@@ -931,10 +931,15 @@ function vAlerts(){
   const html=list.length?list.map(n=>{const fresh=!n.readBy[me.id];
     return `<div class="li" style="align-items:flex-start"><div class="tx"><div>${pill(n.kind,n.kind==='Low stock'?'warn':'bad')} ${fresh?pill('New','ok'):''}</div>
       <div style="margin-top:4px"><b>${esc(n.msg)}</b></div>
-      <div class="note">${fmtDT(n.at)}${me.type==='admin'?' · Email sent (simulated) to '+n.emails.map(esc).join(', '):' · Also emailed to you'}</div></div></div>`}).join(''):'<p class="note" style="margin:0">No alerts.</p>';
+      <div class="note">${fmtDT(n.at)}${me.type==='admin'?' · Email sent (simulated) to '+n.emails.map(esc).join(', '):' · Also emailed to you'}</div></div><button class="btn ghost bad sm" data-act="alDel" data-id="${esc(n.id)}" aria-label="Remove this alert">Remove</button></div>`}).join(''):'<p class="note" style="margin:0">No alerts.</p>';
   list.forEach(n=>{n.readBy[me.id]=true});
-  return `<h2>Alerts</h2><p class="sub">Low stock goes to admin and all staff. Cash that has not been reported back goes to admin only. In this preview, emails are shown here and not actually sent.</p><div class="panel">${html}</div>`;
+  return `<h2>Alerts</h2><p class="sub">Low stock goes to admin and all staff. Cash that has not been reported back goes to admin only. In this preview, emails are shown here and not actually sent.</p><div class="panel">${list.length?`<div class="row" style="justify-content:flex-end;margin-bottom:8px"><button class="btn ghost bad sm" data-act="alClear">Remove all alerts</button></div>`:''}${html}</div>`;
 }
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-act="alDel"],[data-act="alClear"]');if(!b||!state.user)return;e.stopImmediatePropagation();
+  const hide=n=>{(n.hidden=n.hidden||{})[state.user.id]=true};
+  if(b.dataset.act==='alDel'){const n=state.notes.find(x=>x.id===b.dataset.id);if(n)hide(n);toast('Alert removed')}
+  else{if(!confirm('Remove all your alerts?'))return;visibleNotes().forEach(hide);toast('All alerts removed')}
+  render()},true);
 
 /* ---------- Stationery list ---------- */
 function statPicker(){return `<div class="row" style="margin-bottom:14px"><label style="min-width:190px">Month<select id="smSel">${MONTHS.filter(k=>k<=curMonth()).map(k=>`<option value="${k}" ${k===state.smonth?'selected':''}>${monthLabel(k)}</option>`).join('')}</select></label><span class="note">${fyOf(state.smonth)}. Flag shows at ${state.stat.thr} or fewer left.</span></div>`}

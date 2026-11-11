@@ -43,8 +43,9 @@
     const t=e.target;if(!t.dataset||t.dataset.dm!=='ren')return;e.stopImmediatePropagation();
     const A=D().admin(),mn=menuOf(A),v=String(t.value||'').replace(/[\u0000-\u001f]/g,' ').trim().slice(0,40);
     if(v)mn.rename[t.dataset.k]=v;else delete mn.rename[t.dataset.k];
-    D().dirty();render();
+    D().dirty();render();autosave();
   },true);
+  function autosave(){setTimeout(()=>{const b=document.querySelector('[data-act=dxPublish]');if(b&&!b.disabled)b.click()},50)}
   function doAct(t){
     const A=D().admin(),mn=menuOf(A),hf=fnOf(A),kind=t.dataset.kind,k=t.dataset.k,l=t.dataset.l,v=t.value;if(!v)return;
     const toggle=(arr,key,on)=>{const i=arr.indexOf(key);if(on&&i<0)arr.push(key);if(!on&&i>=0)arr.splice(i,1)};
@@ -69,6 +70,7 @@
         A.config.pages=A.config.pages.filter(x=>x.id!==p.id);A.config.blocks=(A.config.blocks||[]).filter(x=>!(x.type==='link'&&x.tab==='cp_'+p.id));if(A.page===p.id)A.page=null}
     }
     D().dirty();render();
+    if(['hide','show','del'].includes(v))autosave();
   }
   document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.dm==='act'){e.stopImmediatePropagation();doAct(t)}},true);
   /* employee side: hide the functions the admin deleted (elements carry data-fn) */

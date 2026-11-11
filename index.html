@@ -456,7 +456,7 @@ function paintTabs(){
   const cur=state.tab[state.role];let title='Dashboard';
   $('#tabs').innerHTML=NAV[state.role].map(([g,items])=>`<div class="ng">${g}</div>`+items.map(([k,l])=>{
     if(k===cur)title=l;
-    return `<button class="nv" data-tab="${k}" aria-selected="${k===cur}"><svg viewBox="0 0 24 24">${ICON[k]}</svg><span>${l}</span>${k==='approvals'&&pending()?`<span class="badge">${pending()}</span>`:''}${k==='kyc'&&kPend()?`<span class="badge">${kPend()}</span>`:''}${k==='dash'&&state.role==='emp'&&window.VIRTUOSO_DASHEDIT&&VIRTUOSO_DASHEDIT.isNew()?'<span class="badge">new</span>':''}${k==='alerts'&&unreadCount()?`<span class="badge">${unreadCount()}</span>`:''}</button>`}).join('')).join('');
+    return `<button class="nv" data-tab="${k}" aria-selected="${k===cur}"><svg viewBox="0 0 24 24">${ICON[k]}</svg><span>${l}</span>${k==='approvals'&&pending()?`<span class="badge">${pending()}</span>`:''}${k==='kyc'&&kPend()?`<span class="badge">${kPend()}</span>`:''}${k==='dash'&&state.role==='emp'&&window.VIRTUOSO_DASHEDIT&&VIRTUOSO_DASHEDIT.isNew()?'<span class="badge">new</span>':''}${k==='messages'&&window.VIRTUOSO_MSG&&VIRTUOSO_MSG.unread()?`<span class="badge">${VIRTUOSO_MSG.unread()}</span>`:''}${k==='alerts'&&unreadCount()?`<span class="badge">${unreadCount()}</span>`:''}</button>`}).join('')).join('');
   $('#pageTitle').textContent=title;
   {const bn=unreadCount(),b=$('#bellN');b.textContent=bn;b.hidden=!bn}
   const u=state.user;
@@ -1626,6 +1626,7 @@ render();
 <script src="team.js"></script>
 <script src="dash-employee.js"></script>
 <script src="live-dashedit.js"></script>
+<script src="live-messages.js"></script>
 <script src="mobile-nav.js"></script>
 <script>/* Employees and Payroll pages are removed from the app (backend tables and functions are untouched). */delete VIEWS.employees;delete VIEWS.payroll;</script>
 <script src="assistant.js"></script>

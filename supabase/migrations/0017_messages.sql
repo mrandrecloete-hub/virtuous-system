@@ -85,6 +85,17 @@ begin
   update msg_messages set deleted = true, body = '', attachments = '[]'
    where id = p_id and (sender_id = auth.uid() or is_admin()) and msg_can(thread_id);
 end $$;
+create or replace function ensure_thread(p_employee uuid) returns uuid language plpgsql security definer set search_path = public as $$
+declare tid uuid;
+begin
+  if auth.uid() is null or not is_active() then raise exception 'not permitted'; end if;
+  if not is_admin() and p_employee is distinct from auth.uid() then raise exception 'not permitted'; end if;
+  if not exists (select 1 from profiles where id = p_employee and access_enabled and role = 'emp') then raise exception 'unknown employee'; end if;
+  insert into msg_threads (employee_id) values (p_employee) on conflict (employee_id) do nothing;
+  select id into tid from msg_threads where employee_id = p_employee;
+  return tid;
+end $$;
+grant execute on function ensure_thread(uuid) to authenticated;
 grant execute on function send_message(uuid,text,jsonb,uuid), mark_thread_read(uuid), delete_message(uuid) to authenticated;
 
 -- private storage for chat attachments: <thread id>/<file>

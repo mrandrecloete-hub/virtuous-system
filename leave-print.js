@@ -21,15 +21,15 @@
     if(!was){b.classList.add('on');b.innerHTML='&#10003;'}else{b.classList.remove('on');b.innerHTML=''}return}
     var t=e.target.closest&&e.target.closest('.today');if(t){var s=t.previousElementSibling;if(s)s.textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}});
   document.querySelectorAll('.bx').forEach(function(b){if(b.textContent.trim())b.classList.add('on')});
-  document.querySelectorAll('canvas.pad').forEach(function(c){var x=c.getContext('2d');x.lineWidth=2.6;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#0f1f4d';var d=false;
+  document.querySelectorAll('canvas.pad').forEach(function(c){var x=c.getContext('2d');x.lineWidth=2.6;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#0f1f4d';var d=false;if(c.getAttribute('data-sig')){var im=new Image();im.onload=function(){x.drawImage(im,0,0)};im.src=c.getAttribute('data-sig')}
     function pt(e){var r=c.getBoundingClientRect();return[(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height]}
     c.addEventListener('pointerdown',function(e){d=true;try{c.setPointerCapture(e.pointerId)}catch(z){}var p=pt(e);x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(p[0]+.1,p[1]+.1);x.stroke();e.preventDefault()});
     c.addEventListener('pointermove',function(e){if(!d)return;var p=pt(e);x.lineTo(p[0],p[1]);x.stroke();x.beginPath();x.moveTo(p[0],p[1])});
     ['pointerup','pointercancel','pointerleave'].forEach(function(n){c.addEventListener(n,function(){d=false})});
     c.nextElementSibling.onclick=function(){x.clearRect(0,0,c.width,c.height)}});
   window.__snap=function(){var cl=document.documentElement.cloneNode(true),o=document.querySelectorAll('canvas.pad'),n=cl.querySelectorAll('canvas.pad');
-    for(var i=0;i<o.length;i++){var im=document.createElement('img');im.className='sigimg';im.src=o[i].toDataURL('image/png');im.alt='Signature';n[i].parentNode.replaceChild(im,n[i])}
-    cl.querySelectorAll('.noprint').forEach(function(x){x.remove()});return '<!doctype html>'+cl.outerHTML};
+    for(var i=0;i<o.length;i++){var u=o[i].toDataURL('image/png');n[i].setAttribute('data-sig',u);var z=document.createElement('canvas');z.width=o[i].width;z.height=o[i].height;if(u===z.toDataURL('image/png'))n[i].removeAttribute('data-sig')}
+    return '<!doctype html>'+cl.outerHTML};
 })();`;
   function docHTML(d,img){
     const ref=d.ref||'Not yet submitted',st=d.status||'Draft preview';
@@ -112,6 +112,7 @@ ${sigRow("Approved by (name and signature)","Date")}
     const bar=document.createElement('div');
     bar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:#0f1f4d;color:#fff';
     bar.innerHTML='<b style="flex:1;min-width:160px">'+esc(o.title||'Form')+': preview</b>'
+      +(o.onSave?'<button class="btn sm" id="lpSave" type="button">Save to application</button>':'')
       +'<button class="btn sm" id="lpPrint" type="button">Print</button>'
       +'<button class="btn sm ghost" id="lpPdf" type="button" style="color:#fff;border-color:rgba(255,255,255,.5)">Save as PDF</button>'
       +'<button class="btn sm ghost" id="lpDl" type="button" style="color:#fff;border-color:rgba(255,255,255,.5)">Download</button>'
@@ -128,15 +129,36 @@ ${sigRow("Approved by (name and signature)","Date")}
       a.href=URL.createObjectURL(new Blob([cur],{type:'text/html'}));a.download=nm;
       document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Form downloaded (with your edits and signatures)');
     };
+    const sv=bar.querySelector('#lpSave');
+    if(sv)sv.onclick=async()=>{let cur=html;try{if(fr.contentWindow.__snap)cur=fr.contentWindow.__snap()}catch(z){}
+      sv.disabled=true;sv.textContent='Saving…';
+      try{await o.onSave(cur);sv.textContent='Saved';toast('Form saved with the application')}catch(x){sv.textContent='Save to application';toast((x&&x.message)||'Could not save the form')}
+      setTimeout(()=>{sv.disabled=false;if(sv.textContent==='Saved')sv.textContent='Save to application'},1500)};
     bar.querySelector('#lpClose').onclick=close;
     wrap.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
     bar.querySelector('#lpPrint').focus();
   }
   async function open(d){
-    const html=docHTML(d,await logoData());
-    return overlay(html,{title:'Leave application form',name:'Leave-Application-'+(d.name||'form')+(d.from?'-'+d.from:'')});
+    const html=d.savedHtml||docHTML(d,await logoData());
+    return overlay(html,{onSave:d.onSave,title:'Leave application form',name:'Leave-Application-'+(d.name||'form')+(d.from?'-'+d.from:'')});
+  }
+  /* Opens the form for a stored application: loads the saved (edited, signed) copy if there is one and
+     offers Save to application. Live: table leave_forms via save_leave_form (migration 0023). Demo: in memory. */
+  const MEM={};
+  async function openApp(d,id){
+    const cfg=window.VIRTUOSO||{},live=cfg.supabaseUrl&&cfg.anonKey&&!/[?&]demo\b/.test(location.search),sb=live&&cfg.client;
+    d=Object.assign({},d);
+    if(sb){
+      try{const r=await sb.from('leave_forms').select('html').eq('request_id',id).maybeSingle();if(r.data&&r.data.html)d.savedHtml=r.data.html}catch(e){}
+      d.onSave=async h=>{const r=await sb.rpc('save_leave_form',{p_id:id,p_html:h});
+        if(r.error)throw new Error(/schema cache|does not exist|Could not find/i.test(r.error.message)?'Saving needs migration 0023 to be run.':'Could not save the form.')};
+    }else{
+      if(MEM[id])d.savedHtml=MEM[id];
+      d.onSave=async h=>{MEM[id]=h};
+    }
+    return open(d);
   }
   function close(){const o=document.getElementById('lpOverlay');if(o)o.remove()}
-  window.VIRTUOSO_LEAVEPRINT={open,close,html:docHTML};
+  window.VIRTUOSO_LEAVEPRINT={open,openApp,close,html:docHTML};
   window.VIRTUOSO_DOCS={logoData,overlay,close,esc};
 })();

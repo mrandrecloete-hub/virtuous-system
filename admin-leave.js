@@ -40,7 +40,7 @@
     if(a==='alvF'){S.f=b.dataset.f;render()}
     else if(a==='alvR'){S.rows=null;render()}
     else if(a==='alvV'&&r&&window.VIRTUOSO_LEAVEPRINT){const l=r.raw||{};
-      window.VIRTUOSO_LEAVEPRINT.open({ref:'LV-'+String(r.id).slice(0,8).toUpperCase(),status:r.status,name:r.who,title:r.title,email:r.email,type:r.type,from:String(r.from).slice(0,10),to:String(r.to).slice(0,10),days:+r.days,half:!!l.half_day,reason:r.reason||'',phone:l.phone||'',cover:l.cover_name||(r.demo&&r.demo.cover)||'',doc:r.doc,note:r.note||''})}
+      window.VIRTUOSO_LEAVEPRINT.openApp({ref:'LV-'+String(r.id).slice(0,8).toUpperCase(),status:r.status,name:r.who,title:r.title,email:r.email,type:r.type,from:String(r.from).slice(0,10),to:String(r.to).slice(0,10),days:+r.days,half:!!l.half_day,reason:r.reason||'',phone:l.phone||'',cover:l.cover_name||(r.demo&&r.demo.cover)||'',doc:r.doc,note:r.note||''},r.id)}
     else if((a==='alvY'||a==='alvN')&&r){const ok=a==='alvY';
       const why=prompt((ok?'Approve':'Decline')+' '+r.who+"'s "+String(r.type).toLowerCase()+' leave ('+fd(r.from)+' to '+fd(r.to)+')?\nThe employee gets an alert.\n\nReason (optional, max 300 characters). Press OK to continue, Cancel to stop:','');
       if(why===null)return;const reason=String(why).trim().slice(0,300);

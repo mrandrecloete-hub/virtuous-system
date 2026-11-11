@@ -107,22 +107,25 @@ For and on behalf of ${client}
 Date: ______________________`].filter(Boolean).join('\n\n');
 
     if(L.type==='trans')return [
+`Private and Confidential`,
 `${client}
 ${L.addr||'[Client address]'}`,
+`Date: ${long(L.date)}`,
 `Dear ${contact}`,
-`LETTER OF TRANSMITTAL: FINANCIAL STATEMENTS FOR ${period().toUpperCase()}`,
-`We are pleased to send you the completed financial statements of ${client} for ${period()}, together with the documents listed below.`,
-`Enclosed:
-${(L.encl||'').split('\n').map(x=>x.trim()).filter(Boolean).map((x,i)=>`${i+1}. ${x}`).join('\n')||'1. Annual financial statements'}`,
-`Please review the enclosed documents carefully. If the information agrees with your records and you are satisfied with the financial statements, kindly sign the approval page where indicated and return a signed copy to us for our files. If anything needs clarification or correction, let us know before signing so that we can attend to it.`,
-`Once the financial statements have been approved, we will proceed with the related statutory submissions where you have engaged us to do so.`,
+`${client.toUpperCase()}`,
+`[VAT RETURN: PERIOD MM/YYYY]`,
+`We have pleasure in enclosing the completed [VAT return] together with supporting schedules for ${client} for the period [MM/YYYY].`,
+`The [VAT return] has been completed by reference to the information with which you have provided us. Whilst every care has been taken to ensure that this information has been properly processed, we would remind you that you are ultimately responsible for seeing that the return is correct. Will you please, therefore, look carefully through the return and satisfy yourself that, so far as you are aware, all the entries in respect of income, expenses and other information are complete and correct and that all questions in the return have been answered correctly.`,
+`In the circumstances, please ensure that you are satisfied that the filing position in respect of the above matters is appropriate before approving the return for filing.`,
+`We have calculated the [VAT] based on the information provided for the period under review but note that it is the responsibility of the taxpayer to prove expenses in the event of an investigation by Inland Revenue.`,
+`If Inland Revenue accept the basis on which the return has been filed, no further payments will be required on submission of the return.`,
+`[Specific matter noted on the information provided, with the date of the document and the amount involved, e.g. We noted that the [supplier] [document] dated [date] reflected [matter] amounting to N$ [amount].]`,
+`[Our understanding of the position and how it has been declared, e.g. We are of the understanding that [explain the treatment in terms of the relevant Act] as a result we have declared [the item] as [treatment].]`,
+`[Action requested from the client, e.g. We therefore request that you provide us with [the document or information needed] to enable us to [purpose].]`,
 L.extra?L.extra:'',
-`Please do not hesitate to contact us should you have any questions.`,
-`Yours sincerely`,
-`______________________________
-${signer()}
-${signTitle()}
-${firmName()}`].filter(Boolean).join('\n\n');
+`The analysis and opinions in this letter are based on:
+(a) Information provided to us by ${entityWord()==='you'?'you':'the '+({company:'company',cc:'close corporation',trust:'trust',individual:'client',other:'entity'})[L.entity]} and the information contained in this letter. If this information is incorrect or incomplete, please let us know as this may affect the analysis and opinions
+(b) Our knowledge and interpretation of the relevant law and practice, which are likely to change over time. Such changes may affect the analysis and opinions. Accordingly, you should keep abreast of developments and, if necessary, again consult us.`].filter(Boolean).join('\n\n');
 
     return [
 `${client}
@@ -144,29 +147,62 @@ ${firm('firm_address')||'Windhoek, Namibia'}`].filter(Boolean).join('\n\n');
   const currentBody=()=>{const key=JSON.stringify([L.type,L.client,L.contact,L.addr,L.entity,L.fye,L.encl,L.extra,L.signName,L.signTitle]);if(L.body===null||L.bodyFor!==key){L.body=bodyText();L.bodyFor=key}return L.body};
 
   /* ---------- letterhead document ---------- */
+  const VF={name:'VIRTUOSO ACCOUNTING SOLUTIONS CC',reg:'Registration Nr: CC/2020/04943',addr:'PO BOX 10704, Windhoek, Namibia',member:'Member: Barry Losper, NIPA Practice Nr: 20026'};
+  let VL=null;
+  async function vlogo(){
+    if(VL)return VL;
+    try{const r=await fetch('logo-virtuoso.png');const b=await r.blob();VL=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)})}catch(e){VL=''}
+    return VL;
+  }
+  const lhImg=async()=>L.type==='mgmt'?await window.VIRTUOSO_DOCS.logoData():(await vlogo()||await window.VIRTUOSO_DOCS.logoData());
   function letterHTML(img){
     const D=window.VIRTUOSO_DOCS,esc=D.esc,t=TYPES.find(x=>x[0]===L.type);
     const paras=(L.body||'').split(/\n{2,}/).map(p=>{const h=esc(p).replace(/\n/g,'<br>');return /^[A-Z0-9' :,.\-&()\/]{12,}$/.test(p.split('\n')[0])&&p.split('\n').length===1?`<p class="hd2">${h}</p>`:`<p>${h}</p>`}).join('');
     const contact=[firm('firm_address'),firm('firm_phone')&&'Tel '+firm('firm_phone'),firm('firm_email')].filter(Boolean).join(' &middot; ');
     const reg=[firm('firm_reg')&&'Reg. no. '+firm('firm_reg'),firm('firm_vat')&&'VAT no. '+firm('firm_vat')].filter(Boolean).join(' &middot; ');
     const onClient=L.type==='mgmt';
+    if(!onClient){
+      const parts=(L.body||'').split(/\n{2,}/),first=parts[0]==='Private and Confidential';
+      const fx=p=>{const h=esc(p).replace(/\n/g,'<br>');
+        if(p==='Private and Confidential')return `<p style="font-weight:700;font-size:15px;margin:6px 0 18px">${h}</p>`;
+        if(/^[A-Z0-9\[\]' :,.\-&()\/]{6,}$/.test(p)&&p.split('\n').length===1)return `<p style="font-weight:700;font-size:14.5px;margin:14px 0 14px">${h}</p>`;
+        if(/^\(a\)/.test(p))return `<div style="margin:8px 0 0 34px">${p.split('\n').map(x=>`<p style="margin:0 0 10px;text-indent:-28px;padding-left:28px">${esc(x)}</p>`).join('')}</div>`;
+        return `<p>${h}</p>`};
+      const rows=parts.map(x=>fx(x));
+      const logo=`<div class="vlogo"><img src="${esc(img)}" alt="Virtuoso logo"></div>`;
+      const foot=`<div class="vft"><b>${esc(VF.name)}</b><i>${esc(VF.reg)}</i><i>${esc(VF.addr)}</i><i>${esc(VF.member)}</i></div>`;
+      const ack=L.type==='trans'?`<div class="vpb"></div><div class="vsec">${logo}<p style="margin-top:22px">I acknowledge the contents of this transmittal letter and agree that the contents of the [return] is correct and that I am authorised to sign this confirmation on behalf of <b>${esc(L.client||'[Client name]')}</b>.</p>
+<table class="vsig"><tr><td>SIGNATURE</td><td>&nbsp;</td></tr><tr><td>NAME OF SIGNATORY</td><td>&nbsp;</td></tr><tr><td>POSITION</td><td>&nbsp;</td></tr><tr><td>DATE</td><td>&nbsp;</td></tr></table></div>`:'';
+      return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(t[1])} - ${esc(L.client||'client')}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+@page{size:A4;margin:14mm 20mm}*{box-sizing:border-box}
+body{margin:0;background:#e9ecf3;font:14px/1.5 Georgia,"Palatino Linotype","Book Antiqua",serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;margin:0 auto;background:#fff;padding:14mm 22mm 8mm}
+.vlogo img{height:26mm;width:auto;display:block}
+p{margin:0 0 13px;white-space:pre-wrap}
+.vft{border-top:2px solid #111;margin-top:18px;padding-top:6px;font-size:12px;line-height:1.35}.vft b{display:block;font-size:13px}.vft i{display:block}
+.vsig{border-collapse:collapse;margin-top:26px;width:100%}.vsig td{padding:9px 0;font-size:13px;vertical-align:bottom}.vsig td:first-child{width:46%}.vsig td+td{border-bottom:1px dotted #111}
+.vpb{height:0}
+@media print{body{background:#fff}.page{width:auto;margin:0;padding:0 0 26mm}.vpb{break-after:page}.vft{position:fixed;left:0;right:0;bottom:0;margin:0;background:#fff}}
+</style></head><body><div class="page">
+${logo}<div style="height:10px"></div>
+${rows.join('')}
+${ack}
+${foot}
+</div></body></html>`;
+    }
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(t[1])} - ${esc(L.client||'client')}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 @page{size:A4;margin:14mm 18mm}*{box-sizing:border-box}
 body{margin:0;background:#e9ecf3;font:13px/1.6 "Segoe UI",Arial,Helvetica,sans-serif;color:#14213d;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:16mm 20mm}
 @media print{body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0}}
-.hd{display:flex;align-items:center;gap:16px;border-bottom:3px solid #c9a227;padding-bottom:12px}
-.hd img{height:64px;width:auto;display:block}.hd .co{flex:1}.hd .co b{display:block;font-size:17px;color:#0f1f4d}.hd .co span{display:block;color:#5b6684;font-size:11.5px}
-.hd .meta{text-align:right;font-size:12px;color:#5b6684}.hd .meta b{color:#0f1f4d}
 .cl{margin:14px 0 6px;border:1px dashed #c9a227;background:#fff9e6;color:#6b5600;padding:6px 10px;font-size:11.5px}
 p{margin:0 0 11px;white-space:pre-wrap}p.hd2{font-weight:700;color:#0f1f4d;letter-spacing:.3px}
 .ft{margin-top:24px;border-top:1px solid #c8cfe0;padding-top:8px;font-size:11px;color:#6a7592;display:flex;justify-content:space-between;gap:10px}
 </style></head><body><div class="page">
-${onClient?`<div class="cl">Print this letter on the letterhead of ${esc(L.client||'the client')}. It is signed by the client's management and addressed to ${esc(firmName())}.</div>`
-:`<div class="hd"><img src="${esc(img)}" alt="${esc(firmName())} logo"><div class="co"><b>${esc(firmName())}</b><span>${contact||'Windhoek, Namibia'}</span>${reg?`<span>${reg}</span>`:''}</div><div class="meta">${L.ref?'Our ref: <b>'+esc(L.ref)+'</b><br>':''}Date: <b>${esc(long(L.date))}</b></div></div>`}
-${onClient?`<p style="text-align:right">Date: ${esc(long(L.date))}</p>`:'<div style="height:14px"></div>'}
+<div class="cl">Print this letter on the letterhead of ${esc(L.client||'the client')}. It is signed by the client's management and addressed to ${esc(firmName())}.</div>
+<p style="text-align:right">Date: ${esc(long(L.date))}</p>
 ${paras}
-<div class="ft"><span>${onClient?esc(L.client||'')+' &middot; Confidential':esc(firmName())+' &middot; Confidential'}</span><span>${esc(t[1])}</span></div>
+<div class="ft"><span>${esc(L.client||'')} &middot; Confidential</span><span>${esc(t[1])}</span></div>
 </div></body></html>`;
   }
 
@@ -208,7 +244,7 @@ ${paras}
       <label>Financial year end<input id="ltFye" type="date" value="${esc(L.fye)}"></label>
       <label>Letter date<input id="ltDate" type="date" value="${esc(L.date)}"></label>
       <label>Our reference (optional)<input id="ltRef" value="${esc(L.ref)}" maxlength="60"></label>
-      ${L.type==='trans'?`<label class="wide">Enclosed documents (one per line)<textarea id="ltEncl" rows="3" maxlength="600">${esc(L.encl)}</textarea></label>`:''}
+      ${false?`<label class="wide">Enclosed documents (one per line)<textarea id="ltEncl" rows="3" maxlength="600">${esc(L.encl)}</textarea></label>`:''}
       ${L.type!=='mgmt'?`<label>Signed by<input id="ltSign" value="${esc(L.signName)}" maxlength="100" placeholder="${esc((state.user&&state.user.name)||'')}"></label><label>Signatory title<input id="ltSignT" value="${esc(L.signTitle)}" maxlength="80" placeholder="${esc((state.user&&state.user.title)||'')}"></label>`:''}
       <label class="wide">Extra paragraph (optional)<textarea id="ltExtra" rows="2" maxlength="800" placeholder="Anything specific to this client">${esc(L.extra)}</textarea></label>
       <div class="wide note" style="margin:0">${L.id?'Editing a saved letter. ':''}The text is a template. Review it, edit it on the right if needed, then save it, preview, print, save as PDF or download.</div>
@@ -296,7 +332,7 @@ ${paras}
       L.msg='';const D=window.VIRTUOSO_DOCS;if(!D){toast('Preview is not available');return}
       const t=TYPES.find(x=>x[0]===L.type);
       if(!L.body)currentBody();
-      D.overlay(letterHTML(await D.logoData()),{title:t[1],name:t[1].replace(/'/g,'')+'-'+L.client+'-'+L.fye});
+      D.overlay(letterHTML(await lhImg()),{title:t[1],name:t[1].replace(/'/g,'')+'-'+L.client+'-'+L.fye});
     }
   },true);
   window.VIRTUOSO_LETTERS={types:TYPES,text:()=>currentBody(),state:L};

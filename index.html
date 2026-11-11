@@ -243,6 +243,7 @@ body.auth-out{background:radial-gradient(800px 400px at 80% 0,rgba(246,213,106,.
 body.auth-out::before{display:block;content:"";position:fixed;inset:0;height:auto;background:url(logo-v2.png) 4vw center/min(54vw,calc(88vh*1.37)) auto no-repeat;opacity:.95;z-index:0;pointer-events:none}
 .auth-out #login{justify-content:flex-end;padding-right:max(24px,6vw)}
 body.auth-out #login .lcard{margin:auto 0 auto auto}
+body.auth-out::after{content:"";position:fixed;top:max(14px,2.2vh);right:max(16px,2.4vw);width:clamp(78px,8vw,128px);aspect-ratio:1000/813;background:url(logo-v2.png) center/contain no-repeat;z-index:2;pointer-events:none;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4))}
 @media (max-width:900px){
   body.auth-out::before{background-position:center 2vh;background-size:min(84vw,calc(34vh*1.37)) auto}
   .auth-out #login{justify-content:center;padding:calc(2vh + min(84vw*.73,34vh)) 16px 24px}

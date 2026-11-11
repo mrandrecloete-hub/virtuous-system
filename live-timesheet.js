@@ -203,7 +203,8 @@
     proj:'<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4h6v3"/></svg>',
     users:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 7M19 20a6 6 0 0 0-3-5.2"/></svg>'
   };
-  const projects=()=>[...new Set(T.rows.map(r=>r.project).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const stdProj=()=>Array.isArray(window.VIRTUOSO_PROJECTS)?window.VIRTUOSO_PROJECTS:[];
+  const projects=()=>[...new Set(stdProj().concat(T.rows.map(r=>r.project).filter(Boolean)))].sort((a,b)=>a.localeCompare(b));
   const billText=r=>{const c=T.clients.find(x=>x.id===r.client_id);if(r.billed)return '<span class="tsbil">Billed</span>';if(c&&!c.billable)return '<span class="tsdim">Non-billable</span>';return '<span class="tsunb">Unbilled</span>'};
   const apprText=r=>r.status==='Draft'?'--':r.status==='Approved'?'<span class="tsbil">Approved</span>':r.status==='Rejected'?'<span class="tsunb">Rejected</span>':'<span class="tsdim">Pending</span>';
   const todayISO=()=>(!LIVE&&state.today)||iso(new Date());

@@ -129,7 +129,7 @@
       <label>Client<select id="ltClient">${cl.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label>
       <label>Date<input id="ltDate" type="date" value="${tod}" max="${tod}" required></label>
       <label>Task<input id="ltTask" placeholder="e.g. Management accounts" maxlength="200" required></label>
-      <label>Project (optional)<input id="ltProj" type="text" maxlength="120" placeholder="e.g. Year-end audit"></label>
+      <label>Project (optional)<input id="ltProj" type="text" maxlength="120" list="ltProjList" placeholder="Choose or type a project"><datalist id="ltProjList">${(window.VIRTUOSO_PROJECTS||[]).map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
       <label>Hours<input id="ltHrs" type="number" min="0.25" max="24" step="0.25" value="1"></label>
       <label class="wide">Notes (optional)<input id="ltNotes" type="text" maxlength="500" placeholder="Anything the approver should know"></label>
       <button class="btn" type="submit">Add entry</button></form><div class="err" id="ltErr" role="alert"></div>`

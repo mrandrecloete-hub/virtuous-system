@@ -837,7 +837,9 @@ function addReceipts(files){
     const isImg=f.type.startsWith('image/'),isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name);
     if(!(isImg||isPdf)||f.size>10*1024*1024){bad++;continue}
     const today=new Date().toISOString().slice(0,10),date=today.slice(0,7)===state.month?today:state.month+'-01';
-    m.receipts.push({id:uid(),file:f.name,size:f.size,kind:isImg?'img':'pdf',url:isImg?URL.createObjectURL(f):'',date,vendor:'',amt:0,cat:'Other',status:'Needs review',ref:f.name.slice(0,20)});
+    const rc={id:uid(),file:f.name,size:f.size,kind:isImg?'img':'pdf',url:isImg?URL.createObjectURL(f):'',date,vendor:'',amt:0,cat:'Other',status:'Needs review',ref:f.name.slice(0,20)};
+    m.receipts.push(rc);
+    if(window.VIRTUOSO_OCR)VIRTUOSO_OCR.receipt(f,rc);
     n++;
   }
   toast(n?n+' receipt'+(n>1?'s':'')+' stored'+(bad?', '+bad+' skipped':''):'Only PDF, JPG or PNG files under 10 MB');
@@ -848,11 +850,11 @@ function vSheets(){
   return `<h2>Petty cash sheet</h2><p class="sub">Upload the monthly petty cash sheet. Its lines are what the receipts are matched against.</p>${monthPicker()}
   <div class="stack">
   <div class="panel"><h3>Upload sheet</h3>
-    <div class="drop ${m.locked?'dis':''}" id="shDrop" data-input="shFile" tabindex="0" role="button" aria-label="Upload monthly sheet"><b>Drop the monthly sheet here</b>or click to choose a file (Excel, CSV or PDF)</div>
-    <input id="shFile" type="file" accept=".xlsx,.xls,.csv,application/pdf" hidden>
-    <p class="note" style="margin:10px 0 0">Excel and CSV files are read here. Use the columns Date, Description and Amount, plus Vendor if you have one. PDF and scanned sheets are stored, and the real build reads their lines with OCR. Here, add those lines by hand below.</p>
+    <div class="drop ${m.locked?'dis':''}" id="shDrop" data-input="shFile" tabindex="0" role="button" aria-label="Upload monthly sheet"><b>Drop the monthly sheet here</b>or click to choose a file (Excel, CSV, PDF or a photo of the sheet)</div>
+    <input id="shFile" type="file" accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" hidden>
+    <p class="note" style="margin:10px 0 0">Excel and CSV files are read here. Use the columns Date, Description and Amount, plus Vendor if you have one. PDFs and photos are read with OCR on this device: typed PDFs are read exactly, scanned ones are recognised, and you check every line before it is added.</p>
     ${state.shMsg?`<div class="banner ok" style="margin:10px 0 0">${esc(state.shMsg)}</div>`:''}</div>
-  ${f?`<div class="panel"><div class="ph"><h3>Stored sheet</h3><button class="btn sm bad" data-act="clearSheet" ${dis}>Remove sheet</button></div>
+  ${f?`<div class="panel"><div class="ph"><h3>Stored sheet</h3><div class="row">${/\.(pdf|png|jpe?g)$/i.test(f.name)?`<button class="btn sm ghost" data-act="ocrSheet" ${dis}>Read lines with OCR</button>`:''}<button class="btn sm bad" data-act="clearSheet" ${dis}>Remove sheet</button></div></div>
     <div><b>${esc(f.name)}</b> <span class="note">${Math.max(1,Math.round(f.size/1024))} KB, uploaded ${fmtDT(f.at)}</span></div>
     <div class="note mono" style="word-break:break-all">company-001/${fyOf(state.month)}/${state.month}/sheets/${esc(f.name)}</div></div>`:''}
   <div class="panel"><h3>Lines for ${monthLabel(state.month)}</h3>
@@ -909,12 +911,12 @@ function rowsToLines(rows){
 }
 async function loadSheet(f){
   const m=M();if(m.locked)return toast('This month is locked');
-  const ext=f.name.split('.').pop().toLowerCase();let rows=null,msg='';
-  if(!['csv','xlsx','xls','pdf'].includes(ext))return toast('Use an Excel, CSV or PDF file');
+  const ext=f.name.split('.').pop().toLowerCase();let rows=null,msg='',ocrNow=false;
+  if(!['csv','xlsx','xls','pdf','png','jpg','jpeg'].includes(ext))return toast('Use an Excel, CSV or PDF file, or a photo of the sheet');
   m.sheetFile={name:f.name,size:f.size,at:new Date()};
   try{
     if(ext==='csv')rows=parseCSV(await f.text());
-    else if(ext==='pdf')msg='Sheet stored. PDFs are read by the server OCR in the real build, so add the lines by hand for now.';
+    else if(['pdf','png','jpg','jpeg'].includes(ext)){msg='Sheet stored. Reading the lines with OCR…';ocrNow=true}
     else{if(!window.XLSX)throw new Error('The Excel reader did not load. Try a CSV file.');
       const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
       rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''})}
@@ -927,6 +929,7 @@ async function loadSheet(f){
     }
   }catch(err){msg='Sheet stored, but it could not be read: '+err.message}
   state.shMsg=msg;render();
+  if(ocrNow&&window.VIRTUOSO_OCR)VIRTUOSO_OCR.sheet(f);
 }
 /* ---------- Alerts ---------- */
 function vAlerts(){
@@ -1645,6 +1648,7 @@ render();
 <script src="page-hero.js"></script>
 <script src="kyc-ui.js"></script>
 <script src="petty-ui.js"></script>
+<script src="ocr.js"></script>
 <script src="mobile-nav.js"></script>
 <script>/* Employees and Payroll pages are removed from the app (backend tables and functions are untouched). */delete VIEWS.employees;delete VIEWS.payroll;</script>
 <script src="assistant.js"></script>

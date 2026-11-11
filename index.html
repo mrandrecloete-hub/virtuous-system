@@ -569,7 +569,7 @@ function vLeave(){
     <div class="wide err" id="lErr" role="alert"></div>
     <div class="wide"><button class="btn" type="submit">Send application</button></div></form></div>
   <div class="panel"><h3>My applications</h3><div class="tbl"><table style="min-width:640px"><thead><tr><th>Type</th><th>Dates</th><th class="n">Days</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
-    ${d.leaves.length?d.leaves.map(l=>`<tr><td>${esc(l.type)}</td><td>${fmtD(l.from)} to ${fmtD(l.to)}</td><td class="n">${l.days}</td><td>${esc(l.reason)}${l.file?`<div class="note">Attached: ${esc(l.file)}</div>`:''}</td><td>${pill(l.status,stc(l.status))}${l.signed?' '+pill('Signed','ok'):''}</td>
+    ${d.leaves.length?d.leaves.map(l=>`<tr><td>${esc(l.type)}</td><td>${fmtD(l.from)} to ${fmtD(l.to)}</td><td class="n">${l.days}</td><td>${esc(l.reason)}${l.file?`<div class="note">Attached: ${esc(l.file)}</div>`:''}</td><td>${pill(l.status,stc(l.status))}${l.decision?`<div class="note">Reason: ${esc(l.decision)}</div>`:''}${l.signed?' '+pill('Signed','ok'):''}</td>
       <td>${l.status==='Pending'?`<button class="btn sm ghost" data-act="withdraw" data-id="${l.id}">Withdraw</button>`:''}</td></tr>`).join(''):'<tr><td colspan="6" class="note">No applications yet.</td></tr>'}
   </tbody></table></div></div></div>`;
 }

@@ -213,8 +213,8 @@
       case 'ltDoc':{const w=window.open('','_blank');
         sb().storage.from('documents').createSignedUrl(d.path,60).then(({data,error})=>{if(error||!data){if(w)w.close();return toast('Could not open the document.')}if(w){w.opener=null;w.location=data.signedUrl}else toast('Allow pop-ups to open files.')});return}
       case 'ltLeaveYes':case 'ltLeaveNo':{
-        const ok=d.act.endsWith('Yes');
-        return act(async()=>{const r=await sb().rpc('decide_leave',{p_id:id,p_approve:ok});
+        const ok=d.act.endsWith('Yes');const why=prompt((ok?'Approve':'Reject')+' this leave?\nThe employee gets an alert.\n\nReason (optional, max 300 characters):','');if(why===null)return;
+        return act(async()=>{let r=await sb().rpc('decide_leave',{p_id:id,p_approve:ok,p_reason:String(why).trim().slice(0,300)||null});if(r.error&&/schema cache|does not exist|Could not find/i.test(r.error.message))r=await sb().rpc('decide_leave',{p_id:id,p_approve:ok});
           if(r.error)throw new Error(/not permitted|row-level|policy|permission/i.test(r.error.message)?'You are not allowed to do that.':r.error.message)},
           ()=>{S.pendLeave=(S.pendLeave||[]).filter(x=>x.id!==id);S.pend=null;toast('Leave '+(ok?'approved':'rejected'))})}
       case 'ltApprove':case 'ltReject':{

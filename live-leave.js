@@ -41,7 +41,7 @@
       <div class="wide err" id="lErr" role="alert"></div>
       <div class="wide row"><button class="btn" type="submit">Send application</button><button class="btn ghost" type="button" data-act="llPreview">Preview, print or save form</button></div></form></div>
     <div class="panel"><h3>My applications</h3><div class="tbl"><table style="min-width:640px"><thead><tr><th>Type</th><th>Dates</th><th class="n">Days</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
-      ${reqs.length?reqs.map(l=>`<tr><td>${esc(l.leave_type)}</td><td>${esc(fd(l.from_date))} to ${esc(fd(l.to_date))}</td><td class="n">${+l.days}</td><td>${esc(l.reason||'')}${l.doc_path?'<div class="note">Document attached</div>':''}</td><td>${pill(l.status,stc(l.status))}</td>
+      ${reqs.length?reqs.map(l=>`<tr><td>${esc(l.leave_type)}</td><td>${esc(fd(l.from_date))} to ${esc(fd(l.to_date))}</td><td class="n">${+l.days}</td><td>${esc(l.reason||'')}${l.doc_path?'<div class="note">Document attached</div>':''}</td><td>${pill(l.status,stc(l.status))}${l.decision_reason?`<div class="note">Reason: ${esc(l.decision_reason)}</div>`:''}</td>
         <td><button class="btn sm ghost" data-act="llView" data-id="${esc(l.id)}">View form</button> ${l.status==='Pending'?`<button class="btn sm ghost" data-act="llWithdraw" data-id="${esc(l.id)}">Withdraw</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" class="note">${S.reqs===null?'Loading…':'No applications yet.'}</td></tr>`}
     </tbody></table></div></div></div>`;
   }

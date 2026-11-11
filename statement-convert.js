@@ -373,10 +373,9 @@
       return `<tr class="${bad?'scbad':''}"><td><input data-sc="date" data-i="${i}" data-k="${k}" value="${esc(s.date)}" aria-label="Date" style="width:92px"></td>
       <td><input data-sc="desc" data-i="${i}" data-k="${k}" value="${esc(s.desc)}" aria-label="Description" style="width:100%;min-width:380px"></td>
       <td><input data-sc="ref" data-i="${i}" data-k="${k}" value="${esc(s.ref)}" aria-label="Reference" style="width:84px"></td>
-<<<<<<< Updated upstream
-      <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':s.debit}" inputmode="decimal" aria-label="Debit" style="width:92px;text-align:right"></td>
-      <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':s.credit}" inputmode="decimal" aria-label="Credit" style="width:92px;text-align:right"></td>
-      <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':s.balance}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
+      <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':f2(s.debit)}" inputmode="decimal" aria-label="Debit" style="width:92px;text-align:right"></td>
+      <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':f2(s.credit)}" inputmode="decimal" aria-label="Credit" style="width:92px;text-align:right"></td>
+      <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':f2(s.balance)}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
       <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:(r.ok?'<span class="scok" title="Confirmed by the running balance">&#10003; balance agrees</span>':'')}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
       <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>${(bad||f.showAll)&&f.mode==='ocr'&&f.imgs&&f.imgs[r.page]&&r.y1!=null?`<tr class="scimg"><td colspan="8"><div class="note" style="margin:0 0 2px">Original scan of this line:</div><canvas data-crop="1" data-i="${i}" data-k="${k}" style="width:100%;max-width:1100px;border:1px solid var(--line);background:#fff"></canvas></td></tr>`:''}`}).join('');
     const warn=[];
@@ -384,13 +383,6 @@
     if(!f.hasBalCol)warn.push('This statement has no running balance, so amounts could not be checked line by line. Compare the totals box below with the statement before importing.');
     if(f.skipped&&f.skipped.length)warn.push(f.skipped.length+' line'+(f.skipped.length===1?'':'s')+' with an amount but no readable date '+(f.skipped.length===1?'was':'were')+' NOT added: '+f.skipped.slice(0,6).map(x=>'"'+esc(x.text.slice(0,70))+'" (page '+x.page+')').join('; ')+(f.skipped.length>6?'; …':'')+'. Use Add a line if they are transactions.');
     if(f.mode==='ocr')warn.push('This is a scan, read with OCR. Numbers are checked against the running balance, but descriptions can have small spelling slips: use Show every scan line to compare them with the original.');
-=======
-      <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':f2(s.debit)}" inputmode="decimal" aria-label="Debit" style="width:92px;text-align:right"></td>
-      <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':f2(s.credit)}" inputmode="decimal" aria-label="Credit" style="width:92px;text-align:right"></td>
-      <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':f2(s.balance)}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
-      <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:''}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
-      <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>`}).join('');
->>>>>>> Stashed changes
     const cls=T.ok==null?'warn':T.ok?'ok':'bad';
     const msg=T.ok==null?'Cannot verify yet: '+(T.open==null?'opening balance not found (type it below)':'closing balance not found (type it below)'):T.ok?(T.altOk?'AGREES (card statement: balances are amounts owed): opening '+f2(T.open)+' + debits '+f2(T.deb)+' - credits '+f2(T.cre)+' = closing '+f2(T.close):T.flip?'AGREES: closing balance on the statement is the amount owed ('+f2(T.close)+'), which equals opening (credit) less debits plus credits':'AGREES: opening - debits + credits = closing balance'):'DOES NOT AGREE: difference '+f2(T.diff)+(T.altOk?'. It would agree if debits ADD to the balance (card-style statement): check the Debit/Credit columns.':'. Check the marked lines against the statement.');
     const inp=(k,v,ph)=>`<input data-scb="${k}" data-i="${i}" value="${esc(v||'')}" inputmode="decimal" placeholder="${ph}" style="width:120px;text-align:right">`;

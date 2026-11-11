@@ -8,7 +8,7 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
-  const VERSION='v104';
+  const VERSION='v105';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
 
@@ -102,6 +102,7 @@
   /* ---------- view ---------- */
   const TABS=()=>{
     const t=[['My settings',[['profile','My profile'],['appearance','Appearance'],['security','Password and sign-in'],['bruno','Bruno and voice']]]];
+    t.push(['Tools',[['apps','Linked apps']]]);
     if(isAdm())t.push(['Firm settings (admin)',[['company','Company details'],['office','Petty cash'],['system','Data and system']]]);
     return t;
   };
@@ -147,6 +148,7 @@
       case 'bruno':return `<div class="panel stsec"><h3>Bruno and voice</h3><p class="note" style="margin:0">Saved on this device only.</p><div>
         ${chk('stBruno',prefs.bruno,'Show the Bruno button','The bear in the corner. You can still open AI Tools from the menu.')}
         ${chk('stVoice',prefs.voice,'Show the Voice button','Dictate to Bruno. It uses your browser\'s speech service, so audio may go to your browser vendor. Off if you prefer typing.')}</div></div>`;
+      case 'apps':return window.VIRTUOSO_APPS?window.VIRTUOSO_APPS.html():'<div class="panel"><p class="note">Not available.</p></div>';
       case 'company':return firmForm('company','<h3>Company details</h3><p class="note" style="margin:0">Master details for the firm. Leave blank anything you do not have.</p>');
       case 'office':return firmForm('office','<h3>Petty cash</h3><p class="note" style="margin:0">Controls how receipts are matched on Reconcile.</p>');
       case 'system':return `<div class="panel stsec"><h3>Data and system</h3>

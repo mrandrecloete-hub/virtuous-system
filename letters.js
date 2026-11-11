@@ -12,9 +12,9 @@
   const long=s=>{if(!s)return '';const d=new Date(String(s).slice(0,10)+'T00:00:00');return isNaN(d)?String(s):d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})};
   const lastFYE=()=>{const t=new Date(todayISO()+'T00:00:00');const y=t.getMonth()>=2?t.getFullYear():t.getFullYear()-1;return iso(new Date(y,2,0))};
   const TYPES=[
-    ['mgmt','Management representation letter','Written by the client\'s management to the firm, confirming the information given for the engagement. Print on the client\'s letterhead and have management sign it.'],
-    ['trans','Letter of transmittal','From the firm to the client, sending the completed financial statements and listing what is enclosed.'],
-    ['acct','Accountant\'s letter','From the firm, stating that the financial statements were compiled from the client\'s records and setting out the firm\'s and management\'s responsibilities.']];
+    ['mgmt','Management Letter','Written by the client\'s management to the firm, confirming the information given for the engagement. Print on the client\'s letterhead and have management sign it.'],
+    ['trans','Transmitter Letter','From the firm to the client, sending the completed financial statements and listing what is enclosed.'],
+    ['acct','Accountant letter','From the firm, stating that the financial statements were compiled from the client\'s records and setting out the firm\'s and management\'s responsibilities.']];
   const cfg=window.VIRTUOSO||{};
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;

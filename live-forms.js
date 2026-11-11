@@ -105,6 +105,14 @@
     }
   }
   async function pushSubs(){
+    if(isAdm()){
+      const cur=new Set(state.subs.map(s=>s.id));
+      for(const id of [...known.subs.keys()]){
+        if(cur.has(id))continue;
+        if(isUuid(id)){const r=await sb().from('form_submissions').delete().eq('id',id);if(r.error){fail(r.error);return}}
+        known.subs.delete(id);
+      }
+    }
     for(const s of state.subs){
       if(!isUuid(s.id)){
         if(!isUuid(s.formId))continue;

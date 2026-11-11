@@ -284,10 +284,16 @@
   function totals(f){
     const rs=sheetRows(f);
     const deb=r2(rs.reduce((a,r)=>a+(r.debit||0),0)),cre=r2(rs.reduce((a,r)=>a+(r.credit||0),0));
-    const open=f.openBal,lastBal=(()=>{for(let i=f.rows.length-1;i>=0;i--)if(f.rows[i].bal!=null)return f.rows[i].bal;return null})();
-    let ok=null;
-    if(open!=null&&lastBal!=null)ok=Math.abs(r2(open-deb+cre)-lastBal)<.005;
-    return {rs,deb,cre,open,lastBal,ok,flagged:f.rows.filter(r=>r.flags&&r.flags.length).length};
+    const tn=v=>{v=String(v==null?'':v).replace(/[, ]/g,'').trim();return v===''||isNaN(+v)?null:+v};
+    const open=tn(f.openType)!=null?tn(f.openType):f.openBal;
+    const lastBal=(()=>{for(let i=f.rows.length-1;i>=0;i--)if(f.rows[i].bal!=null)return f.rows[i].bal;return null})();
+    const close=tn(f.closeType)!=null?tn(f.closeType):(f.closeBal!=null?f.closeBal:lastBal);
+    const closeSrc=tn(f.closeType)!=null?'typed by you':(f.closeBal!=null?'printed closing balance':(lastBal!=null?'balance on the last line':''));
+    const calc=open!=null?r2(open-deb+cre):null,alt=open!=null?r2(open+deb-cre):null;
+    const diff=calc!=null&&close!=null?r2(calc-close):null;
+    const ok=diff==null?null:Math.abs(diff)<.005;
+    const altOk=diff!=null&&!ok&&Math.abs(r2(alt-close))<.005;
+    return {rs,deb,cre,open,close,closeSrc,calc,diff,ok,altOk,lastBal,flagged:f.rows.filter(r=>r.flags&&r.flags.length).length};
   }
   function cardHTML(f,i){
     if(f.status!=='done')return `<div class="panel scc" data-f="${f.id}"><div class="ph"><h3>${esc(f.name)}</h3><button class="btn ghost sm" type="button" data-act="scDrop" data-i="${i}">Remove</button></div>
@@ -302,10 +308,21 @@
       <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':s.balance}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
       <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:''}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
       <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>`}).join('');
-    const chk=T.ok==null?'<span class="pill warn">Balance check not possible</span>':T.ok?'<span class="pill ok">Opening balance - debits + credits = closing balance</span>':'<span class="pill bad">Totals do not agree with the balances: please review the marked lines</span>';
+    const cls=T.ok==null?'warn':T.ok?'ok':'bad';
+    const msg=T.ok==null?'Cannot verify yet: '+(T.open==null?'opening balance not found (type it below)':'closing balance not found (type it below)'):T.ok?'AGREES: opening - debits + credits = closing balance':'DOES NOT AGREE: difference '+f2(T.diff)+(T.altOk?'. It would agree if debits ADD to the balance (card-style statement): check the Debit/Credit columns.':'. Check the marked lines against the statement.');
+    const inp=(k,v,ph)=>`<input data-scb="${k}" data-i="${i}" value="${esc(v||'')}" inputmode="decimal" placeholder="${ph}" style="width:120px;text-align:right">`;
+    const box=`<div class="scver ${cls}" style="border:2px solid ${T.ok==null?'#c9a227':T.ok?'#2e9e5b':'#d33'};border-radius:10px;padding:10px 12px;margin:0 0 10px">
+      <b>${esc(msg)}</b>
+      <table style="margin-top:8px;min-width:0"><tbody>
+      <tr><td>Opening balance (statement)</td><td class="n"><b>${T.open==null?'not found':f2(T.open)}</b></td><td>${inp('open',f.openType,'type if not found')}</td></tr>
+      <tr><td>Total debits (money out)</td><td class="n"><b>${f2(T.deb)}</b></td><td></td></tr>
+      <tr><td>Total credits (money in)</td><td class="n"><b>${f2(T.cre)}</b></td><td></td></tr>
+      <tr><td>Closing balance calculated</td><td class="n"><b>${T.calc==null?'-':f2(T.calc)}</b></td><td></td></tr>
+      <tr><td>Closing balance on the statement${T.closeSrc?' ('+T.closeSrc+')':''}</td><td class="n"><b>${T.close==null?'not found':f2(T.close)}</b></td><td>${inp('close',f.closeType,'type from statement')}</td></tr>
+      <tr><td>Difference</td><td class="n"><b>${T.diff==null?'-':f2(T.diff)}</b></td><td></td></tr></tbody></table></div>`;
     return `<div class="panel scc" data-f="${f.id}"><div class="ph"><h3>${esc(f.name)}</h3><div class="row"><button class="btn sm" type="button" data-act="scXlsx" data-i="${i}">Download Excel</button><button class="btn ghost sm" type="button" data-act="scCsv" data-i="${i}">Download CSV</button><button class="btn ghost sm" type="button" data-act="scDrop" data-i="${i}">Remove</button></div></div>
-      <p class="note" style="margin:0 0 8px">${f.rows.length} line${f.rows.length===1?'':'s'} read from ${f.pages} page${f.pages===1?'':'s'} (${f.mode==='ocr'?'scanned, read with OCR':'text in the PDF'}).${T.flagged?' <b>'+T.flagged+' line'+(T.flagged===1?'':'s')+' to review.</b>':''}</p>
-      <div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:8px">${chk}<span class="note">Opening ${T.open==null?'not found':f2(T.open)} &middot; Debits ${f2(T.deb)} &middot; Credits ${f2(T.cre)} &middot; Closing ${T.lastBal==null?'-':f2(T.lastBal)}</span></div>
+      <p class="note" style="margin:0 0 8px">${f.rows.length} line${f.rows.length===1?'':'s'} read from ${f.pages} page${f.pages===1?'':'s'} (${f.mode==='ocr'?'scanned, read with OCR':'text in the PDF'}).${T.flagged?' <b>'+T.flagged+' line'+(T.flagged===1?'':'s')+' to review.</b>':''} The balances above are only a check; they are never added to the lines.</p>
+      ${box}
       <div class="tbl" style="max-height:520px;overflow:auto"><table style="min-width:860px"><thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="n">Debit</th><th class="n">Credit</th><th class="n">Balance</th><th>Review</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="note">No transactions were found. Check that the file is a bank statement and try a clearer scan.</td></tr>'}</tbody></table></div>
       <div class="row" style="margin-top:8px"><button class="btn ghost sm" type="button" data-act="scAdd" data-i="${i}">Add a line</button></div></div>`;
   }
@@ -347,7 +364,7 @@
       if(!res.rows.length&&x.mode==='ocr'){ /* try the page turned, in case the scan is sideways */
         for(const rot of [90,270,180]){f.msg='Trying the page turned '+rot+'°…';render();const y=await O.readFileWords(f.file,{rotate:rot,progress:()=>{}});const r2_=parse(y.pages,{year:+S.opt.year||0,openingBalance:S.opt.open});if(r2_.rows.length){res=r2_;x.mode='ocr';break}}
       }
-      f.rows=res.rows;f.openBal=res.openBal;f.pages=x.pages.length;f.mode=x.mode;f.status='done';f.msg='';f.raw=x.pages;
+      f.rows=res.rows;f.openBal=res.openBal;f.closeBal=res.closeBal;f.openType='';f.closeType='';f.pages=x.pages.length;f.mode=x.mode;f.status='done';f.msg='';f.raw=x.pages;
     }catch(e){console.error(e);f.status='error';f.msg='This file could not be read: '+(e&&e.message||'error')}
     render();
   }
@@ -399,6 +416,7 @@
     if(t.id==='scFile'){e.stopImmediatePropagation();const fs=[...t.files];t.value='';if(fs.length)addFiles(fs);return}
     if(t.id==='scPrefix'){S.opt.prefix=t.value.replace(/[^A-Za-z0-9\-_]/g,'').slice(0,10);return render()}
     if(t.id==='scYear'){S.opt.year=t.value.replace(/\D/g,'').slice(0,4);return}
+    if(t.dataset&&t.dataset.scb){const f=S.files[+t.dataset.i];if(f){f[t.dataset.scb==='open'?'openType':'closeType']=t.value;e.stopImmediatePropagation();render()}return}
     if(t.id==='scOpen'){S.opt.open=t.value;return}
     if(t.id==='scTidy'){S.opt.tidy=t.checked;return render()}
     if(t.dataset&&t.dataset.sc){e.stopImmediatePropagation();edit(+t.dataset.i,+t.dataset.k,t.dataset.sc,t.value)}

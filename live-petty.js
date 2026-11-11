@@ -114,27 +114,16 @@
     o.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.72);display:flex;flex-direction:column;padding:12px';
     const [ek,kk]=[d.entity,d.kind],en=(ENTITIES.find(e=>e[0]===ek)||[0,ek])[1],kn=(KINDS.find(k=>k[0]===kk)||[0,kk])[1],mk=(d.month||month()).slice(0,7);
     o.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;color:#fff;padding:2px 4px 10px"><div style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Review: ${esc(d.name)}</b><span style="font-size:12px;opacity:.85">${esc(monthLabel(mk))} / ${esc(en)} / ${esc(kn)}</span></div><button class="btn sm" type="button" data-rv="x">Close</button></div>
-    <div style="flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:10px"><div id="pcRvF" style="flex:1 1 380px;min-height:240px;background:#fff;border-radius:10px;overflow:auto"><p class="note" style="padding:14px">Opening the file…</p></div>
-    <div id="pcRvR" style="flex:1 1 340px;min-height:240px;background:#fff;border-radius:10px;overflow:auto;padding:14px"><b>What was read</b><p class="note">Reading the file…</p></div></div>`;
+    <div style="flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:10px"><div id="pcRvF" style="flex:1 1 100%;min-height:240px;background:#fff;border-radius:10px;overflow:auto"><p class="note" style="padding:14px">Opening the file…</p></div>
+    </div>`;
     document.body.appendChild(o);document.addEventListener('keydown',revKey);closeRev.u=[];
     o.addEventListener('click',e=>{if(e.target===o||(e.target.dataset&&e.target.dataset.rv==='x'))closeRev()});
-    const F=o.querySelector('#pcRvF'),R=o.querySelector('#pcRvR');
+    const F=o.querySelector('#pcRvF');
     let file;
-    try{file=await docFile(d)}catch(e){F.innerHTML='<p class="note" style="padding:14px">'+esc(e.message||'The file could not be opened.')+'</p>';R.innerHTML='<b>What was read</b><p class="note">Nothing could be read.</p>';return}
+    try{file=await docFile(d)}catch(e){F.innerHTML='<p class="note" style="padding:14px">'+esc(e.message||'The file could not be opened.')+'</p>';return}
     const u=URL.createObjectURL(file);closeRev.u.push(u);
     const pdf=/pdf/i.test(file.type)||/\.pdf$/i.test(d.name);
     F.innerHTML=pdf?`<iframe src="${u}" title="${esc(d.name)}" style="border:0;width:100%;height:100%;min-height:360px"></iframe>`:`<img src="${u}" alt="${esc(d.name)}" style="max-width:100%;display:block;margin:auto">`;
-    const O=window.VIRTUOSO_OCR;
-    if(!O||!O.readFileWords){R.innerHTML='<b>What was read</b><p class="note">Reading is not available.</p>';return}
-    let rv=S.revs[id];
-    if(!rv){try{const x=await O.readFileWords(file,{rotate:0,progress:(m)=>{const q=document.querySelector('#pcRvR .note');if(q)q.textContent=m}});const p=O.parseWords(x.pages,{month:mk});rv=S.revs[id]={lines:p.lines,mode:x.mode}}
-      catch(e){R.innerHTML='<b>What was read</b><p class="note">The file could not be read: '+esc(e.message||'error')+'</p>';return}}
-    if(!document.getElementById('pcRv'))return;
-    const L=rv.lines,sum=L.reduce((a,l)=>a+(+l.amt||0),0);
-    R.innerHTML=`<b>What was read</b> <span class="note">${L.length} line${L.length===1?'':'s'}, total ${f2(sum)}${rv.mode==='ocr'?' (scanned text, check carefully)':''}</span>`+
-      (L.length?`<div style="overflow:auto;margin-top:8px"><table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr><th align="left">Date</th><th align="left">Description</th><th align="right">N$</th></tr></thead><tbody>${L.map(l=>`<tr style="border-top:1px solid var(--line)${l.flags&&l.flags.length?';background:#fff7e0':''}"><td>${esc(l.date||'?')}</td><td>${esc([l.desc,l.vendor].filter(Boolean).join(' - '))}${l.flags&&l.flags.length?`<div class="note">${esc(l.flags.join(', '))}</div>`:''}</td><td align="right">${f2(l.amt)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="note">No payment lines were found in this file.</p>')+
-      `<div class="row" style="margin-top:12px;gap:8px">${L.length&&O.sheet?`<button class="btn sm" type="button" data-rv="sheet">Add lines to the petty cash sheet</button>`:''}<button class="btn ghost sm" type="button" data-rv="x">Close</button></div>`;
-    R.onclick=e=>{const a=e.target.dataset&&e.target.dataset.rv;if(a==='x')closeRev();if(a==='sheet'){closeRev();O.sheet(file)}};
   }
   async function openDoc(id){
     if(!LIVE){const d=state.pcDocs.find(x=>x.id===id);if(d)window.open(d.url,'_blank');return}

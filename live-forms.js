@@ -70,7 +70,7 @@
       state.forms.forEach(f=>known.forms.set(f.id,sigOf(f)));state.subs.forEach(s=>known.subs.set(s.id,subSig(s)));
       /* keep new field ids from colliding with saved ones */
       let mx=seq;state.forms.forEach(f=>f.fields.forEach(x=>{const n=parseInt(String(x.id).replace(/\D/g,''),10);if(n>mx)mx=n}));seq=mx+1;
-      if(state.kyc){state.kyc.formId=null;state.kyc.subId=null;state.kyc.view='forms'}
+      if(state.kyc){state.kyc.formId=null;state.kyc.subId=null;state.kyc.view='clients'}
       loadedFor=state.user.id;SYNC.status='saved';SYNC.last=new Date();SYNC.error='';render();
     }catch(e){fail(e);backoff=Date.now()+15000}
     loading=false;

@@ -8,7 +8,7 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
-  const VERSION='v66';
+  const VERSION='v67';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
 
@@ -68,7 +68,8 @@
       {k:'firm_vat',l:'VAT number',h:'Only if the firm is VAT registered.',t:'text',max:60,def:''},
       {k:'firm_address',l:'Address',h:'Street, town, country.',t:'textarea',max:300,def:'Windhoek, Namibia'},
       {k:'firm_phone',l:'Phone',h:'',t:'text',max:40,def:''},
-      {k:'firm_email',l:'Office email',h:'',t:'email',max:120,def:''}],
+      {k:'firm_email',l:'Office email',h:'',t:'email',max:120,def:''},
+      {k:'kyc_valid_months',l:'KYC valid for (months)',h:'Client KYC counts as expired this many months after it was submitted, and shows under Expired KYC. 12 is a placeholder: set what your firm\'s own policy requires.',t:'num',min:1,max:120,step:'1',def:12}],
     payroll:[
       {k:'payroll_monthly_hours',l:'Monthly working hours',h:'Divides basic pay to get the hourly rate used for overtime. 173.33 is the demo value, not a legal figure. Check your own employment terms.',t:'num',min:1,max:400,step:'0.01',def:173.33},
       {k:'payroll_overtime_multiplier',l:'Overtime multiplier',h:'Overtime pay = hours x hourly rate x this number. 1.5 is the demo value. Confirm what your contracts and the law require.',t:'num',min:1,max:5,step:'0.01',def:1.5}],

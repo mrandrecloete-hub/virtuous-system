@@ -280,40 +280,45 @@
     }
     return `<div class="panel" style="margin-bottom:10px">${body}</div>`;
   }
+  const BICON={heading:'type',text:'lines',checklist:'task',table:'table',kpi:'chart',stat:'bolt',countdown:'clock',chart:'chart',links:'link'};
   function addMenu(base,forStaff){
-    return `<div class="panel" style="border-style:dashed"><h3 style="font-size:14px">Add a block</h3><div class="row">${BLOCKS.filter(b=>!(forStaff&&b[0]==='stat')).map(([k,l])=>`<button class="btn sm ghost" data-act="sdAddBlock" data-p="${base}" data-t="${k}">+ ${esc(l)}</button>`).join('')}</div></div>`;
+    const UI=window.VIRTUOSO_UI||{icon:()=>''};
+    return `<div class="sdbox"><div class="sdbar">${UI.icon('plus',24)} Add a block</div><div class="in"><div class="sdblocks">${BLOCKS.filter(b=>!(forStaff&&b[0]==='stat')).map(([k,l])=>`<button type="button" data-act="sdAddBlock" data-p="${base}" data-t="${k}">${UI.icon(BICON[k]||'plus',22)}<span>${esc(l)}</span></button>`).join('')}</div></div></div>`;
   }
   function tabsBar(){
-    return `<div class="seg" role="tablist" style="margin-bottom:14px">${[['dashboard','My dashboard'],['pages','Pages'],['menu','Menu']].map(([k,l])=>`<button class="btn ghost sm" data-act="sdTab" data-t="${k}" aria-pressed="${ST.tab===k&&!ST.editId}">${l}</button>`).join('')}</div>`;
+    const UI=window.VIRTUOSO_UI;if(!UI)return '';
+    return UI.tabs([['dashboard','My dashboard','grid'],['pages','Pages','doc'],['menu','Menu','menu']],ST.editId?'pages':ST.tab,k=>`data-act="sdTab" data-t="${k}"`);
   }
   function studioView(){
     if(!isAdm())return '<h2>Customize</h2><div class="panel"><p class="note">Only an administrator can customize the app.</p></div>';
     if(!ST.loaded)load();
     loadMetrics();
-    const head=`<h2>Customize</h2><p class="sub">Build your own dashboard widgets and pages, and choose what shows in the menu. No code needed. <span id="sdStatus" role="status">${esc(ST.status)}</span></p>`;
+    const UI=window.VIRTUOSO_UI||{hero:()=>'<h2>Customize</h2>',tabs:()=>'',icon:()=>''};
+    const head=UI.hero({title:'Customize',sub:'Build your own dashboard widgets and pages, and choose what shows in the menu. No code needed.',icon:'gear',art:'customize',gold:4})+`<p class="note" style="margin:-6px 0 10px"><span id="sdStatus" role="status">${esc(ST.status)}</span></p>`;
+    const box=(ic,title,inner,cls)=>`<div class="sdbox"><div class="sdbar">${UI.icon(ic,24)} ${title}</div><div class="in ${cls||''}">${inner}</div></div>`;
     const err=ST.err?`<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">${esc(ST.err)}</div>`:'';
     if(ST.editId){
       const p=ST.pages.find(x=>x.id===ST.editId);if(!p){ST.editId=null}
       else return head+err+`<div class="row" style="margin-bottom:12px"><button class="btn ghost sm" data-act="sdBack">&larr; Back to pages</button><button class="btn sm" data-act="sdOpenPage" data-id="${esc(p.id)}">View the page</button></div>
-      <div class="panel stack" style="margin-bottom:12px"><h3>Page settings</h3><div class="form"><label>Page name${inp('page.title',p.title,'','maxlength="60"')}</label>
+      <div class="sdbox"><div class="sdbar">${UI.icon('gear',24)} Page settings</div><div class="in stack"><div class="form"><label>Page name${inp('page.title',p.title,'','maxlength="60"')}</label>
         <label>Icon<select data-sd="page.icon">${Object.keys(ICONS).map(k=>`<option value="${k}" ${p.icon===k?'selected':''}>${k}</option>`).join('')}</select></label>
         <label>Who can see it<select data-sd="page.audience"><option value="admin" ${p.audience==='admin'?'selected':''}>Only administrators</option><option value="staff" ${p.audience==='staff'?'selected':''}>Everyone (staff read only)</option></select></label></div>
-        ${p.audience==='staff'?'<p class="note" style="margin:0">Staff can read this page but cannot change it. Do not put private figures here. Live numbers are limited to non-sensitive ones.</p>':''}</div>
+        ${p.audience==='staff'?'<p class="note" style="margin:0">Staff can read this page but cannot change it. Do not put private figures here. Live numbers are limited to non-sensitive ones.</p>':''}</div></div>
       ${p.blocks.map((b,i)=>blockEditor(b,i,'blocks',p.audience==='staff',p.blocks)).join('')}${addMenu('blocks',p.audience==='staff')}`;
     }
     let body='';
     if(ST.tab==='dashboard'){
-      body=`<div class="panel stack" style="margin-bottom:12px"><h3>Your admin dashboard</h3><p class="note" style="margin:0">Widgets appear at the top of your dashboard. Only you (administrators) see them.</p>
-        <label>Layout<select data-sd="dash.mode"><option value="add" ${ST.dash.mode==='add'?'selected':''}>Show my widgets above the standard dashboard</option><option value="only" ${ST.dash.mode==='only'?'selected':''}>Show only my widgets</option></select></label>
-        <div><button class="btn sm ghost" data-tab="dash">Look at the dashboard</button></div></div>
+      body=`<div class="sdbox"><div class="sdbar">${UI.icon('gear',24)} Your admin dashboard</div><div class="in stack"><p class="note" style="margin:0">Widgets appear at the top of your dashboard. Only you (administrators) see them.</p>
+        <label><b>Layout</b><span class="sdfld">${UI.icon('grid',20)}<select data-sd="dash.mode"><option value="add" ${ST.dash.mode==='add'?'selected':''}>Show my widgets above the standard dashboard</option><option value="only" ${ST.dash.mode==='only'?'selected':''}>Show only my widgets</option></select></span></label>
+        <div><button class="sdlite" data-tab="dash">${UI.icon('eye',20)} Look at the dashboard</button></div></div></div>
         ${ST.dash.blocks.map((b,i)=>blockEditor(b,i,'dash.blocks',false,ST.dash.blocks)).join('')}${addMenu('dash.blocks',false)}`;
     }else if(ST.tab==='pages'){
-      body=`<div class="panel stack" style="margin-bottom:12px"><h3>New page</h3><form class="form" id="sdNewPage" novalidate><label>Page name<input id="sdNpTitle" maxlength="60" placeholder="e.g. Tax deadlines"></label>
-        <label>Who can see it<select id="sdNpAud"><option value="admin">Only administrators</option><option value="staff">Everyone (staff read only)</option></select></label><div><button class="btn" type="submit" ${ST.busy?'disabled':''}>Create page</button></div></form></div>
-        <div class="panel"><h3>Your pages</h3>${ST.pages.length?`<div class="tbl"><table style="min-width:520px"><thead><tr><th>Page</th><th>Visible to</th><th class="n">Blocks</th><th></th></tr></thead><tbody>${ST.pages.map((p,i)=>`<tr><td>${esc(p.title)}</td><td>${p.audience==='staff'?'Everyone':'Administrators'}</td><td class="n">${p.blocks.length}</td><td><div class="row"><button class="btn sm" data-act="sdEditPage" data-id="${esc(p.id)}">Edit</button><button class="btn sm ghost" data-act="sdOpenPage" data-id="${esc(p.id)}">Open</button><button class="btn sm ghost" data-act="sdMovePage" data-i="${i}" data-d="-1" aria-label="Move up">↑</button><button class="btn sm ghost" data-act="sdMovePage" data-i="${i}" data-d="1" aria-label="Move down">↓</button><button class="btn sm ghost bad" data-act="sdDelPage" data-id="${esc(p.id)}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>`:'<p class="note" style="margin:0">No pages yet. Create your first one above.</p>'}</div>`;
+      body=`<div class="sdbox"><div class="sdbar">${UI.icon('plus',24)} New page</div><div class="in"><form class="form" id="sdNewPage" novalidate><label>Page name<input id="sdNpTitle" maxlength="60" placeholder="e.g. Tax deadlines"></label>
+        <label>Who can see it<select id="sdNpAud"><option value="admin">Only administrators</option><option value="staff">Everyone (staff read only)</option></select></label><div><button class="btn" type="submit" ${ST.busy?'disabled':''}>Create page</button></div></form></div></div>
+        <div class="sdbox"><div class="sdbar">${UI.icon('doc',24)} Your pages</div><div class="in">${ST.pages.length?`<div class="tbl"><table style="min-width:520px"><thead><tr><th>Page</th><th>Visible to</th><th class="n">Blocks</th><th></th></tr></thead><tbody>${ST.pages.map((p,i)=>`<tr><td>${esc(p.title)}</td><td>${p.audience==='staff'?'Everyone':'Administrators'}</td><td class="n">${p.blocks.length}</td><td><div class="row"><button class="btn sm" data-act="sdEditPage" data-id="${esc(p.id)}">Edit</button><button class="btn sm ghost" data-act="sdOpenPage" data-id="${esc(p.id)}">Open</button><button class="btn sm ghost" data-act="sdMovePage" data-i="${i}" data-d="-1" aria-label="Move up">↑</button><button class="btn sm ghost" data-act="sdMovePage" data-i="${i}" data-d="1" aria-label="Move down">↓</button><button class="btn sm ghost bad" data-act="sdDelPage" data-id="${esc(p.id)}">Delete</button></div></td></tr>`).join('')}</tbody></table></div>`:'<p class="note" style="margin:0">No pages yet. Create your first one above.</p>'}</div></div>`;
     }else{
-      const sect=(r,title)=>`<div class="panel" style="margin-bottom:12px"><h3>${title}</h3><div class="tbl"><table style="min-width:480px"><thead><tr><th>Page</th><th>Shown</th><th>Menu name</th></tr></thead><tbody>${builtIn(r).filter(x=>x[0]!=='studio').map(x=>{const lock=PROTECTED.includes(x[0]),hid=(ST.menu.hidden[r]||[]).includes(x[0]);
-        return `<tr><td>${esc(x[1])}</td><td>${lock?'<span class="note">Always shown</span>':`<label class="chk"><input type="checkbox" data-sdshow="${r}:${x[0]}" ${hid?'':'checked'}> Show</label>`}</td><td><input data-sdname="${x[0]}" value="${esc(ST.menu.names[x[0]]||'')}" placeholder="${esc(x[1])}" maxlength="40" aria-label="Menu name for ${esc(x[1])}"></td></tr>`}).join('')}</tbody></table></div></div>`;
+      const sect=(r,title)=>`<div class="sdbox"><div class="sdbar">${UI.icon('menu',24)} ${title}</div><div class="in"><div class="tbl"><table style="min-width:480px"><thead><tr><th>Page</th><th>Shown</th><th>Menu name</th></tr></thead><tbody>${builtIn(r).filter(x=>x[0]!=='studio').map(x=>{const lock=PROTECTED.includes(x[0]),hid=(ST.menu.hidden[r]||[]).includes(x[0]);
+        return `<tr><td>${esc(x[1])}</td><td>${lock?'<span class="note">Always shown</span>':`<label class="chk"><input type="checkbox" data-sdshow="${r}:${x[0]}" ${hid?'':'checked'}> Show</label>`}</td><td><input data-sdname="${x[0]}" value="${esc(ST.menu.names[x[0]]||'')}" placeholder="${esc(x[1])}" maxlength="40" aria-label="Menu name for ${esc(x[1])}"></td></tr>`}).join('')}</tbody></table></div></div></div>`;
       body=`<p class="note">Hiding a page only removes it from the menu. It does not change what the database lets people read or change. Renaming applies to administrators and employees alike.</p>${sect('adm','Administrator menu')}${sect('emp','Employee menu')}<div><button class="btn ghost" data-act="sdResetMenu">Reset the menu to the original</button></div>`;
     }
     return head+err+tabsBar()+body;

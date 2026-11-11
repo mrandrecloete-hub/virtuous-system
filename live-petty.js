@@ -39,7 +39,7 @@
     return `<div class="panel" id="pfPanel"><h3>Scanned documents</h3>
     <p class="note" style="margin-top:0">Upload scanned bank and cash documents into the month's folders. Select as many files as you like (PDF, JPG or PNG, up to 10 MB each); each is uploaded and then read automatically.${LIVE?'':' (Sample mode: files stay in this browser tab only.)'}</p>
     <label style="max-width:260px">Month<select id="pfMonth" aria-label="Month">${monthsList().map(k=>`<option value="${k}" ${k===m?'selected':''}>${esc(monthLabel(k))}</option>`).join('')}</select></label>
-    <div class="err" id="pfMsg" role="alert">${esc(S.msg||'')}</div>${readsHTML()}
+    <div class="err" id="pfMsg" role="alert">${esc(S.msg||'')}</div>
     ${ENTITIES.map(([ek,el])=>`<div style="margin-top:14px"><b>${esc(el)}</b>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px">
       ${KINDS.map(([kk,kl])=>{const list=docsFor(ek,kk),op=!!S.open[ek+'|'+kk];return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px">
@@ -47,7 +47,7 @@
         ${op?`<div class="note" style="margin:2px 0 8px">${esc(monthLabel(m))} / ${esc(el)} / ${esc(kl)}</div>`:''}
         <button class="btn sm" type="button" style="margin-top:6px" data-act="pfPick" data-e="${ek}" data-k="${kk}">Upload scans</button>
         <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" data-pfup="${ek}|${kk}" hidden aria-label="Upload scans to ${esc(el)} ${esc(kl)}">
-        ${!op?'':list.length?`<ul style="list-style:none;margin:10px 0 0;padding:0">${list.map(d=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)">
+        ${!op?'':readsHTML(ek+'|'+kk,m)}${!op?'':list.length?`<ul style="list-style:none;margin:10px 0 0;padding:0">${list.map(d=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)">
           <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}<span class="note"> ${d.size?kb(d.size)+', ':''}${esc(fd(d.created_at||d.at))}</span></span>
           <span class="row" style="flex:none"><button class="btn ghost sm" type="button" data-act="pfOpen" data-id="${esc(d.id)}">Open</button><button class="btn ghost sm" type="button" data-act="pfDel" data-id="${esc(d.id)}">Delete</button></span></li>`).join('')}</ul>`
           :'<p class="note" style="margin:10px 0 0">Empty.</p>'}</div>`}).join('')}
@@ -80,22 +80,22 @@
     S.busy=false;lockAll(false);
     if(done){S.open[ek+'|'+kk]=true;S.docs=null;toast(done+' file'+(done>1?'s':'')+' uploaded')}
     S.msg=msgs.join(' ');render();
-    if(okFiles.length)readAll(okFiles);
+    if(okFiles.length)readAll(okFiles,ek,kk,m);
   }
-  async function readAll(fs){
+  async function readAll(fs,ek,kk,mm){
     const O=window.VIRTUOSO_OCR;if(!O||!O.readFileWords)return;
     for(const f of fs){
-      const r={name:f.name,st:'Reading…'};S.reads.unshift(r);render();
-      try{const x=await O.readFileWords(f,{rotate:0,progress:()=>{}});const p=O.parseWords(x.pages,{month:m_()});
+      const r={name:f.name,st:'Reading…',key:ek+'|'+kk,m:mm};S.reads.unshift(r);render();
+      try{const x=await O.readFileWords(f,{rotate:0,progress:()=>{}});const p=O.parseWords(x.pages,{month:mm});
         r.n=p.lines.length;r.sum=p.lines.reduce((a,l)=>a+(+l.amt||0),0);r.lines=p.lines.slice(0,50);r.st=r.n?'Read':'Read, no payment lines found'}
       catch(e){r.st='Could not be read: '+(e.message||'error')}
       render();
     }
   }
   const m_=()=>month();
-  function readsHTML(){
-    if(!S.reads.length)return '';
-    return `<div style="margin-top:14px"><b>Read results</b><ul style="list-style:none;margin:6px 0 0;padding:0">${S.reads.map(r=>`<li style="padding:6px 0;border-top:1px solid var(--line)"><b>${esc(r.name)}</b> <span class="note">${esc(r.st)}${r.n?`: ${r.n} line${r.n>1?'s':''}, total ${f2(r.sum)}`:''}</span>${r.lines&&r.lines.length?`<details><summary class="note">Show lines</summary><div class="note">${r.lines.map(l=>esc((l.date||'')+'  '+(l.desc||l.vendor||'')+'  '+f2(l.amt))).join('<br>')}</div></details>`:''}</li>`).join('')}</ul></div>`;
+  function readsHTML(key,mk){
+    const rs=S.reads.filter(r=>r.key===key&&r.m===mk);if(!rs.length)return '';
+    return `<div style="margin-top:10px"><b>Read results</b> <span class="note">${esc(monthLabel(mk))} / ${esc(key.split('|').map((v,i)=>i?(KINDS.find(k=>k[0]===v)||[0,v])[1]:(ENTITIES.find(e=>e[0]===v)||[0,v])[1]).join(' / '))}</span><ul style="list-style:none;margin:6px 0 0;padding:0">${rs.map(r=>`<li style="padding:6px 0;border-top:1px solid var(--line)"><b>${esc(r.name)}</b> <span class="note">${esc(r.st)}${r.n?`: ${r.n} line${r.n>1?'s':''}, total ${f2(r.sum)}`:''}</span>${r.lines&&r.lines.length?`<details><summary class="note">Show lines</summary><div class="note">${r.lines.map(l=>esc((l.date||'')+'  '+(l.desc||l.vendor||'')+'  '+f2(l.amt))).join('<br>')}</div></details>`:''}</li>`).join('')}</ul></div>`;
   }
   async function openDoc(id){
     if(!LIVE){const d=state.pcDocs.find(x=>x.id===id);if(d)window.open(d.url,'_blank');return}

@@ -397,12 +397,12 @@
       <p class="note" style="margin:0">${f.status==='error'?'<span class="err">'+esc(f.msg)+'</span>':esc(f.msg||'Waiting…')}</p>${f.status==='run'?`<div class="scbar"><i style="width:${Math.round((f.pct||0)*100)}%"></i></div>`:''}</div>`;
     const T=totals(f);
     const rows=f.rows.map((r,k)=>{const s=T.rs[k];const bad=r.flags&&r.flags.length;
-      return `<tr class="${bad?'scbad':''}"><td><input data-sc="date" data-i="${i}" data-k="${k}" value="${esc(s.date)}" aria-label="Date" style="width:92px"></td>
-      <td><input data-sc="desc" data-i="${i}" data-k="${k}" value="${esc(s.desc)}" aria-label="Description" style="width:100%;min-width:380px"></td>
-      <td><input data-sc="ref" data-i="${i}" data-k="${k}" value="${esc(s.ref)}" aria-label="Reference" style="width:84px"></td>
-      <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':f2(s.debit)}" inputmode="decimal" aria-label="Debit" style="width:92px;text-align:right"></td>
-      <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':f2(s.credit)}" inputmode="decimal" aria-label="Credit" style="width:92px;text-align:right"></td>
-      <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':f2(s.balance)}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
+      return `<tr class="${bad?'scbad':''}"><td><input data-sc="date" data-i="${i}" data-k="${k}" value="${esc(s.date)}" aria-label="Date" style="width:100%;box-sizing:border-box"></td>
+      <td><input data-sc="desc" data-i="${i}" data-k="${k}" value="${esc(s.desc)}" aria-label="Description" style="width:100%;box-sizing:border-box"></td>
+      <td><input data-sc="ref" data-i="${i}" data-k="${k}" value="${esc(s.ref)}" aria-label="Reference" style="width:100%;box-sizing:border-box"></td>
+      <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':f2(s.debit)}" inputmode="decimal" aria-label="Debit" style="width:100%;box-sizing:border-box;text-align:right"></td>
+      <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':f2(s.credit)}" inputmode="decimal" aria-label="Credit" style="width:100%;box-sizing:border-box;text-align:right"></td>
+      <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':f2(s.balance)}" inputmode="decimal" aria-label="Balance" style="width:100%;box-sizing:border-box;text-align:right"></td>
       <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:(r.ok?'<span class="scok" title="Confirmed by the running balance">&#10003; balance agrees</span>':(r.okTot?'<span class="scok" title="Confirmed by the statement totals">&#10003; included in totals</span>':''))}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
       <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>${(bad||f.showAll)&&f.mode==='ocr'&&f.imgs&&f.imgs[r.page]&&r.y1!=null?`<tr class="scimg"><td colspan="8"><div class="note" style="margin:0 0 2px">Original scan of this line:</div><canvas data-crop="1" data-i="${i}" data-k="${k}" style="width:100%;max-width:1100px;border:1px solid var(--line);background:#fff"></canvas></td></tr>`:''}`}).join('');
     const warn=[];
@@ -426,7 +426,7 @@
       <p class="note" style="margin:0 0 8px">${f.rows.length} line${f.rows.length===1?'':'s'} read from ${f.pages} page${f.pages===1?'':'s'} (${f.mode==='ocr'?'scanned, read with OCR':'text in the PDF'}).${T.flagged?' <b>'+T.flagged+' line'+(T.flagged===1?'':'s')+' to review.</b>':''} The balances above are only a check; they are never added to the lines.</p>
       ${warn.map(w=>'<div class="banner" role="alert">'+w+'</div>').join('')}
       ${box}
-      <div class="tbl" style="max-height:520px;overflow:auto"><table style="min-width:860px"><thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="n">Debit</th><th class="n">Credit</th><th class="n">Balance</th><th>Review</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="note">No transactions were found. Check that the file is a bank statement and try a clearer scan.</td></tr>'}</tbody></table></div>
+      <div class="tbl" style="max-height:520px;overflow:auto"><table class="scgrid" style="min-width:1000px;table-layout:fixed;width:100%"><colgroup><col style="width:112px"><col style="width:auto;min-width:300px"><col style="width:102px"><col style="width:118px"><col style="width:118px"><col style="width:128px"><col style="width:210px"><col style="width:48px"></colgroup><thead><tr><th>Date</th><th>Description</th><th>Reference</th><th style="text-align:right;padding-right:22px">Debit</th><th style="text-align:right;padding-right:22px">Credit</th><th style="text-align:right;padding-right:22px">Balance</th><th>Review</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="note">No transactions were found. Check that the file is a bank statement and try a clearer scan.</td></tr>'}</tbody></table></div>
       <div class="row" style="margin-top:8px"><button class="btn ghost sm" type="button" data-act="scAdd" data-i="${i}">Add a line</button></div></div>`;
   }
   const css=document.createElement('style');

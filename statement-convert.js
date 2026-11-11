@@ -264,11 +264,13 @@
         if(Math.abs(calc-closeBal)<.005||Math.abs(calc+closeBal)<.005)un.forEach(o=>{o.dir='debit'});
       }
     }
+    /* Card statements list payments after the purchases: put every line in date order (stable, so same-day order is kept). */
+    if(!hasBalCol){const k=new Map(out.map((o,i)=>[o,i]));out.sort((a,b)=>{const x=a.iso||'9999',y=b.iso||'9999';return x<y?-1:x>y?1:k.get(a)-k.get(b)})}
     /* The printed opening and closing balances confirm the directions as a whole (either convention: balances as credit, or as amounts owed). */
     if(!hasBalCol&&openBal!=null&&closeBal!=null){
       const dr=r2(out.filter(o=>o.dir==='debit'&&o.amt!=null).reduce((a,o)=>a+o.amt,0)),cr=r2(out.filter(o=>o.dir==='credit'&&o.amt!=null).reduce((a,o)=>a+o.amt,0));
       const c1=r2(openBal-dr+cr),c2=r2(openBal+dr-cr),cl=Math.abs(closeBal);
-      if([c1,c2].some(c=>Math.abs(Math.abs(c)-cl)<.005))out.forEach(o=>{if(o.assumed)o.okTot=true});
+      if([c1,c2].some(c=>Math.abs(Math.abs(c)-cl)<.005))out.forEach(o=>{if(o.amt!=null&&o.dir)o.okTot=true});
     }
     resolveChain(out,openBal,opt.openingBalance,hasBalCol,closeBal);
     out.forEach(o=>{if(o.sus&&o.amt!=null&&Math.abs(o.amt-+o.sus.read.replace(/[, ]/g,''))<.005){
@@ -401,7 +403,7 @@
       <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':f2(s.debit)}" inputmode="decimal" aria-label="Debit" style="width:92px;text-align:right"></td>
       <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':f2(s.credit)}" inputmode="decimal" aria-label="Credit" style="width:92px;text-align:right"></td>
       <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':f2(s.balance)}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
-      <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:(r.ok?'<span class="scok" title="Confirmed by the running balance">&#10003; balance agrees</span>':'')}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
+      <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:(r.ok?'<span class="scok" title="Confirmed by the running balance">&#10003; balance agrees</span>':(r.okTot?'<span class="scok" title="Confirmed by the statement totals">&#10003; included in totals</span>':''))}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
       <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>${(bad||f.showAll)&&f.mode==='ocr'&&f.imgs&&f.imgs[r.page]&&r.y1!=null?`<tr class="scimg"><td colspan="8"><div class="note" style="margin:0 0 2px">Original scan of this line:</div><canvas data-crop="1" data-i="${i}" data-k="${k}" style="width:100%;max-width:1100px;border:1px solid var(--line);background:#fff"></canvas></td></tr>`:''}`}).join('');
     const warn=[];
     if(f.yearMissing)warn.push('No year was found on the statement. Type the year in the Year box above (then add the file again); until then the dates are left empty rather than guessed.');

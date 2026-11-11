@@ -274,7 +274,95 @@
     const label=first.toLocaleDateString('en-GB',{month:'short',year:'numeric'}).replace(/^(\w+)/,x=>x);
     return `<div class="tscal"><div class="tscalh"><button data-act="tsCal" data-d="-1" aria-label="Previous month">&lsaquo;</button><b>${esc(label)}</b><button data-act="tsCal" data-d="1" aria-label="Next month">&rsaquo;</button><button class="tdy" data-act="tsCal" data-d="0">Today</button></div><div class="tscalg">${cells}</div><div class="tscalfoot"><span>Total Hours :</span><b>${hm(grand)}</b></div></div>`;
   }
+
+  /* ---------- calendar page: Month / Week / Day in the banner style ---------- */
+  const CAL={view:'month',date:null};
+  const calAnchor=()=>CAL.date||todayISO();
+  const addD=(k,n)=>{const d=parse(k);d.setDate(d.getDate()+n);return iso(d)};
+  const mondayOf=k=>{const d=parse(k);d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
+  const addM=(k,n)=>{const d=parse(k.slice(0,7)+'-01');d.setMonth(d.getMonth()+n);return iso(d)};
+  const calRows=()=>T.rows.filter(r=>(!T.cust||r.client_id===T.cust)&&(!T.user||r.user_id===T.user)&&(!T.proj||r.project===T.proj));
+  const MON3=k=>parse(k).toLocaleDateString('en-GB',{month:'short',year:'numeric'});
+  {const c=document.createElement('style');c.textContent=`
+  .tcbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid #dfe8fb;border-radius:18px;padding:12px 16px;margin-bottom:14px;box-shadow:0 10px 26px rgba(15,40,110,.12)}
+  .tcbar .l,.tcbar .r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tcnav{width:46px;height:46px;border-radius:12px;border:0;background:linear-gradient(180deg,#2f6fe4,#1646c0);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 14px rgba(20,60,170,.35);padding:0}
+  .tcdiv{width:1px;height:34px;background:#d8e2f6}
+  .tcmonth{position:relative;display:flex;flex-direction:row;align-items:center;gap:8px;margin:0;border:1px solid #dfe8fb;border-radius:12px;background:#fff;box-shadow:0 4px 10px rgba(15,40,110,.1);padding:0 12px;min-height:46px;color:#0a2a7a}
+  .tcmonth select{border:0;background:transparent;font:inherit;font-weight:800;font-size:18px;color:#0a2a7a;appearance:none;-webkit-appearance:none;padding:0 22px 0 4px;min-height:44px;cursor:pointer}
+  .tcmonth .cd{position:absolute;right:10px;pointer-events:none}
+  .tcseg{display:inline-flex;background:#f3f7ff;border:1px solid #dfe8fb;border-radius:14px;padding:3px;gap:2px}
+  .tcseg button{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:#0a2a7a;font:inherit;font-weight:800;font-size:15px;border-radius:11px;min-height:42px;padding:0 18px;cursor:pointer}
+  .tcseg button[aria-pressed=true]{background:linear-gradient(180deg,#2f6fe4,#1646c0);color:#fff;box-shadow:0 6px 14px rgba(20,60,170,.35)}
+  .tcghost{display:inline-flex;align-items:center;gap:8px;border:1px solid #dfe8fb;background:#fff;color:#0a2a7a;font:inherit;font-weight:800;border-radius:12px;min-height:46px;padding:0 18px;cursor:pointer;box-shadow:0 4px 10px rgba(15,40,110,.1)}
+  .tcgold{display:inline-flex;align-items:center;gap:8px;border:0;background:linear-gradient(180deg,#ffd75e,#e8a600);color:#0a1b3f;font:inherit;font-weight:800;border-radius:12px;min-height:46px;padding:0 22px;cursor:pointer;box-shadow:0 6px 16px rgba(232,166,0,.4)}
+  .tcpanel{background:#fff;border:1px solid #dfe8fb;border-radius:18px;overflow:hidden;box-shadow:0 10px 26px rgba(15,40,110,.12)}
+  .tcmh{display:flex;align-items:center;justify-content:center;gap:28px;background:linear-gradient(180deg,#0a2a7a,#051a56);padding:14px;color:#ffd75e;font-weight:800;font-size:28px}
+  .tcmh button{border:0;background:transparent;color:#fff;cursor:pointer;display:grid;place-items:center;padding:4px}
+  .tcscroll{overflow-x:auto}
+  .tcg{display:grid;grid-template-columns:repeat(7,minmax(104px,1fr)) minmax(120px,.8fr);min-width:900px}
+  .tcg .dow{background:linear-gradient(180deg,#0b2a78,#06184d);color:#fff;font-weight:800;text-transform:uppercase;font-size:14px;text-align:center;padding:13px 6px;border-top:1px solid rgba(255,255,255,.2);border-left:1px solid rgba(255,255,255,.12)}
+  .tcc{border-left:1px solid #e3eafa;border-bottom:1px solid #e3eafa;min-height:104px;padding:8px 8px 10px;cursor:pointer;min-width:0;background:#fff}
+  .tcc:hover{background:#f7faff}.tcc.off{background:#fafcff}.tcc.off .tcn{color:#9aa8c6}
+  .tcc.wkd{background:#fbfcff}
+  .tcn{display:inline-grid;place-items:center;min-width:28px;height:28px;border-radius:50%;font-weight:700;font-size:16px;color:#14213d}
+  .tcn.now{background:#1f63d6;color:#fff;box-shadow:0 4px 10px rgba(31,99,214,.5)}
+  .tcchip{display:block;width:100%;text-align:left;margin-top:6px;border:0;background:#dbe8ff;border-radius:12px;padding:6px 9px;font:inherit;cursor:pointer;color:#0a2a7a;line-height:1.25}
+  .tcchip:hover{background:#cddfff}
+  .tcchip .t{display:flex;align-items:center;gap:6px;font-weight:800;font-size:15px;color:#0a1b3f}.tcchip .t svg{color:#1f63d6}
+  .tcchip .k{display:block;color:#1f63d6;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tcchip .c{display:block;color:#14213d;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tcmore{border:0;background:none;color:#1f63d6;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;margin-top:4px;padding:0}
+  .tcw{display:flex;align-items:center;justify-content:center;border-left:1px solid #e3eafa;border-bottom:1px solid #e3eafa;padding:8px}
+  .tcw span{display:block;width:100%;text-align:center;background:#e6efff;color:#1f63d6;font-weight:800;font-size:22px;border-radius:14px;padding:16px 6px;box-shadow:inset 0 0 0 1px #d3e1fb}
+  .tcfoot{display:flex;justify-content:flex-end;align-items:center;gap:16px;padding:14px 18px;font-weight:800;color:#14213d;font-size:17px;border-top:1px solid #e3eafa}
+  .tcfoot b{background:#fde9b8;color:#0a1b3f;border-radius:12px;padding:12px 34px;font-size:22px;box-shadow:inset 0 0 0 1px #f3d58a}
+  .tcday{padding:18px}.tcday .row1{display:grid;grid-template-columns:120px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:center;background:#eef4ff;border-radius:14px;padding:12px 16px;margin-bottom:10px;cursor:pointer;border:0;width:100%;text-align:left;font:inherit;color:#14213d}
+  .tcday .row1:hover{background:#e0ecff}.tcday .row1 b{font-size:20px;color:#0a1b3f}.tcday .row1 .k{color:#1f63d6;font-weight:700}
+  @media(max-width:900px){.tcday .row1{grid-template-columns:1fr 1fr}.tcmh{font-size:22px}.tcseg button{padding:0 12px}}
+  `;document.head.appendChild(c)}
+  function calHead(){
+    const a=calAnchor(),UI=window.VIRTUOSO_UI||{icon:()=>''};
+    const ms=[];for(let i=-18;i<=18;i++)ms.push(addM(a,i).slice(0,7));
+    return `<div class="tcbar"><div class="l"><button class="tcnav" data-act="tsCNav" data-d="-1" aria-label="Previous">${UI.icon('chevL',22)}</button><button class="tcnav" data-act="tsCNav" data-d="1" aria-label="Next">${UI.icon('chevR',22)}</button><span class="tcdiv"></span>
+      <label class="tcmonth">${UI.icon('cal',22)}<select id="tsCMonth" aria-label="Month">${ms.map(m=>`<option value="${m}" ${m===a.slice(0,7)?'selected':''}>${esc(MON3(m+'-01'))}</option>`).join('')}</select><span class="cd">${UI.icon('chevD',16)}</span></label><button class="tcghost" data-act="tsCToday">Today</button></div>
+      <div class="r"><span class="tcseg" role="group" aria-label="Calendar view">${[['month','Month','cal'],['week','Week','list'],['day','Day','cal']].map(([k,l,ic])=>`<button data-act="tsCView" data-v="${k}" aria-pressed="${CAL.view===k}">${UI.icon(ic,19)} ${l}</button>`).join('')}</span><span class="tcdiv"></span>
+      <button class="tcghost" data-act="tsMode" data-m="list">${UI.icon('list',19)} List view</button><button class="tcghost" data-act="tsRefresh">${UI.icon('refresh',19)} Refresh</button><button class="tcgold" data-act="tsNew">${UI.icon('plus',20)} New Log Entry</button></div></div>`;
+  }
+  function chip(r,multi){
+    const UI=window.VIRTUOSO_UI||{icon:()=>''};
+    return `<button class="tcchip" data-act="tsOpen" data-id="${esc(r.id)}" title="${esc(r.who+' · '+r.cust+' · '+r.task)}"><span class="t">${UI.icon('clock',16)} ${hm(r.hours)}</span><span class="k">${esc(r.task)}</span><span class="c">${esc(r.cust)}${multi?' · '+esc(String(r.who).split(' ')[0]):''}</span></button>`;
+  }
+  function calPage(){
+    const UI=window.VIRTUOSO_UI||{icon:()=>'',hero:()=>'<h2>Timesheets</h2>'};
+    const rows=calRows(),by={};rows.forEach(r=>{(by[r.work_date]=by[r.work_date]||[]).push(r)});
+    const multi=new Set(rows.map(r=>r.user_id)).size>1,a=calAnchor(),now=todayISO(),sum=k=>(by[k]||[]).reduce((s,r)=>s+r.hours,0);
+    const o=T.open?T.rows.find(r=>r.id===T.open):null,side=T.newOpen?newForm():o?drawer(o):'';
+    const arrows=(title)=>`<div class="tcmh"><button data-act="tsCNav" data-d="-1" aria-label="Previous">${UI.icon('chevL',30)}</button><span>${esc(title)}</span><button data-act="tsCNav" data-d="1" aria-label="Next">${UI.icon('chevR',30)}</button></div>`;
+    const dows=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const head=`<div class="tcg">${dows.map(d=>`<div class="dow">${d}</div>`).join('')}<div class="dow">Total Hours</div></div>`;
+    let body='',grand=0,title='';
+    const cell=(k,inMonth,all)=>{const ev=by[k]||[],d=+k.slice(8),wd=(parse(k).getDay()+6)%7,show=all?ev:ev.slice(0,3);
+      return `<div class="tcc ${inMonth?'':'off'} ${wd>=5?'wkd':''}" data-act="tsCNew" data-d="${k}"><span class="tcn ${k===now?'now':''}">${d}</span>${show.map(r=>chip(r,multi)).join('')}${!all&&ev.length>3?`<button class="tcmore" data-act="tsCDay" data-d="${k}">+${ev.length-3} more</button>`:''}</div>`};
+    if(CAL.view==='day'){
+      const ev=by[a]||[],dt=parse(a).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+      body=`<div class="tcpanel">${arrows(dt)}<div class="tcday">${ev.length?ev.map(r=>`<button class="row1" data-act="tsOpen" data-id="${esc(r.id)}"><b>${UI.icon('clock',18)} ${hm(r.hours)}</b><span class="k">${esc(r.task)}</span><span>${esc(r.cust)}${r.project?' · '+esc(r.project):''}</span><span>${esc(r.who)}</span><span>${apprText(r)}</span></button>`).join(''):`<p class="note" style="margin:0 0 10px">No time logged on this day.</p>`}
+        <div class="row" style="margin-top:6px"><button class="tcgold" data-act="tsCNew" data-d="${a}">${UI.icon('plus',20)} New Log Entry for this day</button></div></div><div class="tcfoot"><span>Total Hours :</span><b>${hm(sum(a))}</b></div></div>`;
+    }else if(CAL.view==='week'){
+      const mon=mondayOf(a);title=parse(mon).toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' – '+parse(addD(mon,6)).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+      let wk=0,cells='';for(let i=0;i<7;i++){const k=addD(mon,i);wk+=sum(k);cells+=cell(k,true,true)}
+      body=`<div class="tcpanel">${arrows(title)}<div class="tcscroll">${head.replace('</div></div>','</div></div>')}<div class="tcg">${cells}<div class="tcw"><span>${hm(wk)}</span></div></div></div><div class="tcfoot"><span>Total Hours :</span><b>${hm(wk)}</b></div></div>`;
+    }else{
+      const first=parse(a.slice(0,7)+'-01'),lead=(first.getDay()+6)%7,days=new Date(first.getFullYear(),first.getMonth()+1,0).getDate(),weeks=Math.ceil((lead+days)/7),start=addD(iso(first),-lead);
+      title=MON3(a);let grid='';
+      for(let w=0;w<weeks;w++){let wk=0;for(let i=0;i<7;i++){const k=addD(start,w*7+i),inM=k.slice(0,7)===a.slice(0,7);wk+=sum(k);if(inM)grand+=sum(k);grid+=cell(k,inM,false)}grid+=`<div class="tcw"><span>${hm(wk)}</span></div>`}
+      body=`<div class="tcpanel">${arrows(title)}<div class="tcscroll">${head}<div class="tcg">${grid}</div></div><div class="tcfoot"><span>Total Hours :</span><b>${hm(grand)}</b></div></div>`;
+    }
+    const hero=UI.hero({title:'Timesheets',sub:'Track and manage your working hours with ease.',icon:'timesheet',art:'timesheet',gold:6});
+    return hero+`<div class="tsw ${side?'withpanel':''}"><div class="tsmain" style="background:none;border:0">${calHead()}<div class="err" id="tsErr" role="alert"></div>${body}</div>${side}</div>`;
+  }
   function listHTML(){
+    if(T.mode==='cal')return calPage();
     const rows=filtered(),shown=rows.slice(0,T.limit),total=rows.reduce((s,r)=>s+r.hours,0),selIds=Object.keys(T.sel).filter(k=>T.sel[k]);
     const o=T.open?T.rows.find(r=>r.id===T.open):null,side=T.newOpen?newForm():o?drawer(o):'';
     const users=Object.entries(T.names).sort((a,b)=>a[1].localeCompare(b[1])),running=timerStart();
@@ -356,6 +444,7 @@
     if(!document.getElementById('view')||!document.getElementById('view').contains(t))return;
     if(T.rows===null)return;
     const set=(k,v)=>{e.stopImmediatePropagation();T[k]=v;T.limit=100;render()};
+    if(t.id==='tsCMonth'){e.stopImmediatePropagation();CAL.date=t.value+'-01';return render()}
     if(t.id==='tsPreset'){e.stopImmediatePropagation();T.preset=t.value;T.limit=100;T.sel={};return render()}
     if(t.id==='tsPeriod')return set('period',t.value);if(t.id==='tsCust')return set('cust',t.value);if(t.id==='tsUser')return set('user',t.value);if(t.id==='tsProj')return set('proj',t.value);if(t.id==='tsStat')return set('stat',t.value);
     if(t.id==='tsAll'){e.stopImmediatePropagation();filtered().slice(0,T.limit).forEach(r=>{T.sel[r.id]=t.checked});return render()}
@@ -402,6 +491,11 @@
       case 'tsMenu':T.menu=T.menu===d.m?null:d.m;return render();
       case 'tsProjSet':T.proj=d.p;T.limit=100;return render();
       case 'tsRefresh':return reload();
+      case 'tsCView':CAL.view=d.v;T.open=null;T.newOpen=false;return render();
+      case 'tsCToday':CAL.date=null;return render();
+      case 'tsCNav':{const n=+d.d,a=calAnchor();CAL.date=CAL.view==='month'?addM(a,n):addD(a,n*(CAL.view==='week'?7:1));return render()}
+      case 'tsCDay':CAL.view='day';CAL.date=d.d;return render();
+      case 'tsCNew':T.prefill={date:d.d};T.newOpen=true;T.open=null;T.edit=false;return render();
       case 'tsDay':T.dayF=d.d||'';if(d.d){T.view='list';T.mode='list';T.period='all'}return render();
       case 'tsStdCust':{
         const miss=(window.VIRTUOSO_CUSTOMERS||[]).filter(n=>!T.clients.some(c=>c.name.toLowerCase()===n.toLowerCase()));

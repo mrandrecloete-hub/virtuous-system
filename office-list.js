@@ -133,6 +133,36 @@
       <div class="oftabs" role="tablist" aria-label="Months">${ks.map(k=>`<button type="button" role="tab" data-act="ofTab" data-k="${k}" aria-selected="${k===cur()}">${esc(label(k))}</button>`).join('')}${adm?'<button type="button" class="plus" data-act="ofMonth" aria-label="Add next month" title="Add next month (copies the item names)">+</button>':''}</div></div></div>`;
   }
   VIEWS.stationery=vOffice;
+  /* Page background for the Stationery list only: flowing light-blue waves with gold swooshes (a dark-blue version in dark mode).
+     The page itself is unchanged. A body class is switched on while this page is showing. */
+  {
+    const svg=(c)=>'url("data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice"><defs>
+      <linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c.a}"/><stop offset=".55" stop-color="${c.b}"/><stop offset="1" stop-color="${c.c}"/></linearGradient>
+      <linearGradient id="w1" x1="0" x2="1"><stop offset="0" stop-color="${c.w1}" stop-opacity=".9"/><stop offset="1" stop-color="${c.w2}" stop-opacity=".25"/></linearGradient>
+      <linearGradient id="w2" x1="1" x2="0"><stop offset="0" stop-color="${c.w1}" stop-opacity=".85"/><stop offset="1" stop-color="${c.w2}" stop-opacity=".2"/></linearGradient>
+      <linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#fff2a8"/><stop offset=".5" stop-color="#e8a600"/><stop offset="1" stop-color="#ffe07a"/></linearGradient></defs>
+      <rect width="1600" height="1000" fill="url(#a)"/>
+      <path d="M-100 220C200 40 520 -20 860 120S1380 260 1700 60V-100H-100Z" fill="url(#w1)"/>
+      <path d="M-100 420C220 250 560 300 860 420S1400 560 1700 360V1100H-100Z" fill="url(#w2)" opacity=".55"/>
+      <path d="M-100 700C260 560 620 640 940 760S1420 860 1700 700V1100H-100Z" fill="url(#w1)" opacity=".6"/>
+      <path d="M-60 120C60 260 40 520 -60 700" fill="none" stroke="url(#g)" stroke-width="16" stroke-linecap="round" opacity=".9"/>
+      <path d="M-60 780C140 900 330 940 560 960" fill="none" stroke="url(#g)" stroke-width="12" stroke-linecap="round" opacity=".8"/>
+      <path d="M1660 640C1500 760 1420 880 1380 1060" fill="none" stroke="url(#g)" stroke-width="18" stroke-linecap="round" opacity=".9"/>
+      <path d="M1180 -40C1300 40 1450 60 1660 20" fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round" opacity=".7"/></svg>`)+'")';
+    const light=svg({a:'#f1f7ff',b:'#d5e6ff',c:'#bcd6ff',w1:'#ffffff',w2:'#9cc2ff'});
+    const dark=svg({a:'#0a1d5c',b:'#0a2a7c',c:'#06173f',w1:'#2a56c8',w2:'#0a1d5c'});
+    const c=document.createElement('style');
+    c.textContent=`body.ofbg{background:${light} center/cover fixed no-repeat!important}
+    @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body.ofbg{background:${dark} center/cover fixed no-repeat!important}}
+    :root[data-theme="dark"] body.ofbg{background:${dark} center/cover fixed no-repeat!important}
+    :root[data-theme="light"] body.ofbg{background:${light} center/cover fixed no-repeat!important}`;
+    document.head.appendChild(c);
+    const mark=()=>document.body.classList.toggle('ofbg',!!(state.user&&state.tab&&state.tab[state.role]==='stationery'));
+    const prevRender=render;
+    render=function(){const r=prevRender.apply(this,arguments);mark();return r};
+    mark();
+  }
+
 
   /* ---------- outputs ---------- */
   function rowsOut(){const m=sheet()||{};const out=[];SECS.forEach(([k])=>(m[k]||[]).forEach(r=>out.push([titleOf(k),r.item,r.stock,r.buy])));return out}

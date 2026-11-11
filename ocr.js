@@ -243,13 +243,16 @@
       await w.setParameters({tessedit_pageseg_mode:'8',tessedit_char_whitelist:'0123456789.,-CcRrDd'});
       for(const x of words){
         if(!NUMLIKE(x.t))continue;
-        const pad=6,x0=Math.max(0,Math.floor(x.x0)-pad),y0=Math.max(0,Math.floor(x.y0)-pad),ww=Math.min(cv.width-x0,Math.ceil(x.x1-x.x0)+pad*2),hh=Math.min(cv.height-y0,Math.ceil(x.y1-x.y0)+pad*2);
+        const pad=3,x0=Math.max(0,Math.floor(x.x0)-pad),y0=Math.max(0,Math.floor(x.y0)-pad),ww=Math.min(cv.width-x0,Math.ceil(x.x1-x.x0)+pad*2),hh=Math.min(cv.height-y0,Math.ceil(x.y1-x.y0)+pad*2);
         if(ww<8||hh<8)continue;
         const k=Math.min(4,Math.max(1,64/hh)),c=document.createElement('canvas');c.width=Math.round(ww*k)+24;c.height=Math.round(hh*k)+24;
         const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.imageSmoothingEnabled=true;g.drawImage(cv,x0,y0,ww,hh,12,12,Math.round(ww*k),Math.round(hh*k));
         const r=await w.recognize(c),t=String(r.data.text||'').replace(/\s+/g,'').trim();
         if(!t||!STRICT.test(t))continue;
         const old=String(x.t).replace(/\s+/g,'');
+        /* a digits-only read turns stray vertical marks (table rules, specks) into a "1": never let the re-read ADD digits to a number that already looked right */
+        const dg=v=>String(v).replace(/[^0-9]/g,'').length;
+        if(STRICT.test(old)&&dg(t)>dg(old))continue;
         if(t.toLowerCase()!==old.toLowerCase()){x.alt=x.t;x.t=t;x.fx=true;changed++}
       }
     }catch(e){console.warn('number re-read skipped',e)}

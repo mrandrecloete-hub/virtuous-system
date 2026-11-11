@@ -100,7 +100,7 @@
     return out;
   }
   /* ---------- row analysis ---------- */
-  const SKIP=/^(page\s*\d|\d+\s*(of|\/)\s*\d+$|statement\b|account\b|acc\.?\s*no|branch|vat\b|reg(istration)?\b|tel\b|fax\b|www\.|customer\b|opening\s+bal|closing\s+bal|balance\s+brought|brought\s+forward|carried\s+forward|total\b|date\b|description\b|please\b|continued|bank\s+charges\s+summary|interest\s+rate|\*+)/i;
+  const SKIP=/^(card\s+total|foreign\s+amount|amount\s*:|page\s*\d|\d+\s*(of|\/)\s*\d+$|statement\b|account\b|acc\.?\s*no|branch|vat\b|reg(istration)?\b|tel\b|fax\b|www\.|customer\b|opening\s+bal|closing\s+bal|balance\s+brought|brought\s+forward|carried\s+forward|total\b|date\b|description\b|please\b|continued|bank\s+charges\s+summary|interest\s+rate|\*+)/i;
   const OPEN=/(opening\s*balance|balance\s*brought\s*forward|brought\s*forward|b\/f\b|previous\s*balance|balance\s*b\/f)/i;
   const CLOSE=/(closing\s*balance|balance\s*carried\s*forward|carried\s*forward|c\/f\b)/i;
 
@@ -126,6 +126,9 @@
     }
     /* scanner specks after the last amount ("oo", "|", "~") must not hide the amounts: drop short, doubtful words at the end of a line that has money before them */
     while(w.length>2&&!money(w[w.length-1].t)&&!isMark(w[w.length-1].t)&&String(w[w.length-1].t).trim().length<=3&&(/^[^A-Za-z0-9]+$/.test(String(w[w.length-1].t).trim())||(w[w.length-1].c!=null&&w[w.length-1].c<80))&&w.slice(0,-1).some(x=>money(x.t)))w.pop();
+    let sus=null;
+    for(let q=0;q<w.length-1;q++){const x=String(w[q].t).trim(),y=String(w[q+1].t).trim();
+      if(/^\d{1,3}$/.test(x)&&/^1\d{3}[.,]\d{2}(?:cr|dr)?$/i.test(y)&&w[q+1].x0-w[q].x1<H*1.3){const m=/^1(\d{3})([.,]\d{2})/.exec(y);sus={read:y.replace(/(cr|dr)$/i,''),amt:+(x+m[1]+'.'+m[2].slice(1))}}}
     let i=0,date=null;
     const d=dateAt(w,0,per);
     if(d){date=d;i=d.n}
@@ -147,7 +150,7 @@
     const descEnd=moneyItems.length?moneyItems[0].j:w.length;
     const dw=w.slice(i,descEnd);const desc=dw.map(x=>x.t).join(' ').replace(/\s+/g,' ').trim();
     const dconf=dw.reduce((a,x)=>Math.min(a,x.c==null?100:x.c),100);
-    return {date,desc,dconf,money:moneyItems,all:items,text:r.text,y0:r.y0,y1:r.y1};
+    return {date,desc,dconf,money:moneyItems,all:items,sus,text:r.text,y0:r.y0,y1:r.y1};
   }
 
   /* ---------- main parser ---------- */
@@ -193,7 +196,7 @@
           const msrc=a.money.length?a.money:((mo||mc)&&a.all&&a.all.length?[a.all[0]]:[]);
           if((mo||mc)&&msrc.length){const mv=msrc[(hdr&&hdr.balance)||msrc.length===1?msrc.length-1:0].mv;const v=(mv.mk==='dr'||mv.neg)?-mv.v:mv.v;if(mo&&openBal==null)openBal=v;if(mc)closeBal=v;prev=null;continue}
           /* a row with an amount but no readable date is never dropped silently: it is listed for the user */
-          if(a.money.length&&low&&!SKIP.test(low)&&!OPEN.test(low)&&!CLOSE.test(low)){skipped.push({page:pi+1,text:a.text});prev=null;continue}
+          if(a.money.length&&low&&!SKIP.test(low)&&!OPEN.test(low)&&!CLOSE.test(low)){skipped.push({page:pi+1,y0:a.y0,text:a.text});prev=null;continue}
           if(prev&&a.money.length===0&&low&&!SKIP.test(low)&&a.y0-prev.y1<H*1.7&&prev.extra<2&&!/^(\d+\s*)?(of\s*\d+)?$/.test(low)){prev.desc+=' '+low;prev.extra++;prev.y1=a.y1}
           else prev=null;
           continue;
@@ -206,7 +209,7 @@
         }
         if(mo&&openBal==null){const mv=a.money[a.money.length-1].mv;openBal=(mv.mk==='dr'||mv.neg)?-mv.v:mv.v;prev=null;continue}
         if(CLOSE.test(a.desc)&&!/^(\s*\d)/.test(a.desc)){const mv=a.money[(hdr&&hdr.balance)||a.money.length===1?a.money.length-1:0].mv;closeBal=(mv.mk==='dr'||mv.neg)?-mv.v:mv.v;prev=null;continue}
-        const t={date:a.date,desc:a.desc,dconf:a.dconf,money:a.money,y0:a.y0,y1:a.y1,extra:0,page:pi,raw:a.text};
+        const t={date:a.date,desc:a.desc,dconf:a.dconf,money:a.money,sus:a.sus,y0:a.y0,y1:a.y1,extra:0,page:pi,raw:a.text};
         tx.push(t);prev=t;
       }
     });
@@ -240,10 +243,11 @@
       }
       if(!dir&&mk)dir=mk==='cr'?'credit':'debit';
       const marked=!!mk;
-      out.push({date:t.date,desc:t.desc,amt,bal,dir,marked,page:t.page,y0:t.y0,y1:t.y1,raw:t.raw,flags:fl,balRead:bal!=null,dconf:t.dconf});
+      out.push({date:t.date,desc:t.desc,amt,bal,dir,marked,sus:t.sus,page:t.page,y0:t.y0,y1:t.y1,raw:t.raw,flags:fl,balRead:bal!=null,dconf:t.dconf});
     });
     /* ---- years ---- */
     out.forEach(o=>{const d=o.date;const y=d.y||yearFor(d.m,per,defY);o.iso=validDate(y,d.m,d.d)?y+'-'+pad(d.m)+'-'+pad(d.d):null;if(!o.iso)o.flags.push(y?'Date not read':'Year not found on the statement: type it in the Year box')});
+    for(let q=out.length-1;q>=0;q--){const o=out[q];if(!o.iso&&o.amt==null&&!o.bal){skipped.push({page:(o.page||0)+1,y0:o.y0,text:o.raw||o.desc});out.splice(q,1)}}
     /* ---- directions and the running-balance check ---- */
     { /* some statements mark only one side (credits "Cr", or debits "Dr"/"-"). Unmarked amounts then take the other side, as an
          ASSUMPTION that is cleared when the printed balances confirm it, and flagged when nothing can. */
@@ -267,8 +271,15 @@
       if([c1,c2].some(c=>Math.abs(Math.abs(c)-cl)<.005))out.forEach(o=>{if(o.assumed)o.okTot=true});
     }
     resolveChain(out,openBal,opt.openingBalance,hasBalCol,closeBal);
+    out.forEach(o=>{if(o.sus&&o.amt!=null&&Math.abs(o.amt-+o.sus.read.replace(/[, ]/g,''))<.005){
+      o.ok=false;o.flags.push('Possible misread: the scan shows a separate digit before '+o.sus.read+', so this may be '+f2(o.sus.amt)+' (thousands written with a space)');
+      o.sugg={amt:o.sus.amt,dir:o.dir,why:'the scan shows "'+o.sus.read+'" after a separate digit'}}});
     out.forEach(o=>{if(o.dconf!=null&&o.dconf<85)o.flags.push('Check the description (scan was hard to read)')});
-    return {hdr,rows:out,period:per,openBal:out.openUsed!=null?out.openUsed:openBal,closeBal,hasBalCol,skipped,yearMissing:!defY,pages:pages.length};
+    /* only lines inside the transaction table count as "not added": text above the first or below the last transaction on a page
+       (addresses, account summary, adverts) is not part of the table */
+    const span={};tx.forEach(t=>{const k=t.page;if(t.y0==null)return;span[k]=span[k]||{a:1e9,b:-1};span[k].a=Math.min(span[k].a,t.y0);span[k].b=Math.max(span[k].b,t.y1)});
+    const skippedIn=skipped.filter(x=>{const sp=span[x.page-1];return sp&&x.y0!=null&&x.y0>sp.a&&x.y0<sp.b});
+    return {hdr,rows:out,period:per,openBal:out.openUsed!=null?out.openUsed:openBal,closeBal,hasBalCol,skipped:skippedIn,yearMissing:!defY,pages:pages.length};
   }
 
   /* Checks the printed figures against each other. It NEVER changes a printed amount or balance and never
@@ -316,6 +327,11 @@
       prevBal=r.bal;pend=[];
     }
     if(pend.length&&prevBal!=null&&closeBal!=null)settle(pend,prevBal,closeBal);
+    /* the printed opening and closing balances confirm the sides together: flipping any single line would break the total */
+    if(open!=null&&closeBal!=null&&rows.every(r=>r.amt!=null&&r.dir)){
+      const dr=r2(rows.filter(r=>r.dir==='debit').reduce((a,r)=>a+r.amt,0)),cr=r2(rows.filter(r=>r.dir==='credit').reduce((a,r)=>a+r.amt,0));
+      if([r2(open-dr+cr),r2(open+dr-cr),r2(-(open-dr+cr))].some(c=>Math.abs(c-closeBal)<.005))rows.forEach(r=>{if(r.assumed)r.ok=true});
+    }
     rows.forEach(r=>{
       if(r.amt!=null&&!r.dir&&!r.sugg)r.flags.push('Debit or credit not clear: left empty, please choose');
       else if(r.assumed&&r.dir&&!r.ok&&!r.okTot)r.flags.push((r.dir==='debit'?'Debit':'Credit')+' assumed (the amount is not marked): no printed balance confirms it');
@@ -371,7 +387,8 @@
     const altOk=diff!=null&&Math.abs(diff)>=.005&&!flip&&close!=null&&Math.abs(r2(alt-close))<.005;
     const ok=diff==null?null:(Math.abs(diff)<.005||flip||altOk);
     if(altOk)diff=0;
-    return {rs,deb,cre,open,close,closeSrc,calc,diff,ok,altOk,flip,lastBal,flagged:f.rows.filter(r=>r.flags&&r.flags.length).length};
+    const calcShown=altOk?alt:calc;
+    return {rs,deb,cre,open,close,closeSrc,calc:calcShown,diff,ok,altOk,flip,lastBal,flagged:f.rows.filter(r=>r.flags&&r.flags.length).length};
   }
   function cardHTML(f,i){
     if(f.status!=='done')return `<div class="panel scc" data-f="${f.id}"><div class="ph"><h3>${esc(f.name)}</h3><button class="btn ghost sm" type="button" data-act="scDrop" data-i="${i}">Remove</button></div>
@@ -388,7 +405,7 @@
       <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>${(bad||f.showAll)&&f.mode==='ocr'&&f.imgs&&f.imgs[r.page]&&r.y1!=null?`<tr class="scimg"><td colspan="8"><div class="note" style="margin:0 0 2px">Original scan of this line:</div><canvas data-crop="1" data-i="${i}" data-k="${k}" style="width:100%;max-width:1100px;border:1px solid var(--line);background:#fff"></canvas></td></tr>`:''}`}).join('');
     const warn=[];
     if(f.yearMissing)warn.push('No year was found on the statement. Type the year in the Year box above (then add the file again); until then the dates are left empty rather than guessed.');
-    if(!f.hasBalCol)warn.push('This statement has no running balance, so amounts could not be checked line by line. Compare the totals box below with the statement before importing.');
+    if(!f.hasBalCol)warn.push(T.ok?'This statement has no running balance, so each line cannot be checked on its own. The totals box below confirms the lines together.':'This statement has no running balance, so amounts could not be checked line by line. Compare the totals box below with the statement before importing.');
     if(f.skipped&&f.skipped.length)warn.push(f.skipped.length+' line'+(f.skipped.length===1?'':'s')+' with an amount but no readable date '+(f.skipped.length===1?'was':'were')+' NOT added: '+f.skipped.slice(0,6).map(x=>'"'+esc(x.text.slice(0,70))+'" (page '+x.page+')').join('; ')+(f.skipped.length>6?'; …':'')+'. Use Add a line if they are transactions.');
     if(f.mode==='ocr')warn.push('This is a scan, read with OCR. Numbers are checked against the running balance, but descriptions can have small spelling slips: use Show every scan line to compare them with the original.');
     const cls=T.ok==null?'warn':T.ok?'ok':'bad';
@@ -547,7 +564,7 @@
     if(a==='scReport'){report(f);return}
     if(a==='scDrop'){S.files.splice(i,1);return render()}
     if(a==='scDel'){f.rows.splice(+b.dataset.k,1);return render()}
-    if(a==='scUse'){const r=f.rows[+b.dataset.k];if(r&&r.sugg){r.amt=r.sugg.amt;r.dir=r.sugg.dir;r.sugg=null;r.flags=['Amount taken from the balance by you'];}return render()}
+    if(a==='scUse'){const r=f.rows[+b.dataset.k];if(r&&r.sugg){const why=r.sugg.why;r.amt=r.sugg.amt;if(r.sugg.dir)r.dir=r.sugg.dir;r.sugg=null;r.ok=false;r.flags=['Changed by you: '+why]}return render()}
     if(a==='scAdd'){f.rows.push({iso:null,date:{},desc:'',amt:null,bal:null,dir:null,flags:['New line'],raw:''});return render()}
     if(a==='scXlsx'){if(!f||!f.rows)return;buildXlsx(sheetRowsPage(f)).then(bl=>save(bl,baseName(f.name)+'.xlsx')).catch(x=>toast('Could not create the Excel file: '+(x.message||'error')));return}
     if(a==='scCsv'){if(!f||!f.rows)return;save(buildCsv(sheetRowsPage(f)),baseName(f.name)+'.csv');return}

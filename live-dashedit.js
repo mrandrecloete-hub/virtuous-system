@@ -156,7 +156,7 @@
   };
   VIEWS.dashedit=vEdit;ICON.dashedit='<rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4M7 8h6M7 12h10"/>';
   {const p=NAV.adm.find(x=>x[0]==='People');if(p&&!p[1].some(x=>x[0]==='dashedit'))p[1].splice(1,0,['dashedit','Employee dashboards'])}
-  window.VIRTUOSO_DASHEDIT={isNew,admin:()=>A,dirty:()=>{A.dirty=true},rid,base:()=>BASE||NAV.emp.filter(g=>g[0]!==GROUP)};
+  window.VIRTUOSO_DASHEDIT={isNew,cfg:()=>M.config,admin:()=>A,dirty:()=>{A.dirty=true},rid,base:()=>BASE||NAV.emp.filter(g=>g[0]!==GROUP)};
   setInterval(()=>{const u=state.user?state.user.id:null;if(u!==M.uid){M.uid=u;M.loaded=false;M.loading=false;M.config=empty();M.version=0;M.seen=0;M.done=new Set();NAV.emp=NAV.emp.filter(g=>g[0]!==GROUP);A.emps=null;A.sel=null;A.config=empty()}},700);
   setInterval(()=>{if(state.user&&state.user.type==='emp'&&M.loaded)loadMine(true)},20000);
 

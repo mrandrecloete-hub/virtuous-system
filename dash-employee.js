@@ -60,23 +60,23 @@
     const hr=new Date().getHours(),greet=hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
     const alerts=typeof unreadCount==='function'?unreadCount():0;
     return `<div class="hello"><div><h2>${greet}, ${esc(e.name.split(' ')[0])}</h2><p class="sub" style="margin:0">${esc(fmtLong(today()))}${e.title?' &middot; '+esc(e.title):''}</p></div>
-      <div class="row"><button class="btn" data-tab="time">Log time</button><button class="btn ghost" data-tab="leave">Apply for leave</button><button class="btn ghost" data-tab="profile">My profile</button></div></div>
+      <div class="row"><button class="btn" data-fn="qlog" data-tab="time">Log time</button><button class="btn ghost" data-fn="qleave" data-tab="leave">Apply for leave</button><button class="btn ghost" data-fn="qprofile" data-tab="profile">My profile</button></div></div>
     <div class="tiles">
-      <button class="tile link" data-tab="time"><b>${D.loaded?hm(total):'-'}</b><span>Hours this week</span><small>Target 40:00</small></button>
-      <button class="tile link" data-tab="time"><b>${D.loaded?n('Draft')+n('Rejected'):'-'}</b><span>Entries to submit</span><small>${D.loaded?n('Pending')+' waiting for approval, '+n('Approved')+' approved':'Loading…'}</small></button>
-      <button class="tile link" data-tab="leave"><b>${D.loaded?waiting:'-'}</b><span>Leave applications waiting</span><small>${D.loaded?D.leaves.length+' recent':'Loading…'}</small></button>
-      <button class="tile link" data-tab="stationery"><b>${buy===null?'-':buy}</b><span>Office items to buy</span><small>See the Stationery list</small></button>
-      <button class="tile link" data-tab="alerts"><b>${alerts}</b><span>Unread alerts</span><small>${alerts?'Open to read them':'You are up to date'}</small></button>
+      <button class="tile link" data-fn="hours" data-tab="time"><b>${D.loaded?hm(total):'-'}</b><span>Hours this week</span><small>Target 40:00</small></button>
+      <button class="tile link" data-fn="entries" data-tab="time"><b>${D.loaded?n('Draft')+n('Rejected'):'-'}</b><span>Entries to submit</span><small>${D.loaded?n('Pending')+' waiting for approval, '+n('Approved')+' approved':'Loading…'}</small></button>
+      <button class="tile link" data-fn="leavetile" data-tab="leave"><b>${D.loaded?waiting:'-'}</b><span>Leave applications waiting</span><small>${D.loaded?D.leaves.length+' recent':'Loading…'}</small></button>
+      <button class="tile link" data-fn="buy" data-tab="stationery"><b>${buy===null?'-':buy}</b><span>Office items to buy</span><small>See the Stationery list</small></button>
+      <button class="tile link" data-fn="alerts" data-tab="alerts"><b>${alerts}</b><span>Unread alerts</span><small>${alerts?'Open to read them':'You are up to date'}</small></button>
     </div>
     <div class="dgrid">
-      <div class="panel"><div class="ph"><h3>Hours by day</h3></div>
+      <div class="panel" data-fn="chart"><div class="ph"><h3>Hours by day</h3></div>
         <div class="cols">${per.map(h=>`<div class="c"><i class="${h?'':'empty'}" style="height:${Math.min(100,h/10*100)}%"></i></div>`).join('')}<div class="goal" style="bottom:calc((100% - 8px) * 0.8)"></div></div>
         <div class="clab">${days.map((k,i)=>`<span>${k}<b>${per[i]?per[i].toFixed(1):'-'}</b></span>`).join('')}</div>
         <p class="note" style="margin:10px 0 0">Dashed line marks an 8 hour day.</p></div>
-      <div class="panel"><div class="ph"><h3>My leave</h3><button class="btn sm ghost" data-tab="leave">Open</button></div>
+      <div class="panel" data-fn="myleave"><div class="ph"><h3>My leave</h3><button class="btn sm ghost" data-tab="leave">Open</button></div>
         ${D.leaves.length?`<div class="tbl"><table><thead><tr><th>Type</th><th>Dates</th><th>Status</th></tr></thead><tbody>${D.leaves.slice(0,4).map(l=>`<tr><td>${esc(l.leave_type)}</td><td>${esc(fmtShort(l.from_date))} to ${esc(fmtShort(l.to_date))}</td><td>${pill(l.status,stc(l.status))}</td></tr>`).join('')}</tbody></table></div>`:`<p class="note" style="margin:0">${D.loaded?'No leave applications yet.':'Loading…'}</p>`}</div>
     </div>
-    <div class="panel"><div class="ph"><h3>Your pages</h3></div><div class="edq">
+    <div class="panel" data-fn="yourpages"><div class="ph"><h3>Your pages</h3></div><div class="edq">
       <button data-tab="time"><div><b>Timesheet</b><span>Log and submit your hours</span></div></button>
       <button data-tab="leave"><div><b>Leave</b><span>Apply: annual, sick, study, compassionate, unpaid</span></div></button>
       <button data-tab="requests"><div><b>Requests</b><span>Forms and requests to the office</span></div></button>

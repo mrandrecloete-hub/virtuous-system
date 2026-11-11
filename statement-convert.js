@@ -73,7 +73,7 @@
   }
 
   /* ---------- header columns ---------- */
-  const HDR=[['debit',/^(debits?|dr|withdrawals?|withdrawn|payments?|paid\s*out|money\s*out|out)$/i],['credit',/^(credits?|cr|deposits?|receipts?|paid\s*in|money\s*in|in)$/i],['balance',/^(balance|running\s*balance|bal)$/i],['amount',/^(amount|amt|transaction\s*amount)$/i],['date',/^(date|trans\.?\s*date|posting\s*date)$/i],['desc',/^(description|details?|particulars|narrative|transaction\s*details?)$/i]];
+  const HDR=[['debit',/^(debits?|dr|withdrawals?|withdrawn|payments?|paid\s*out|money\s*out|out)$/i],['credit',/^(credits?|cr|deposits?|receipts?|paid\s*in|money\s*in|in)$/i],['balance',/^(balance|running\s*balance|bal)$/i],['amount',/^(amount|amt|transaction\s*amount)$/i],['accr',/^(accrued|bank)$/i],['date',/^(date|trans\.?\s*date|posting\s*date)$/i],['desc',/^(description|details?|particulars|narrative|transaction\s*details?)$/i]];
   function headerOf(row){
     const found={};
     const w=expand(row.w);
@@ -147,7 +147,7 @@
     const descEnd=moneyItems.length?moneyItems[0].j:w.length;
     const dw=w.slice(i,descEnd);const desc=dw.map(x=>x.t).join(' ').replace(/\s+/g,' ').trim();
     const dconf=dw.reduce((a,x)=>Math.min(a,x.c==null?100:x.c),100);
-    return {date,desc,dconf,money:moneyItems,text:r.text,y0:r.y0,y1:r.y1};
+    return {date,desc,dconf,money:moneyItems,all:items,text:r.text,y0:r.y0,y1:r.y1};
   }
 
   /* ---------- main parser ---------- */
@@ -176,10 +176,9 @@
         ms.forEach(m=>{let best=null,bd=1e9;labs.forEach(l=>{const dd=Math.abs((m.x.x0+m.x.x1)/2-l.c);if(dd<bd){bd=dd;best=l}});
           if(best&&bd<H*14){const nx=nw[m.j+1];const mk=m.mv.mk||(nx&&isMark(nx.t)?(/^c/i.test(nx.t)?'cr':'dr'):'');const v=(mk==='dr'||m.mv.neg)?-m.mv.v:m.mv.v;
             if(best.k==='open'&&openBal==null){openBal=v;used=true}if(best.k==='close'&&closeBal==null){closeBal=v;used=true}}});
-        if(used)nr.used=true;
-        return true;
+        if(used){nr.used=true;return true}
       }
-      return true;
+      return false;
     }
     pageRows.forEach((rows,pi)=>{
       lastY=null;prev=null;
@@ -191,7 +190,8 @@
         const low=a.text.trim();
         if(!a.date){
           const mo=OPEN.test(low),mc=CLOSE.test(low);
-          if((mo||mc)&&a.money.length){const mv=a.money[(hdr&&hdr.balance)||a.money.length===1?a.money.length-1:0].mv;const v=(mv.mk==='dr'||mv.neg)?-mv.v:mv.v;if(mo&&openBal==null)openBal=v;if(mc)closeBal=v;prev=null;continue}
+          const msrc=a.money.length?a.money:((mo||mc)&&a.all&&a.all.length?[a.all[0]]:[]);
+          if((mo||mc)&&msrc.length){const mv=msrc[(hdr&&hdr.balance)||msrc.length===1?msrc.length-1:0].mv;const v=(mv.mk==='dr'||mv.neg)?-mv.v:mv.v;if(mo&&openBal==null)openBal=v;if(mc)closeBal=v;prev=null;continue}
           /* a row with an amount but no readable date is never dropped silently: it is listed for the user */
           if(a.money.length&&low&&!SKIP.test(low)&&!OPEN.test(low)&&!CLOSE.test(low)){skipped.push({page:pi+1,text:a.text});prev=null;continue}
           if(prev&&a.money.length===0&&low&&!SKIP.test(low)&&a.y0-prev.y1<H*1.7&&prev.extra<2&&!/^(\d+\s*)?(of\s*\d+)?$/.test(low)){prev.desc+=' '+low;prev.extra++;prev.y1=a.y1}
@@ -221,11 +221,13 @@
       if(t.money.some(it=>it.mv.fx||it.w.j||it.w.fx))fl.push('Check the numbers: a digit was repaired while reading the scan');
       if(hdr){
         /* assign each money word to the nearest header column */
-        const cols=['debit','credit','balance','amount'].filter(k=>hdr[k]);
+        const cols=['debit','credit','balance','amount','accr'].filter(k=>hdr[k]);
         t.money.forEach(it=>{
           let best=null,bd=1e9;cols.forEach(k=>{const dd=colDist(it.w,hdr[k]);if(dd<bd){bd=dd;best=k}});
+          if(bd>H*9&&cols.length>1&&it.w.x1<Math.min(...cols.map(k=>hdr[k].x0))-H){t.desc=(t.desc+' '+it.w.t).trim();return}  /* a figure inside the description text */
           if(bd>H*9&&cols.length>1){fl.push('A number ('+f2(it.mv.v)+') could not be placed in a column');return}
           const v=it.mv;
+          if(best==='accr')return;                       /* accrued bank charges column: not part of the transaction */
           if(best==='balance'){bal=(v.mk==='dr'||v.neg)?-v.v:v.v;balMk=v.mk}
           else if(best==='debit'){amt=v.v;dir='debit'}
           else if(best==='credit'){amt=v.v;dir='credit'}
@@ -257,6 +259,12 @@
         const calc=r2(openBal-dr-u+cr);
         if(Math.abs(calc-closeBal)<.005||Math.abs(calc+closeBal)<.005)un.forEach(o=>{o.dir='debit'});
       }
+    }
+    /* The printed opening and closing balances confirm the directions as a whole (either convention: balances as credit, or as amounts owed). */
+    if(!hasBalCol&&openBal!=null&&closeBal!=null){
+      const dr=r2(out.filter(o=>o.dir==='debit'&&o.amt!=null).reduce((a,o)=>a+o.amt,0)),cr=r2(out.filter(o=>o.dir==='credit'&&o.amt!=null).reduce((a,o)=>a+o.amt,0));
+      const c1=r2(openBal-dr+cr),c2=r2(openBal+dr-cr),cl=Math.abs(closeBal);
+      if([c1,c2].some(c=>Math.abs(Math.abs(c)-cl)<.005))out.forEach(o=>{if(o.assumed)o.okTot=true});
     }
     resolveChain(out,openBal,opt.openingBalance,hasBalCol,closeBal);
     out.forEach(o=>{if(o.dconf!=null&&o.dconf<85)o.flags.push('Check the description (scan was hard to read)')});
@@ -310,7 +318,7 @@
     if(pend.length&&prevBal!=null&&closeBal!=null)settle(pend,prevBal,closeBal);
     rows.forEach(r=>{
       if(r.amt!=null&&!r.dir&&!r.sugg)r.flags.push('Debit or credit not clear: left empty, please choose');
-      else if(r.assumed&&r.dir&&!r.ok)r.flags.push((r.dir==='debit'?'Debit':'Credit')+' assumed (the amount is not marked): no printed balance confirms it');
+      else if(r.assumed&&r.dir&&!r.ok&&!r.okTot)r.flags.push((r.dir==='debit'?'Debit':'Credit')+' assumed (the amount is not marked): no printed balance confirms it');
       if(r.ok)r.flags=r.flags.filter(f=>!/^Check the numbers/.test(f));       /* the balances confirm the digits */
       if(r.bal==null&&hasBal&&!r.ok&&r.amt!=null&&!r.flags.some(f=>/assumed|not clear/.test(f)))r.flags.push('Balance not read: this line is not confirmed by a printed balance');
     });
@@ -499,15 +507,16 @@
     done.forEach(f=>{
       const T=totals(f),ds=f.rows.map(r=>r.iso).filter(Boolean).sort(),fmt=d=>d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'-';
       const st=T.ok==null?'<span class="pill warn">Cannot verify</span>':T.ok?'<span class="pill ok">Agrees</span>':'<span class="pill bad">Does not agree</span>';
-      let cont='-';
-      if(prev&&prev.close!=null&&T.open!=null)cont=Math.abs(Math.abs(prev.close)-Math.abs(T.open))<.005?'<span class="pill ok">Continues from previous</span>':'<span class="pill warn">Opening '+f2(T.open)+' differs from previous closing '+f2(prev.close)+'</span>';
+      let cont='<span class="note">No earlier statement in this upload matches this opening balance</span>';
+      const Tm=done.filter(g=>g!==f).map(g=>({g,t:totals(g)})).find(x=>x.t.close!=null&&T.open!=null&&Math.abs(Math.abs(x.t.close)-Math.abs(T.open))<.005);
+      if(Tm)cont='<span class="pill ok">Continues from '+esc(Tm.g.name)+'</span>';
       rowsH.push(`<tr><td>${esc(f.name)}</td><td>${fmt(ds[0])} - ${fmt(ds[ds.length-1])}</td><td class="n">${f.rows.length}</td><td class="n">${T.open==null?'-':f2(T.open)}</td><td class="n">${f2(T.deb)}</td><td class="n">${f2(T.cre)}</td><td class="n">${T.close==null?'-':f2(T.close)}</td><td>${st}</td><td>${cont}</td></tr>`);
       prev=T;
     });
     const pend=S.files.length-done.length;
     return `<div class="panel"><div class="ph"><h3>All statements (${S.files.length})</h3><div class="row"><button class="btn sm" type="button" data-act="scAllX">Download all Excel (separate files)</button><button class="btn ghost sm" type="button" data-act="scAllC">Download all CSV</button></div></div>
       <p class="note" style="margin:0 0 8px">Each statement is converted and exported as its own file, in date order. ${pend?pend+' still being read or not readable. ':''}Check that every row says Agrees before importing.</p>
-      <div class="tbl"><table style="min-width:860px"><thead><tr><th>File</th><th>Period</th><th class="n">Lines</th><th class="n">Opening</th><th class="n">Debits</th><th class="n">Credits</th><th class="n">Closing</th><th>Check</th><th>Month to month</th></tr></thead><tbody>${rowsH.join('')}</tbody></table></div></div>`;
+      <div class="tbl"><table style="min-width:860px"><thead><tr><th>File</th><th>Period</th><th class="n">Lines</th><th class="n">Opening</th><th class="n">Debits</th><th class="n">Credits</th><th class="n">Closing</th><th>Check</th><th>Follows on from</th></tr></thead><tbody>${rowsH.join('')}</tbody></table></div></div>`;
   }
   function preview(i){
     const f=S.files[i],T=totals(f),rs=sheetRowsPage(f);

@@ -138,15 +138,20 @@
   .tsnote{font-size:12px;color:var(--fg);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
   .tsunb{color:var(--tsunb)}.tsbil{color:#1f8a4c}.tsdim{color:var(--muted)}
   .tsfoot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 16px;color:var(--muted);font-size:13px}
-  .tscal{padding:12px 16px}
-  .tscalh{display:flex;align-items:center;gap:10px;margin-bottom:8px}.tscalh b{font-size:16px;min-width:140px;text-align:center}
-  .tscalg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
-  .tscalg>div{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:92px;padding:4px 6px;font-size:12px;min-width:0}
-  .tscalg .dow{min-height:0;font-weight:600;color:var(--muted);text-transform:uppercase;font-size:11px;padding:6px}
-  .tscalg .off{background:var(--bg);opacity:.6}
-  .tscalg .dn{display:flex;justify-content:space-between;color:var(--muted)}.tscalg .dn em{font-style:normal;color:var(--fg);font-weight:600}
-  .tscalg .ev{display:block;width:100%;text-align:left;border:0;background:color-mix(in srgb,var(--tsbtn) 14%,transparent);color:var(--fg);border-radius:3px;margin-top:3px;padding:2px 4px;font:inherit;font-size:11.5px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:0}
-  @media(max-width:700px){.tscalg>div{min-height:60px;padding:2px 3px}.tscalg .ev{font-size:10.5px}.tshead{padding:10px 12px}.tsfilters{padding:6px 12px}}
+  .tscal{padding:0}
+  .tscalh{display:flex;align-items:center;justify-content:center;gap:14px;padding:12px;background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.tscalh b{font-size:14px;min-width:110px;text-align:center}
+  .tscalh button{border:0;background:none;cursor:pointer;font-size:18px;color:var(--fg);padding:0 6px}.tscalh .tdy{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+  .tscalg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(70px,.9fr);border-left:1px solid var(--line)}
+  .tscalg>div{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:104px;padding:8px 10px;font-size:12px;min-width:0;background:var(--card,#fff)}
+  .tscalg .dow{min-height:0;font-weight:600;color:var(--muted);text-transform:uppercase;font-size:10.5px;padding:10px 6px;text-align:center;background:var(--bg)}
+  .tscalg .off{background:var(--bg)}
+  .tscalg .dn{font-size:12px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px}.tscalg .dn.now{background:#4f7df3;color:#fff;border-radius:50%}
+  .tscalg .big{font-size:15px;font-weight:700;margin-top:8px;border-left:3px solid var(--line);padding-left:8px;line-height:1.1}.tscalg .big small{display:block;font-size:10.5px;font-weight:400;color:var(--muted);margin-top:2px}
+  .tscalg .cnt{display:block;margin-top:10px;border:0;background:none;padding:0;font:inherit;font-size:11px;color:var(--fg);cursor:pointer;text-align:left}
+  .tscalg .wk{display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500}
+  .tscalfoot{display:flex;justify-content:flex-end;align-items:center;gap:0;border-left:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .tscalfoot span{padding:14px 28px;font-size:14px}.tscalfoot b{padding:14px 28px;min-width:20%;text-align:center;font-size:15px;color:#e5484d;border-left:1px solid var(--line);font-weight:500}
+  @media(max-width:700px){.tscalg>div{min-height:64px;padding:3px 4px}.tscalg .big{font-size:11px;padding-left:4px}.tscalg .big small,.tscalg .cnt{font-size:9px}.tscalfoot span,.tscalfoot b{padding:10px 12px}.tshead{padding:10px 12px}.tsfilters{padding:6px 12px}}
   .tsdrawer{background:var(--surface);border:1px solid var(--line);border-radius:6px;margin-left:12px;position:sticky;top:8px;max-height:calc(100vh - 24px);overflow:auto}
   @media(max-width:1100px){.tsdrawer{margin-left:0}}
   .tsdh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 14px;border-bottom:1px solid var(--line)}
@@ -195,7 +200,7 @@
   }
   function filtered(){
     const [a,b]=periodRange(T.period);
-    return T.rows.filter(r=>r.work_date>=a&&r.work_date<=b&&(!T.cust||r.client_id===T.cust)&&(!T.user||r.user_id===T.user)&&(!T.proj||r.project===T.proj)&&(!T.stat||r.status===T.stat)
+    return T.rows.filter(r=>r.work_date>=a&&r.work_date<=b&&(!T.cust||r.client_id===T.cust)&&(!T.user||r.user_id===T.user)&&(!T.proj||r.project===T.proj)&&(!T.dayF||r.work_date===T.dayF)&&(!T.stat||r.status===T.stat)
       &&(T.preset==='all'||(T.preset==='pending'&&r.status==='Pending')||(T.preset==='unbilled'&&r.status==='Approved'&&!r.billed)||(T.preset==='billed'&&r.billed)));
   }
   const opts=(list,cur,first)=>(first?`<option value="">${first}</option>`:'')+list.map(([v,l])=>`<option value="${esc(v)}" ${cur===v?'selected':''}>${esc(l)}</option>`).join('');
@@ -257,14 +262,17 @@
   const clock=ms=>{const s=Math.floor(ms/1000);return pad(Math.floor(s/3600))+':'+pad(Math.floor(s/60)%60)+':'+pad(s%60)};
   setInterval(()=>{const e=document.getElementById('tsTimerLbl'),t=timerStart();if(e&&t)e.textContent='Stop '+clock(Date.now()-t)},1000);
   function calHTML(rows){
-    const base=T.calM||todayISO().slice(0,7),y=+base.slice(0,4),m=+base.slice(5,7)-1,first=new Date(y,m,1),lead=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate();
+    const base=T.calM||todayISO().slice(0,7),y=+base.slice(0,4),m=+base.slice(5,7)-1,first=new Date(y,m,1),lead=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate(),now=todayISO();
     const by={};rows.forEach(r=>{(by[r.work_date]=by[r.work_date]||[]).push(r)});
-    let cells=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="dow">${d}</div>`).join('');
-    for(let i=0;i<lead;i++)cells+='<div class="off"></div>';
-    for(let d=1;d<=days;d++){const k=y+'-'+pad(m+1)+'-'+pad(d),ev=by[k]||[],tot=ev.reduce((s,r)=>s+r.hours,0);
-      cells+=`<div><div class="dn"><span>${d}</span>${tot?`<em>${hm(tot)}</em>`:''}</div>${ev.slice(0,3).map(r=>`<button class="ev" data-act="tsOpen" data-id="${esc(r.id)}" title="${esc(r.who+' · '+r.cust+' · '+r.task)}">${esc(r.who.split(' ')[0])} ${hm(r.hours)} ${esc(r.cust)}</button>`).join('')}${ev.length>3?`<span class="note">+${ev.length-3} more</span>`:''}</div>`}
-    const label=first.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
-    return `<div class="tscal"><div class="tscalh"><button class="btn ghost sm" data-act="tsCal" data-d="-1" aria-label="Previous month">‹</button><b>${esc(label)}</b><button class="btn ghost sm" data-act="tsCal" data-d="1" aria-label="Next month">›</button><button class="btn ghost sm" data-act="tsCal" data-d="0">Today</button></div><div class="tscalg">${cells}</div></div>`;
+    let cells=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','Total'].map(d=>`<div class="dow">${d}</div>`).join(''),wk=0,col=0,grand=0;
+    const endWeek=()=>{cells+=`<div class="wk">${hm(wk)}</div>`;grand+=wk;wk=0;col=0};
+    for(let i=0;i<lead;i++){cells+='<div class="off"></div>';col++}
+    for(let d=1;d<=days;d++){const k=y+'-'+pad(m+1)+'-'+pad(d),ev=by[k]||[],tot=ev.reduce((s,r)=>s+r.hours,0);wk+=tot;
+      cells+=`<div><span class="dn${k===now?' now':''}">${d}</span>${ev.length?`<div class="big">${hm(tot)}<small>Total Logged Hours</small></div><button class="cnt" data-act="tsDay" data-d="${k}">${ev.length} Timesheet${ev.length===1?'':'s'} &rsaquo;</button>`:''}</div>`;
+      col++;if(col===7)endWeek()}
+    if(col>0){while(col<7){cells+='<div class="off"></div>';col++}endWeek()}
+    const label=first.toLocaleDateString('en-GB',{month:'short',year:'numeric'}).replace(/^(\w+)/,x=>x);
+    return `<div class="tscal"><div class="tscalh"><button data-act="tsCal" data-d="-1" aria-label="Previous month">&lsaquo;</button><b>${esc(label)}</b><button data-act="tsCal" data-d="1" aria-label="Next month">&rsaquo;</button><button class="tdy" data-act="tsCal" data-d="0">Today</button></div><div class="tscalg">${cells}</div><div class="tscalfoot"><span>Total Hours :</span><b>${hm(grand)}</b></div></div>`;
   }
   function listHTML(){
     const rows=filtered(),shown=rows.slice(0,T.limit),total=rows.reduce((s,r)=>s+r.hours,0),selIds=Object.keys(T.sel).filter(k=>T.sel[k]);
@@ -280,7 +288,7 @@
           <span class="tssplit"><button class="tsb" data-act="tsNew">${IC.plus} New Log Entry</button><button class="tsb caret" data-act="tsMenu" data-m="new" aria-haspopup="menu" aria-label="More ways to add">▾</button></span>
           <button class="tsmore" data-act="tsMenu" data-m="more" aria-haspopup="menu" aria-label="More">⋯</button>${menu}</div></div>
       <div class="tsfilters" role="group" aria-label="View by"><b>VIEW BY:</b>
-        <label>Period: <select id="tsPeriod" class="${T.period!=='all'?'on':''}"><option value="all" ${T.period==='all'?'selected':''}>All</option><optgroup label="Current">${opts([['today','Today'],['week','This Week'],['month','This Month'],['quarter','This Quarter'],['year','This Year'],['fy','This Financial Year (Mar to Feb)']],T.period)}</optgroup><optgroup label="Previous">${opts([['yesterday','Yesterday'],['prevweek','Previous Week'],['last','Previous Month'],['prevquarter','Previous Quarter'],['prevyear','Previous Year']],T.period)}</optgroup></select></label>
+        ${T.dayF?`<button class="btn sm" data-act="tsDay" data-d="">Day: ${esc(T.dayF)} &#10005;</button>`:''}<label>Period: <select id="tsPeriod" class="${T.period!=='all'?'on':''}"><option value="all" ${T.period==='all'?'selected':''}>All</option><optgroup label="Current">${opts([['today','Today'],['week','This Week'],['month','This Month'],['quarter','This Quarter'],['year','This Year'],['fy','This Financial Year (Mar to Feb)']],T.period)}</optgroup><optgroup label="Previous">${opts([['yesterday','Yesterday'],['prevweek','Previous Week'],['last','Previous Month'],['prevquarter','Previous Quarter'],['prevyear','Previous Year']],T.period)}</optgroup></select></label>
         <label>${IC.user}<select id="tsCust" class="${T.cust?'on':''}" aria-label="Customer">${opts(T.clients.map(c=>[c.id,c.name]),T.cust,'Select customer')}</select></label>
         <label>${IC.proj}<select id="tsProj" class="${T.proj?'on':''}" aria-label="Project">${opts(projects().map(x=>[x,x]),T.proj,'Select a project')}</select></label>
         <label>${IC.users}<select id="tsUser" class="${T.user?'on':''}" aria-label="User">${opts(users,T.user,'Select user')}</select></label></div>
@@ -310,7 +318,7 @@
     const groups=Object.entries(by).map(([id,g])=>{const c=cl.find(x=>x.id===id);return {...g,amt:c&&c.billable?g.hours*c.hourly_rate:0,billable:!!(c&&c.billable),tasks:Object.values(g.tasks).sort((x,y)=>y.hours-x.hours)}}).sort((x,y)=>y.hours-x.hours);
     const tot=groups.reduce((s,g)=>s+g.hours,0);
     return `<div class="tshead"><h2 style="margin:0">Summary</h2><button class="btn ghost sm" data-act="tsView" data-v="list">← All timesheets</button></div>
-    <div class="stack"><div class="tiles"><div class="tile"><b>${hm(th)}</b><span>Approved time</span></div><div class="tile"><b>${hm(bh)}</b><span>Billable time</span></div><div class="tile"><b>${money(unb)}</b><span>Unbilled amount</span></div><div class="tile"><b>${money(bil)}</b><span>Billed amount</span></div></div>
+    <div class="stack"><div class="panel" style="padding:0;overflow:hidden">${calHTML(T.rows.filter(r=>T.sumInc!=='approved'||r.status==='Approved'))}</div><div class="tiles"><div class="tile"><b>${hm(th)}</b><span>Approved time</span></div><div class="tile"><b>${hm(bh)}</b><span>Billable time</span></div><div class="tile"><b>${money(unb)}</b><span>Unbilled amount</span></div><div class="tile"><b>${money(bil)}</b><span>Billed amount</span></div></div>
     <div class="panel"><h3>Time spent on tasks</h3><div class="form" style="margin-bottom:10px"><label>Period<select data-tsum="sumPeriod">${opts([['month','This month'],['last','Last month'],['fy','This financial year'],['all','All time']],T.sumPeriod)}</select></label>
       <label>Include<select data-tsum="sumInc">${opts([['approved','Approved time only'],['all','All logged time']],T.sumInc)}</select></label></div>
       <p class="note" style="margin-top:0"><b>${hm(tot)}</b> across ${groups.length} customer${groups.length===1?'':'s'}.</p>
@@ -394,6 +402,7 @@
       case 'tsMenu':T.menu=T.menu===d.m?null:d.m;return render();
       case 'tsProjSet':T.proj=d.p;T.limit=100;return render();
       case 'tsRefresh':return reload();
+      case 'tsDay':T.dayF=d.d||'';if(d.d){T.view='list';T.mode='list';T.period='all'}return render();
       case 'tsStdCust':{
         const miss=(window.VIRTUOSO_CUSTOMERS||[]).filter(n=>!T.clients.some(c=>c.name.toLowerCase()===n.toLowerCase()));
         if(!miss.length)return toast('All the standard customers are already here.');

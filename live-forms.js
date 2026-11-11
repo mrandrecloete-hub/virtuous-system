@@ -81,7 +81,8 @@
     const cur=new Map(state.forms.map(f=>[f.id,f]));
     for(const id of [...known.forms.keys()]){
       if(cur.has(id))continue;
-      if(isUuid(id)){const r=await sb().from('forms').delete().eq('id',id);if(r.error){fail(r.error);return}}
+      if(isUuid(id)){const rs=await sb().from('form_submissions').delete().eq('form_id',id);if(rs.error){fail(rs.error);return}
+        const r=await sb().from('forms').delete().eq('id',id);if(r.error){fail(r.error);return}}
       known.forms.delete(id);
     }
     for(const f of state.forms){

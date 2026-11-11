@@ -1,5 +1,5 @@
 /* In-app preview of petty cash receipts and the petty cash sheet (no new tab, no download).
-   Files are kept in memory for this browser session only (same as the receipts themselves). */
+   Live: files are also saved to the private `documents` bucket (petty/<month>/receipts|sheets/) and receipt records are saved with the sheet data (petty-save.js). ?demo: in memory only. */
 (function(){
   'use strict';
   const BL={};            /* month -> sheet File */
@@ -10,12 +10,31 @@
   const oAdd=window.addReceipts;
   if(typeof oAdd==='function')window.addReceipts=function(files){
     const list=[...files],r=oAdd.apply(this,arguments);
-    try{const m=state.pcm[state.month];if(m)list.forEach(f=>{const rc=m.receipts.find(x=>x.file===f.name&&!x.blob);if(rc)Object.defineProperty(rc,'blob',{value:f,enumerable:false,writable:true})})}catch(e){}
+    try{const m=state.pcm[state.month];if(m)list.forEach(f=>{const rc=m.receipts.find(x=>x.file===f.name&&!x.blob);if(rc){Object.defineProperty(rc,'blob',{value:f,enumerable:false,writable:true});const mo=state.month;store(f,mo,'receipts').then(p=>{if(p)rc.path=p})}})}catch(e){}
     return r;
   };
   const oLoad=window.loadSheet;
-  if(typeof oLoad==='function')window.loadSheet=function(f){BL[state.month]=f;return oLoad.apply(this,arguments)};
+  if(typeof oLoad==='function')window.loadSheet=async function(f){const mo=state.month;BL[mo]=f;const r=await oLoad.apply(this,arguments);
+    try{const m=state.pcm[mo];if(m&&m.sheetFile&&m.sheetFile.name===f.name&&!m.sheetFile.path){const p=await store(f,mo,'sheets');if(p&&m.sheetFile)m.sheetFile.path=p}}catch(e){}
+    return r};
 
+  const cfg=window.VIRTUOSO||{},LIVE=cfg.supabaseUrl&&cfg.anonKey&&!/[?&]demo\b/.test(location.search);
+  const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
+  const MIME=f=>f.type||(/\.pdf$/i.test(f.name)?'application/pdf':/\.png$/i.test(f.name)?'image/png':/\.jpe?g$/i.test(f.name)?'image/jpeg':/\.xlsx$/i.test(f.name)?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'');
+  const OKM=/^(application\/pdf|image\/(png|jpeg)|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet)$/;
+  const safe=n=>n.replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^\.+/,'').slice(-90)||'file';
+  async function store(f,month,kind){
+    if(!LIVE||!sb()||!OKM.test(MIME(f))||f.size>10*1024*1024)return null;
+    const path='petty/'+month+'/'+kind+'/'+crypto.randomUUID()+'-'+safe(f.name);
+    const r=await sb().storage.from('documents').upload(path,f,{contentType:MIME(f),upsert:false});
+    return r.error?null:path;
+  }
+  async function fetchBlob(path,name){
+    const r=await sb().storage.from('documents').createSignedUrl(path,120);
+    if(r.error||!r.data)throw new Error('sign');
+    const res=await fetch(r.data.signedUrl);if(!res.ok)throw new Error('get');
+    const b=await res.blob();return new File([b],name,{type:b.type});
+  }
   let urls=[];
   function close(){const o=document.getElementById('pvOv');if(o)o.remove();urls.forEach(u=>URL.revokeObjectURL(u));urls=[];document.removeEventListener('keydown',esc_)}
   function esc_(e){if(e.key==='Escape')close()}
@@ -54,13 +73,19 @@
   render=function(){const r=prev.apply(this,arguments);try{enhance()}catch(e){}return r};
 
   document.addEventListener('click',e=>{
+    const a=e.target.closest&&e.target.closest('[data-act="removeR"],[data-act="clearSheet"]');
+    if(a&&LIVE&&sb()){const m=state.pcm[state.month];let p=null;
+      if(m){if(a.dataset.act==='clearSheet')p=m.sheetFile&&m.sheetFile.path;else{const r=m.receipts.find(x=>x.id===a.dataset.id);p=r&&r.path}}
+      if(p)setTimeout(()=>sb().storage.from('documents').remove([p]).catch(()=>{}),300)}
     const t=e.target.closest&&e.target.closest('[data-pvr],[data-pvs]');if(!t)return;
     e.stopImmediatePropagation();e.preventDefault();
     if(t.dataset.pvs){const f=BL[state.month],m=state.pcm[state.month];
       if(f)return show(f,f.name);
+      if(m&&m.sheetFile&&m.sheetFile.path&&LIVE){toast('Opening the sheet…');return fetchBlob(m.sheetFile.path,m.sheetFile.name).then(b=>{BL[state.month]=b;show(b,b.name)}).catch(()=>toast('The saved sheet could not be opened.'))}
       return toast('Preview is available for sheets uploaded in this session. Upload the sheet again to preview it.')}
     const m=state.pcm[state.month],rc=m&&m.receipts.find(x=>x.id===t.dataset.pvr);if(!rc)return;
     if(rc.blob)return show(rc.blob,rc.file);
-    toast('Preview is available for receipts uploaded in this session.');
+    if(rc.path&&LIVE)return fetchBlob(rc.path,rc.file).then(b=>{Object.defineProperty(rc,'blob',{value:b,enumerable:false,writable:true});show(b,rc.file)}).catch(()=>toast('The saved receipt could not be opened.'));
+    toast('This file was not saved. Upload it again to preview it.');
   },true);
 })();

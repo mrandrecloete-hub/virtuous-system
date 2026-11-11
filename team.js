@@ -71,12 +71,13 @@
       <div class="note">A strong temporary password is generated for you. It is shown once, and the person must replace it at first sign-in.</div>
       <div class="err" id="tmErr" role="alert">${esc(TM.msg)}</div>
       <div><button class="btn" type="submit" ${TM.busy?'disabled':''}>Add and generate sign-in</button></div></form></div>
-    <div class="panel"><div class="ph"><h3>Everyone</h3><input class="tmq" id="tmQ" type="search" placeholder="Search name or email" value="${esc(TM.q)}" aria-label="Search the team"></div>
+    <div class="panel"><div class="ph"><h3>Everyone</h3><input class="tmq" id="tmQ" type="search" placeholder="Search name or email" value="${esc(TM.q)}" aria-label="Search the team"><button class="btn sm ghost" data-act="tmCopyAll">Copy all emails</button></div>
+      <p class="note" style="margin:6px 0 10px">Delete removes the person and frees their email address so it can be used for a new login. If the person already has records (timesheets, receipts, approvals), the account is closed instead: they cannot sign in, the email is freed, and the history stays.</p>
       <div class="tbl"><table style="min-width:640px"><thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
       ${rows.length?rows.map(u=>`<tr><td>${esc(u.name)}<div class="note">${esc(u.title)}</div></td><td class="mono">${esc(u.email)}</td><td>${pill(u.admin?'Admin':'Employee')}</td>
         <td>${pill(u.access?'Can sign in':'Disabled',u.access?'ok':'bad')}${u.must?'<div class="note">Has not set own password yet</div>':''}</td>
         <td class="note">${u.last?fmtDT(u.last):'Never'}</td>
-        <td><div class="row"><button class="btn sm ghost" data-act="tmReset" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Reset password</button>${u.id===state.user.id?'':`<button class="btn sm ${u.access?'bad':''}" data-act="tmToggle" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>${u.access?'Disable':'Enable'}</button>`}</div></td></tr>`).join(''):`<tr><td colspan="6" class="note">${all.length?'Nobody matches that search.':'No team members yet.'}</td></tr>`}
+        <td><div class="row"><button class="btn sm ghost" data-act="tmReset" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Reset password</button>${u.id===state.user.id?'':`<button class="btn sm ${u.access?'bad':''}" data-act="tmToggle" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>${u.access?'Disable':'Enable'}</button>`}<button class="btn sm bad" data-act="tmDel" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Delete</button></div></td></tr>`).join(''):`<tr><td colspan="6" class="note">${all.length?'Nobody matches that search.':'No team members yet.'}</td></tr>`}
       </tbody></table></div></div></div></div>`;
   }
   VIEWS.team=view;
@@ -121,6 +122,15 @@
     const id=b.dataset.id,u=(TM.users||[]).find(x=>x.id===id);
     switch(b.dataset.act){
       case 'tmDone':TM.cred=null;return render();
+      case 'tmCopyAll':{const t=(TM.users||[]).map(x=>x.email).join('\n');if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('Emails copied'),()=>toast('Copy failed'));return}
+      case 'tmDel':{if(!u||!isAdm())return;
+        const self=u.id===state.user.id,others=(TM.users||[]).filter(x=>x.admin&&x.access&&x.id!==id).length;
+        if(u.admin&&u.access&&!others){toast('You cannot remove the only active admin. Make someone else an admin first.');return}
+        if(!confirm('Delete '+u.name+' ('+u.email+')?\n\nThe email address will be freed for a new login. If they have records, the account is closed and the history is kept. This cannot be undone.'+(self?'\n\nThis is YOUR account: you will be signed out.':'')))return;
+        if(!LIVE){const i=state.users.findIndex(x=>x.id===id);if(i>=0)state.users.splice(i,1);delete state.data[id];logA('Team member deleted',u.name);toast(u.name+' deleted');reload();if(self)return signOut();return render()}
+        return act(async()=>{const r=await sb().rpc('admin_remove_user',{p_user:id});
+          if(r.error){const m=r.error.message||'';throw new Error(/admin_remove_user/.test(m)&&/not.*found|does not exist|schema cache/i.test(m)?'Run migration 0028 in Supabase first.':m)}
+          toast(u.name+(r.data==='closed'?' closed (history kept, email freed)':' deleted'));if(self)setTimeout(()=>signOut(),600)})}
       case 'tmCopy':{const c=TM.cred;if(c&&navigator.clipboard)navigator.clipboard.writeText(credText(c)).then(()=>toast('Copied'),()=>toast('Copy failed'));return}
       case 'tmPrint':if(TM.cred)printSlip(TM.cred);return;
       case 'tmReset':{if(!u||!isAdm())return;if(!confirm('Reset the password for '+u.name+'? Their current password stops working.'))return;

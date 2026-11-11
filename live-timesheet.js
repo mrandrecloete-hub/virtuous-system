@@ -182,6 +182,14 @@
     if(k==='week'){const d=(t.getDay()+6)%7;return [iso(new Date(y,m,t.getDate()-d)),iso(new Date(y,m,t.getDate()-d+6))]}
     if(k==='month')return [iso(new Date(y,m,1)),iso(new Date(y,m+1,0))];
     if(k==='last')return [iso(new Date(y,m-1,1)),iso(new Date(y,m,0))];
+    const D=(yy,mm,dd)=>iso(new Date(yy,mm,dd)),q=Math.floor(m/3)*3,d0=t.getDate(),wd=(t.getDay()+6)%7;
+    if(k==='today')return [D(y,m,d0),D(y,m,d0)];
+    if(k==='yesterday')return [D(y,m,d0-1),D(y,m,d0-1)];
+    if(k==='prevweek')return [D(y,m,d0-wd-7),D(y,m,d0-wd-1)];
+    if(k==='quarter')return [D(y,q,1),D(y,q+3,0)];
+    if(k==='prevquarter')return [D(y,q-3,1),D(y,q,0)];
+    if(k==='year')return [D(y,0,1),D(y,11,31)];
+    if(k==='prevyear')return [D(y-1,0,1),D(y-1,11,31)];
     if(k==='fy'){const sy=m>=2?y:y-1;return [sy+'-03-01',iso(new Date(sy+1,2,0))]}
     return ['0000-01-01','9999-12-31'];
   }
@@ -272,7 +280,7 @@
           <span class="tssplit"><button class="tsb" data-act="tsNew">${IC.plus} New Log Entry</button><button class="tsb caret" data-act="tsMenu" data-m="new" aria-haspopup="menu" aria-label="More ways to add">▾</button></span>
           <button class="tsmore" data-act="tsMenu" data-m="more" aria-haspopup="menu" aria-label="More">⋯</button>${menu}</div></div>
       <div class="tsfilters" role="group" aria-label="View by"><b>VIEW BY:</b>
-        <label>Period: <select id="tsPeriod" class="${T.period!=='all'?'on':''}">${opts([['all','All'],['week','This week'],['month','This month'],['last','Last month'],['fy','This financial year']],T.period)}</select></label>
+        <label>Period: <select id="tsPeriod" class="${T.period!=='all'?'on':''}"><option value="all" ${T.period==='all'?'selected':''}>All</option><optgroup label="Current">${opts([['today','Today'],['week','This Week'],['month','This Month'],['quarter','This Quarter'],['year','This Year'],['fy','This Financial Year (Mar to Feb)']],T.period)}</optgroup><optgroup label="Previous">${opts([['yesterday','Yesterday'],['prevweek','Previous Week'],['last','Previous Month'],['prevquarter','Previous Quarter'],['prevyear','Previous Year']],T.period)}</optgroup></select></label>
         <label>${IC.user}<select id="tsCust" class="${T.cust?'on':''}" aria-label="Customer">${opts(T.clients.map(c=>[c.id,c.name]),T.cust,'Select customer')}</select></label>
         <label>${IC.proj}<select id="tsProj" class="${T.proj?'on':''}" aria-label="Project">${opts(projects().map(x=>[x,x]),T.proj,'Select a project')}</select></label>
         <label>${IC.users}<select id="tsUser" class="${T.user?'on':''}" aria-label="User">${opts(users,T.user,'Select user')}</select></label></div>
@@ -315,7 +323,7 @@
     const cl=T.clients;
     return `<div class="tshead"><h2 style="margin:0">Customers</h2><button class="btn ghost sm" data-act="tsView" data-v="list">← All timesheets</button></div>
     <div class="stack"><div class="panel"><h3>Add customer</h3><form class="form" id="tsClientForm" novalidate><label>Customer name<input id="tsCName" required maxlength="120"></label>
-      <label>Hourly rate (N$)<input id="tsCRate" type="number" min="0" step="0.01" value="0"></label><label>Billing<select id="tsCBill"><option value="1">Billable</option><option value="0">Not billable</option></select></label><button class="btn" type="submit">Add customer</button></form><div class="err" id="tsErr" role="alert"></div></div>
+      <label>Hourly rate (N$)<input id="tsCRate" type="number" min="0" step="0.01" value="0"></label><label>Billing<select id="tsCBill"><option value="1">Billable</option><option value="0">Not billable</option></select></label><button class="btn" type="submit">Add customer</button></form><div class="tsstd" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line,#d9deea)"><button class="btn ghost" type="button" data-act="tsStdCust">Add the standard customer list (${(window.VIRTUOSO_CUSTOMERS||[]).filter(n=>!T.clients.some(c=>c.name.toLowerCase()===n.toLowerCase())).length} missing)</button><div class="note">Adds every customer from your list that is not here yet, billable at N$ 0 per hour. Virtuoso internal is added as not billable. Set the rates afterwards.</div></div><div class="err" id="tsErr" role="alert"></div></div>
       <div class="panel"><h3>Customers</h3><div class="tbl"><table><thead><tr><th>Customer</th><th>Rate per hour</th><th>Billing</th><th class="n">Approved time</th><th></th></tr></thead><tbody>
       ${cl.length?cl.map(c=>{const h=T.rows.filter(r=>r.client_id===c.id&&r.status==='Approved').reduce((s,r)=>s+r.hours,0);return `<tr><td>${esc(c.name)}</td><td><input type="number" min="0" step="0.01" value="${c.hourly_rate}" data-tsrate="${esc(c.id)}" style="width:100px" aria-label="Rate for ${esc(c.name)}"></td>
         <td><button class="btn ghost sm" data-act="tsBillable" data-id="${esc(c.id)}">${c.billable?'Billable':'Not billable'}</button></td><td class="n">${hm(h)}</td><td><button class="btn ghost sm" data-act="tsRemoveClient" data-id="${esc(c.id)}">Remove</button></td></tr>`}).join(''):'<tr><td colspan="5" class="note">No customers yet. Add one above.</td></tr>'}
@@ -386,6 +394,12 @@
       case 'tsMenu':T.menu=T.menu===d.m?null:d.m;return render();
       case 'tsProjSet':T.proj=d.p;T.limit=100;return render();
       case 'tsRefresh':return reload();
+      case 'tsStdCust':{
+        const miss=(window.VIRTUOSO_CUSTOMERS||[]).filter(n=>!T.clients.some(c=>c.name.toLowerCase()===n.toLowerCase()));
+        if(!miss.length)return toast('All the standard customers are already here.');
+        if(!confirm('Add '+miss.length+' customers? Existing ones are skipped.'))return;
+        return act(async()=>{for(let i=0;i<miss.length;i+=20){const rs=await Promise.all(miss.slice(i,i+20).map(n=>sb().from('clients').insert({name:n,hourly_rate:0,billable:!/- Internal$/.test(n)})));
+          const bad=rs.find(r=>r.error);if(bad)throw new Error(rpcMsg(bad.error.message))}},()=>toast(miss.length+' customers added'))}
       case 'tsCal':{const base=T.calM||todayISO().slice(0,7);let y=+base.slice(0,4),m=+base.slice(5,7)-1;const dd=+d.d;
         if(dd===0){T.calM=null}else{m+=dd;while(m<0){m+=12;y--}while(m>11){m-=12;y++}T.calM=y+'-'+pad(m+1)}return render()}
       case 'tsNew':T.newOpen=true;T.open=null;T.edit=false;if(!T.prefill)T.prefill={};return render();

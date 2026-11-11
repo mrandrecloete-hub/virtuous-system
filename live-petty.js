@@ -21,7 +21,7 @@
   const monthsList=()=>{const out=[],end=(()=>{const t=parse(nowKey()+'-01');t.setMonth(t.getMonth()+1);const k=iso(t).slice(0,7);return k>'2027-02'?k:'2027-02'})();
     let y=2026,m=3;while((y+'-'+pad(m))<=end){out.push(y+'-'+pad(m));if(++m>12){m=1;y++}}return out};
   const defMonth=()=>{const l=monthsList(),k=nowKey();return l.includes(k)?k:l[l.length-1]};
-  const fresh=()=>({msg:'',uid:null,adv:null,loadA:false,people:null,month:null,docs:null,loadD:false,busy:false,reads:[]});
+  const fresh=()=>({msg:'',uid:null,adv:null,loadA:false,people:null,month:null,docs:null,loadD:false,busy:false,reads:[],open:{}});
   let S=fresh();
   if(!state.pcDocs)state.pcDocs=[];
   const month=()=>S.month||(S.month=defMonth());
@@ -42,12 +42,12 @@
     <div class="err" id="pfMsg" role="alert">${esc(S.msg||'')}</div>${readsHTML()}
     ${ENTITIES.map(([ek,el])=>`<div style="margin-top:14px"><b>${esc(el)}</b>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px">
-      ${KINDS.map(([kk,kl])=>{const list=docsFor(ek,kk);return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px">
-        <div class="row" style="justify-content:space-between"><b>${esc(kl)} folder</b><span class="note">${list.length} file${list.length===1?'':'s'}</span></div>
-        <div class="note" style="margin:2px 0 8px">${esc(monthLabel(m))} / ${esc(el)} / ${esc(kl)}</div>
-        <button class="btn sm" type="button" data-act="pfPick" data-e="${ek}" data-k="${kk}">Upload scans</button>
+      ${KINDS.map(([kk,kl])=>{const list=docsFor(ek,kk),op=!!S.open[ek+'|'+kk];return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px">
+        <button type="button" data-act="pfTog" data-k2="${ek}|${kk}" aria-expanded="${op}" style="all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%"><b>${op?'▾':'▸'} ${esc(kl)} folder</b><span class="note">${list.length} file${list.length===1?'':'s'}</span></button>
+        ${op?`<div class="note" style="margin:2px 0 8px">${esc(monthLabel(m))} / ${esc(el)} / ${esc(kl)}</div>`:''}
+        <button class="btn sm" type="button" style="margin-top:6px" data-act="pfPick" data-e="${ek}" data-k="${kk}">Upload scans</button>
         <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" data-pfup="${ek}|${kk}" hidden aria-label="Upload scans to ${esc(el)} ${esc(kl)}">
-        ${list.length?`<ul style="list-style:none;margin:10px 0 0;padding:0">${list.map(d=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)">
+        ${!op?'':list.length?`<ul style="list-style:none;margin:10px 0 0;padding:0">${list.map(d=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)">
           <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}<span class="note"> ${d.size?kb(d.size)+', ':''}${esc(fd(d.created_at||d.at))}</span></span>
           <span class="row" style="flex:none"><button class="btn ghost sm" type="button" data-act="pfOpen" data-id="${esc(d.id)}">Open</button><button class="btn ghost sm" type="button" data-act="pfDel" data-id="${esc(d.id)}">Delete</button></span></li>`).join('')}</ul>`
           :'<p class="note" style="margin:10px 0 0">Empty.</p>'}</div>`}).join('')}
@@ -78,7 +78,7 @@
       }catch(x){msgs.push(f.name+': could not be uploaded ('+(x.message||'unknown error')+').')}
     }
     S.busy=false;lockAll(false);
-    if(done){S.docs=null;toast(done+' file'+(done>1?'s':'')+' uploaded')}
+    if(done){S.open[ek+'|'+kk]=true;S.docs=null;toast(done+' file'+(done>1?'s':'')+' uploaded')}
     S.msg=msgs.join(' ');render();
     if(okFiles.length)readAll(okFiles);
   }
@@ -176,6 +176,7 @@
     const b=e.target.closest&&e.target.closest('[data-act^="pf"]');if(!b)return;
     e.stopImmediatePropagation();
     const d=b.dataset;
+    if(d.act==='pfTog'){S.open[d.k2]=!S.open[d.k2];render();return}
     if(d.act==='pfPick'){const i=document.querySelector(`[data-pfup="${d.e}|${d.k}"]`);if(i)i.click();return}
     if(d.act==='pfOpen')return openDoc(d.id);
     if(d.act==='pfDel')return delDoc(d.id);

@@ -95,7 +95,7 @@
     }
     if(b.dataset.act==='llView'){
       const l=(S.reqs||[]).find(x=>x.id===b.dataset.id);if(!l||!LP)return;
-      return LP.open({ref:'LV-'+String(l.id).slice(0,8).toUpperCase(),status:l.status,name:u.name,title:u.title,email:u.email,type:l.leave_type,from:String(l.from_date).slice(0,10),to:String(l.to_date).slice(0,10),days:+l.days,half:!!l.half_day,reason:l.reason||'',phone:l.phone||'',cover:l.cover_name||'',doc:!!l.doc_path});
+      return LP.open({ref:'LV-'+String(l.id).slice(0,8).toUpperCase(),status:l.status,name:u.name,title:u.title,email:u.email,type:l.leave_type,from:String(l.from_date).slice(0,10),to:String(l.to_date).slice(0,10),days:+l.days,half:!!l.half_day,reason:l.reason||'',phone:l.phone||'',cover:l.cover_name||'',doc:!!l.doc_path,note:l.decision_reason||''});
     }
     if(S.busy)return;
     const kind='leave';

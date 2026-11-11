@@ -35,7 +35,8 @@
   const seed=()=>{const o={};o[ym(new Date())]={items:SEED.map(([n,q])=>row(n,q)),orders:[]};
     return {title:'VIRTUOSO STATIONERY LIST '+new Date().getFullYear(),low:2,staff:NAMES.map(n=>({id:uid(),name:n})),months:o}};
 
-  const O={doc:null,month:null,loading:false,status:'',uid:null,t:null,undo:null,setup:false,team:null};
+  const oldView=VIEWS.stationery,oldAPI=Object.assign({},window.VIRTUOSO_OFFICE||{});
+  const O={doc:null,tab:'sheet',month:null,loading:false,status:'',uid:null,t:null,undo:null,setup:false,team:null};
   const keys=()=>Object.keys((O.doc&&O.doc.months)||{}).sort();
   const cur=()=>{const ks=keys();if(!O.month||!ks.includes(O.month))O.month=ks[ks.length-1]||null;return O.month};
   const sheet=()=>{const k=cur();return k?O.doc.months[k]:null};
@@ -205,7 +206,14 @@
         ${ordersHTML(m,adm)}</div>
         <div class="sstabs" role="tablist" aria-label="Months">${ks.map(k=>`<button type="button" role="tab" data-act="ssTab" data-k="${k}" aria-selected="${k===cur()}">${esc(tab(k))}</button>`).join('')}${adm?'<button type="button" class="plus" data-act="ssMonth" aria-label="Add next month" title="Add next month (opens with this month\'s Qty Left)">+</button>':''}</div></div></div>`;
   }
-  VIEWS.stationery=vSheet;
+  /* Two tabs on the Stationery list page: the spreadsheet-style stock list, and the earlier Office Essentials page
+     (Stationery / Cleaning Materials / Snacks & Kitchen Supplies, In Stock and To Buy), which stays exactly as it was. */
+  const pageTabs=()=>`<div class="sspt" role="tablist" aria-label="Stationery list pages"><button type="button" role="tab" data-act="ssPage" data-p="sheet" aria-selected="${O.tab==='sheet'}">Stationery list</button><button type="button" role="tab" data-act="ssPage" data-p="office" aria-selected="${O.tab==='office'}">Office Essentials</button></div>`;
+  VIEWS.stationery=()=>{
+    if(O.tab==='office'&&oldView)return pageTabs()+oldView();
+    return pageTabs()+vSheet();
+  };
+  {const c=document.createElement('style');c.textContent=`.sspt{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}.sspt button{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:9px 18px;border-radius:999px;font:inherit;font-weight:600;cursor:pointer;min-height:40px}.sspt button[aria-selected=true]{background:#1f3a68;color:#fff;border-color:#1f3a68}@media print{.sspt{display:none!important}}`;document.head.appendChild(c)}
 
   /* ---------- outputs ---------- */
   function table(){
@@ -231,7 +239,8 @@
     m.items.forEach(r=>{const c=calc(r);if(c.low&&!named.has(r.item.trim().toLowerCase()))out.push(`${r.item}: low stock (${fmt(c.left)} left)`)});
     return out;
   }
-  const API={load:async()=>{await load();return ready()},toBuy,buyCount:()=>{if(!ready()){load();return null}return toBuy().length},monthLabel:()=>ready()&&cur()?tab(cur()):''};
+  const allBuy=()=>toBuy().concat(oldAPI.toBuy?oldAPI.toBuy():[]);
+  const API={load:async()=>{await load();if(oldAPI.load)await oldAPI.load();return ready()},toBuy:allBuy,buyCount:()=>{if(!ready()){load();return null}if(oldAPI.load)oldAPI.load();return allBuy().length},monthLabel:()=>ready()&&cur()?tab(cur()):''};
   window.VIRTUOSO_OFFICE=Object.assign(window.VIRTUOSO_OFFICE||{},API);
 
   /* ---------- team names (admins only: profiles are readable by admins) ---------- */
@@ -273,8 +282,9 @@
   document.addEventListener('change',onEdit,true);
   document.addEventListener('click',e=>{
     const b=e.target.closest&&e.target.closest('[data-act^="ss"]');if(!b)return;
-    const a=b.dataset.act;if(!['ssTab','ssAdd','ssDel','ssMonth','ssCsv','ssPrint','ssDelMonth','ssUndo','ssSetup','ssAddStaff','ssAddTeam','ssLoadTeam','ssDelStaff','ssAddOrder','ssDelOrder','ssOrderLow'].includes(a))return;
+    const a=b.dataset.act;if(!['ssPage','ssTab','ssAdd','ssDel','ssMonth','ssCsv','ssPrint','ssDelMonth','ssUndo','ssSetup','ssAddStaff','ssAddTeam','ssLoadTeam','ssDelStaff','ssAddOrder','ssDelOrder','ssOrderLow'].includes(a))return;
     e.stopImmediatePropagation();
+    if(a==='ssPage'){O.tab=b.dataset.p==='office'?'office':'sheet';return render()}
     if(a==='ssTab'){O.month=b.dataset.k;return render()}
     if(!ready())return;
     if(a==='ssCsv'){const url=URL.createObjectURL(new Blob([csv()],{type:'text/csv'}));const x=document.createElement('a');x.href=url;x.download='stationery-list-'+cur()+'.csv';document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);return}

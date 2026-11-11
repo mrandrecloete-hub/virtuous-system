@@ -894,38 +894,48 @@ function toISO(v){
 const toNum=v=>typeof v==='number'?v:parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''))||0;
 function rowsToLines(rows){
   const norm=c=>String(c==null?'':c).trim();
-  const h=rows.findIndex(r=>r.some(c=>/date/i.test(norm(c)))&&r.some(c=>/amount|amt|value|total/i.test(norm(c))));
+  const h=rows.findIndex(r=>r.some(c=>/date/i.test(norm(c)))&&r.some(c=>/amount|amt|value|total|debit|paid|payment|expense|spent|cost|out\b/i.test(norm(c))));
   if(h<0)return null;
   const hdr=rows[h].map(c=>norm(c).toLowerCase()),ci=re=>hdr.findIndex(x=>re.test(x));
-  const di=ci(/date/),ai=ci(/amount|amt|value|total/),ni=ci(/desc|detail|item|particular/),vi=ci(/vendor|supplier|payee|shop/);
-  const lines=[];let skipped=0,other=0;
+  const di=ci(/date/),ai=ci(/amount|amt|value|total|debit|paid|payment|expense|spent|cost|out\b/),ni=ci(/desc|detail|item|particular/),vi=ci(/vendor|supplier|payee|shop/);
+  const lines=[];let skipped=0,other=0;const months={};
   for(const r of rows.slice(h+1)){
     const iso=toISO(r[di]),amt=toNum(r[ai]);
     if(!iso||!(amt>0)){if(r.some(c=>norm(c)))skipped++;continue}
-    if(iso.slice(0,7)!==state.month){other++;continue}
+    if(iso.slice(0,7)!==state.month){other++;months[iso.slice(0,7)]=1;continue}
     const desc=ni>=0?norm(r[ni]):'';let vendor=vi>=0?norm(r[vi]):'';
     if(!vendor){const p=desc.split(/\s[-–—]\s/);vendor=p.length>1?p[p.length-1]:desc}
     lines.push({id:uid(),date:iso,amt,desc:desc||vendor||'Petty cash',vendor:vendor||desc});
   }
-  return {lines,skipped,other};
+  return {lines,skipped,other,months:Object.keys(months).sort()};
 }
 async function loadSheet(f){
-  const m=M();if(m.locked)return toast('This month is locked');
-  const ext=f.name.split('.').pop().toLowerCase();let rows=null,msg='',ocrNow=false;
+  let m=M();if(m.locked)return toast('This month is locked');
+  const ext=f.name.split('.').pop().toLowerCase();let rows=null,msg='',raw=null,ocrNow=false;
   if(!['csv','xlsx','xls','pdf','png','jpg','jpeg'].includes(ext))return toast('Use an Excel, CSV or PDF file, or a photo of the sheet');
   m.sheetFile={name:f.name,size:f.size,at:new Date()};
   try{
-    if(ext==='csv')rows=parseCSV(await f.text());
+    if(ext==='csv'){raw=parseCSV(await f.text());rows=raw}
     else if(['pdf','png','jpg','jpeg'].includes(ext)){msg='Sheet stored. Reading the lines with OCR…';ocrNow=true}
     else{if(!window.XLSX)throw new Error('The Excel reader did not load. Try a CSV file.');
       const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
-      rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''})}
+      /* try every sheet in the workbook, keep the first with Date and Amount columns and lines for this month */
+      let best=null;
+      for(const sn of wb.SheetNames){const rr=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''}),x=rowsToLines(rr);
+        if(x&&(!best||(!best.r.lines.length&&(x.lines.length||x.other>best.r.other))))best={r:x,sn};if(best&&best.r.lines.length)break}
+      rows=best?best.r:null;if(best){var usedSheet=best.sn;raw=XLSX.utils.sheet_to_json(wb.Sheets[best.sn],{header:1,raw:true,defval:''})}else rows=[]}
     if(rows){
-      const r=rowsToLines(rows);
-      if(!r)msg='Sheet stored, but no Date and Amount columns were found. Check the header row, or add lines by hand.';
+      let r=Array.isArray(rows)?(rows.length?rowsToLines(rows):null):rows;
+      /* all lines belong to one other month: switch to that month instead of reading nothing */
+      if(r&&!r.lines.length&&r.months.length===1&&raw&&r.months[0]<=curMonth()){
+        const prev=state.month;state.month=r.months[0];const m2=M();
+        if(m2.locked){state.month=prev;toast('That month ('+monthLabel(r.months[0])+') is locked')}
+        else{m=m2;m.sheetFile={name:f.name,size:f.size,at:new Date()};r=rowsToLines(raw);msg='The sheet is for '+monthLabel(state.month)+', so that month was opened. '}}
+      if(!r)msg='Sheet stored, but no Date and Amount columns were found in any sheet of the file. The header row needs a Date column and an Amount (or Debit/Paid/Total) column.';
+      else if(!r.lines.length)msg='Sheet stored, but no lines dated in '+monthLabel(state.month)+' were found'+(r.other?'. The file has '+r.other+' lines dated in other months ('+r.months.slice(0,6).map(monthLabel).join(', ')+'). Switch to that month, or check the dates.':'.')+(r.skipped?' '+r.skipped+' rows could not be read (no valid date or an amount above 0).':'');
       else{m.sheet=r.lines;m.overrides={};m.links={};
         const t=r.lines.reduce((s,l)=>s+l.amt,0);
-        msg='Read '+r.lines.length+' lines totalling '+NAD(t)+' for '+monthLabel(state.month)+'.'+(r.other?' '+r.other+' lines dated in other months were left out.':'')+(r.skipped?' '+r.skipped+' rows could not be read.':'')}
+        msg+='Read '+r.lines.length+(typeof usedSheet!=='undefined'&&usedSheet?' lines from sheet "'+usedSheet+'"':' lines')+' totalling '+NAD(t)+' for '+monthLabel(state.month)+'.'+(r.other?' '+r.other+' lines dated in other months were left out.':'')+(r.skipped?' '+r.skipped+' rows could not be read.':'')}
     }
   }catch(err){msg='Sheet stored, but it could not be read: '+err.message}
   state.shMsg=msg;render();

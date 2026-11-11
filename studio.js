@@ -42,16 +42,20 @@
 
   const BLOCKS=[
     ['heading','Heading'],['text','Text or announcement'],['checklist','Checklist'],['table','Table (mini spreadsheet)'],
-    ['kpi','My number (KPI)'],['stat','Live number from the app'],['links','Buttons and links']];
+    ['kpi','My number (KPI)'],['stat','Live number from the app'],['countdown','Countdown to a deadline'],['chart','Chart from a table'],['links','Buttons and links']];
   const METRICS={
     approvals:'Waiting for approval (timesheets and leave)',kyc:'KYC forms awaiting review',toBuy:'Office items to buy',
     team:'People who can sign in',hoursWeek:'Hours logged this week',unbilled:'Approved hours not yet billed',
     letters:'Saved client letters',forms:'Forms in the form builder'};
+  const rid=()=>Math.random().toString(36).slice(2,10);
+  const KINDS=[['bar','Bars'],['hbar','Horizontal bars'],['line','Line'],['pie','Pie'],['donut','Donut']];
   const newBlock=(t)=>({
     heading:{t:'heading',text:'New heading'},
     text:{t:'text',text:'Write your note or announcement here.'},
     checklist:{t:'checklist',title:'Checklist',items:[{text:'First task',done:false}]},
-    table:{t:'table',title:'Table',cols:['Item','Detail'],rows:[['','']]},
+    table:{t:'table',id:rid(),title:'Table',cols:['Item','Amount'],rows:[['Example A','10'],['Example B','25']]},
+    countdown:{t:'countdown',label:'Deadline',date:iso(new Date(Date.now()+14*864e5)),repeat:'none'},
+    chart:{t:'chart',title:'Chart',kind:'bar',src:'',valCol:1},
     kpi:{t:'kpi',label:'My number',value:'0',unit:'',note:''},
     stat:{t:'stat',metric:'approvals',label:''},
     links:{t:'links',title:'Quick links',items:[{label:'Timesheet',target:'tab:clients'}]}})[t];
@@ -65,7 +69,9 @@
         case 'text':return {t:'text',text:clip(b.text,4000)};
         case 'checklist':return {t:'checklist',title:clip(b.title,80),items:(Array.isArray(b.items)?b.items:[]).slice(0,100).map(i=>({text:clip(i&&i.text,200),done:!!(i&&i.done)}))};
         case 'table':{const cols=(Array.isArray(b.cols)?b.cols:[]).slice(0,8).map(c=>clip(c,40));const n=Math.max(cols.length,1);
-          return {t:'table',title:clip(b.title,80),cols:cols.length?cols:['Column'],rows:(Array.isArray(b.rows)?b.rows:[]).slice(0,200).map(r=>Array.from({length:n},(_,i)=>clip(Array.isArray(r)?r[i]:'',200)))}}
+          return {t:'table',id:/^[a-z0-9]{4,12}$/.test(b.id||'')?b.id:rid(),title:clip(b.title,80),cols:cols.length?cols:['Column'],rows:(Array.isArray(b.rows)?b.rows:[]).slice(0,200).map(r=>Array.from({length:n},(_,i)=>clip(Array.isArray(r)?r[i]:'',200)))}}
+        case 'countdown':return {t:'countdown',label:clip(b.label,60),date:/^\d{4}-\d{2}-\d{2}$/.test(b.date||'')?b.date:iso(new Date()),repeat:['monthly','yearly'].includes(b.repeat)?b.repeat:'none'};
+        case 'chart':return {t:'chart',title:clip(b.title,80),kind:KINDS.some(k=>k[0]===b.kind)?b.kind:'bar',src:/^[a-z0-9]{4,12}$/.test(b.src||'')?b.src:'',valCol:Math.min(7,Math.max(0,parseInt(b.valCol)||1))};
         case 'kpi':return {t:'kpi',label:clip(b.label,60),value:clip(b.value,30),unit:clip(b.unit,12),note:clip(b.note,120)};
         case 'stat':return {t:'stat',metric:METRICS[b.metric]?b.metric:'approvals',label:clip(b.label,60)};
         case 'links':return {t:'links',title:clip(b.title,80),items:(Array.isArray(b.items)?b.items:[]).slice(0,20).map(i=>({label:clip(i&&i.label,60),target:/^(tab:[A-Za-z0-9_-]{1,60}|url:https:\/\/[^\s]{3,300})$/.test(i&&i.target||'')?i.target:'tab:dash'}))};
@@ -192,15 +198,33 @@
       case 'checklist':{const done=b.items.filter(i=>i.done).length;
         return `<div class="panel"><div class="ph"><h3>${esc(b.title)}</h3><span class="note">${done} of ${b.items.length} done</span></div>${b.items.length?b.items.map((i,ii)=>`<label class="chk" style="margin:4px 0"><input type="checkbox" ${i.done?'checked':''} ${canTick?`data-sdtick="${ctx.pathBase}.${bi}.items.${ii}.done"`:'disabled'}> <span style="${i.done?'text-decoration:line-through;color:var(--muted)':''}">${esc(i.text)}</span></label>`).join(''):'<p class="note" style="margin:0">Nothing here yet.</p>'}</div>`}
       case 'table':return `<div class="panel"><h3>${esc(b.title)}</h3><div class="tbl"><table style="min-width:${Math.min(b.cols.length*140,900)}px"><thead><tr>${b.cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${b.rows.length?b.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${b.cols.length}" class="note">No rows.</td></tr>`}</tbody></table></div></div>`;
+      case 'countdown':{const c=countdown(b);return `<div class="tile"><b style="color:${c.color}">${esc(c.big)}</b><span>${esc(b.label)}</span><small>${esc(c.small)}</small></div>`}
+      case 'chart':{const T=(ctx.blocks||[]).find(x=>x.t==='table'&&x.id===b.src),TOOLS=window.VIRTUOSO_TOOLS;
+        if(!T)return `<div class="panel"><h3>${esc(b.title)}</h3><p class="note" style="margin:0">Choose a table for this chart.${ctx.canEdit?'':' (The table may have been removed.)'}</p></div>`;
+        if(!TOOLS||!TOOLS.chartSVG)return `<div class="panel"><h3>${esc(b.title)}</h3><p class="note" style="margin:0">Charts are not available right now.</p></div>`;
+        const col=Math.min(b.valCol,T.cols.length-1),rows=T.rows.map(r=>({label:String(r[0]||'').slice(0,24)||'-',value:parseFloat(String(r[col]||'').replace(/[^0-9.\-]/g,''))})).filter(r=>isFinite(r.value)).slice(0,24);
+        if(!rows.length)return `<div class="panel"><h3>${esc(b.title)}</h3><p class="note" style="margin:0">Type some numbers into the table (first column names, then a column of numbers) to see the chart.</p></div>`;
+        return `<div class="panel"><h3>${esc(b.title)}</h3><div style="max-width:640px">${TOOLS.chartSVG(b.kind,'',rows)}</div></div>`}
       case 'links':return `<div class="panel"><h3>${esc(b.title)}</h3><div class="row">${b.items.map(i=>{
         if(i.target.startsWith('url:'))return `<a class="btn ghost sm" href="${esc(i.target.slice(4))}" target="_blank" rel="noopener noreferrer">${esc(i.label)}</a>`;
         const tab=i.target.slice(4);return `<button class="btn ghost sm" data-tab="${esc(tab)}">${esc(i.label)}</button>`}).join('')||'<span class="note">No links yet.</span>'}</div></div>`;
     }return '';
   }
+  function countdown(b){
+    const t0=new Date((!LIVE&&state.today?state.today:iso(new Date()))+'T00:00:00'),d=new Date(b.date+'T00:00:00');let due=d;
+    if(b.repeat==='yearly'){due=new Date(t0.getFullYear(),d.getMonth(),d.getDate());if(due<t0)due=new Date(t0.getFullYear()+1,d.getMonth(),d.getDate())}
+    if(b.repeat==='monthly'){const dim=(y,m)=>new Date(y,m+1,0).getDate();due=new Date(t0.getFullYear(),t0.getMonth(),Math.min(d.getDate(),dim(t0.getFullYear(),t0.getMonth())));
+      if(due<t0)due=new Date(t0.getFullYear(),t0.getMonth()+1,Math.min(d.getDate(),dim(t0.getFullYear(),t0.getMonth()+1)))}
+    const n=Math.round((due-t0)/864e5),fmt=due.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+    if(n<0)return {big:Math.abs(n)+(Math.abs(n)===1?' day':' days')+' overdue',small:'Was due '+fmt,color:'var(--bad,#b3261e)'};
+    if(n===0)return {big:'Today',small:'Due '+fmt,color:'var(--bad,#b3261e)'};
+    return {big:n+(n===1?' day':' days'),small:'Due '+fmt+(b.repeat!=='none'?' (repeats '+b.repeat+')':''),color:n<=7?'var(--warn,#9a6700)':'inherit'};
+  }
   function blocksHTML(blocks,ctx){
+    ctx.blocks=blocks;
     const out=[],run=[];
     const flush=()=>{if(run.length){out.push(`<div class="tiles">${run.join('')}</div>`);run.length=0}};
-    blocks.forEach((b,i)=>{if(b.t==='kpi'||b.t==='stat')run.push(renderBlock(b,i,ctx));else{flush();out.push(renderBlock(b,i,ctx))}});
+    blocks.forEach((b,i)=>{if(b.t==='kpi'||b.t==='stat'||b.t==='countdown')run.push(renderBlock(b,i,ctx));else{flush();out.push(renderBlock(b,i,ctx))}});
     flush();return out.join('');
   }
   function pageView(id){
@@ -234,7 +258,7 @@
     ST.pages.filter(p=>!forStaff||p.audience==='staff').forEach(p=>opts.push(['tab:'+pageKey(p),p.title+' (my page)']));
     return opts;
   }
-  function blockEditor(b,bi,base,forStaff){
+  function blockEditor(b,bi,base,forStaff,all){
     const P=`${base}.${bi}`;
     const mv=`<div class="row" style="gap:4px"><button class="btn sm ghost" data-act="sdMove" data-p="${base}" data-i="${bi}" data-d="-1" aria-label="Move up">↑</button><button class="btn sm ghost" data-act="sdMove" data-p="${base}" data-i="${bi}" data-d="1" aria-label="Move down">↓</button><button class="btn sm ghost bad" data-act="sdDelBlock" data-p="${base}" data-i="${bi}" aria-label="Remove block">Remove</button></div>`;
     const head=(n)=>`<div class="ph"><h3 style="font-size:14px">${n}</h3>${mv}</div>`;
@@ -246,6 +270,11 @@
       case 'stat':body=head('Live number')+`<div class="form"><label>What to show<select data-sd="${P}.metric">${Object.entries(METRICS).filter(([k])=>!forStaff||k==='toBuy').map(([k,l])=>`<option value="${k}" ${b.metric===k?'selected':''}>${esc(l)}</option>`).join('')}</select></label><label>Label (optional)${inp(P+'.label',b.label,'','maxlength="60"')}</label></div><p class="note" style="margin:0">Shows: <b>${esc(metricValue(b.metric))}</b></p>`;break;
       case 'checklist':body=head('Checklist')+`<label>Title${inp(P+'.title',b.title,'','maxlength="80"')}</label>`+b.items.map((i,ii)=>`<div class="row" style="flex-wrap:nowrap;margin-top:6px"><input type="checkbox" data-sdtick="${P}.items.${ii}.done" ${i.done?'checked':''} aria-label="Done"><input data-sd="${P}.items.${ii}.text" value="${esc(i.text)}" maxlength="200" style="flex:1"><button class="btn sm ghost bad" data-act="sdDelItem" data-p="${P}.items" data-i="${ii}" aria-label="Remove item">×</button></div>`).join('')+`<div style="margin-top:8px"><button class="btn sm ghost" data-act="sdAddItem" data-p="${P}.items">+ Add item</button></div>`;break;
       case 'table':body=head('Table')+`<label>Title${inp(P+'.title',b.title,'','maxlength="80"')}</label><div class="tbl" style="margin-top:8px"><table><thead><tr>${b.cols.map((c,ci)=>`<th><input data-sd="${P}.cols.${ci}" value="${esc(c)}" maxlength="40" aria-label="Column name"></th>`).join('')}<th>${b.cols.length<8?`<button class="btn sm ghost" data-act="sdAddCol" data-p="${P}">+ column</button>`:''}</th></tr></thead><tbody>${b.rows.map((r,ri)=>`<tr>${r.map((c,ci)=>`<td><input data-sd="${P}.rows.${ri}.${ci}" value="${esc(c)}" maxlength="200" aria-label="Row ${ri+1} column ${ci+1}"></td>`).join('')}<td><button class="btn sm ghost bad" data-act="sdDelItem" data-p="${P}.rows" data-i="${ri}" aria-label="Remove row">×</button></td></tr>`).join('')}</tbody></table></div><div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="sdAddRow" data-p="${P}">+ Add row</button>${b.cols.length>1?`<button class="btn sm ghost" data-act="sdDelCol" data-p="${P}">Remove last column</button>`:''}</div>`;break;
+      case 'countdown':body=head('Countdown')+`<div class="form"><label>What is due${inp(P+'.label',b.label,'e.g. VAT return','maxlength="60"')}</label><label>Date<input type="date" data-sd="${P}.date" value="${esc(b.date)}"></label><label>Repeats<select data-sd="${P}.repeat"><option value="none" ${b.repeat==='none'?'selected':''}>Does not repeat</option><option value="monthly" ${b.repeat==='monthly'?'selected':''}>Every month</option><option value="yearly" ${b.repeat==='yearly'?'selected':''}>Every year</option></select></label></div><p class="note" style="margin:0">Shows: <b>${esc(countdown(b).big)}</b></p>`;break;
+      case 'chart':{const tabs=(all||[]).filter(x=>x.t==='table'),T=tabs.find(x=>x.id===b.src);
+        body=head('Chart from a table')+`<div class="form"><label>Title${inp(P+'.title',b.title,'','maxlength="80"')}</label><label>Chart type<select data-sd="${P}.kind">${KINDS.map(k=>`<option value="${k[0]}" ${b.kind===k[0]?'selected':''}>${k[1]}</option>`).join('')}</select></label>
+        <label>Table to chart<select data-sd="${P}.src"><option value="">Choose a table</option>${tabs.map(x=>`<option value="${esc(x.id)}" ${b.src===x.id?'selected':''}>${esc(x.title||'Untitled table')}</option>`).join('')}</select></label>
+        <label>Numbers from column<select data-sd="${P}.valCol">${(T?T.cols:[]).map((c,ci)=>ci===0?'':`<option value="${ci}" ${b.valCol===ci?'selected':''}>${esc(c||'Column '+(ci+1))}</option>`).join('')}</select></label></div>${tabs.length?'<p class="note" style="margin:0">The first column of the table gives the names; the chosen column gives the numbers.</p>':'<p class="note" style="margin:0">Add a table block first, then pick it here.</p>'}`;break}
       case 'links':body=head('Buttons and links')+`<label>Title${inp(P+'.title',b.title,'','maxlength="80"')}</label>`+b.items.map((i,ii)=>{const tg=targets(forStaff),isUrl=i.target.startsWith('url:');
         return `<div class="row" style="flex-wrap:wrap;margin-top:6px"><input data-sd="${P}.items.${ii}.label" value="${esc(i.label)}" maxlength="60" placeholder="Button text" style="flex:1;min-width:120px"><select data-sdt="${P}.items.${ii}.target" style="flex:1;min-width:150px">${tg.map(([v,l])=>`<option value="${esc(v)}" ${i.target===v?'selected':''}>${esc(l)}</option>`).join('')}<option value="url:" ${isUrl?'selected':''}>A web address (https)</option></select>${isUrl?`<input data-sd="${P}.items.${ii}.target" value="${esc(i.target.slice(4))}" data-prefix="url:" placeholder="https://" style="flex:2;min-width:160px">`:''}<button class="btn sm ghost bad" data-act="sdDelItem" data-p="${P}.items" data-i="${ii}" aria-label="Remove link">×</button></div>`}).join('')+`<div style="margin-top:8px"><button class="btn sm ghost" data-act="sdAddItem" data-p="${P}.items">+ Add button</button></div>`;break;
     }
@@ -270,14 +299,14 @@
         <label>Icon<select data-sd="page.icon">${Object.keys(ICONS).map(k=>`<option value="${k}" ${p.icon===k?'selected':''}>${k}</option>`).join('')}</select></label>
         <label>Who can see it<select data-sd="page.audience"><option value="admin" ${p.audience==='admin'?'selected':''}>Only administrators</option><option value="staff" ${p.audience==='staff'?'selected':''}>Everyone (staff read only)</option></select></label></div>
         ${p.audience==='staff'?'<p class="note" style="margin:0">Staff can read this page but cannot change it. Do not put private figures here. Live numbers are limited to non-sensitive ones.</p>':''}</div>
-      ${p.blocks.map((b,i)=>blockEditor(b,i,'blocks',p.audience==='staff')).join('')}${addMenu('blocks',p.audience==='staff')}`;
+      ${p.blocks.map((b,i)=>blockEditor(b,i,'blocks',p.audience==='staff',p.blocks)).join('')}${addMenu('blocks',p.audience==='staff')}`;
     }
     let body='';
     if(ST.tab==='dashboard'){
       body=`<div class="panel stack" style="margin-bottom:12px"><h3>Your admin dashboard</h3><p class="note" style="margin:0">Widgets appear at the top of your dashboard. Only you (administrators) see them.</p>
         <label>Layout<select data-sd="dash.mode"><option value="add" ${ST.dash.mode==='add'?'selected':''}>Show my widgets above the standard dashboard</option><option value="only" ${ST.dash.mode==='only'?'selected':''}>Show only my widgets</option></select></label>
         <div><button class="btn sm ghost" data-tab="dash">Look at the dashboard</button></div></div>
-        ${ST.dash.blocks.map((b,i)=>blockEditor(b,i,'dash.blocks',false)).join('')}${addMenu('dash.blocks',false)}`;
+        ${ST.dash.blocks.map((b,i)=>blockEditor(b,i,'dash.blocks',false,ST.dash.blocks)).join('')}${addMenu('dash.blocks',false)}`;
     }else if(ST.tab==='pages'){
       body=`<div class="panel stack" style="margin-bottom:12px"><h3>New page</h3><form class="form" id="sdNewPage" novalidate><label>Page name<input id="sdNpTitle" maxlength="60" placeholder="e.g. Tax deadlines"></label>
         <label>Who can see it<select id="sdNpAud"><option value="admin">Only administrators</option><option value="staff">Everyone (staff read only)</option></select></label><div><button class="btn" type="submit" ${ST.busy?'disabled':''}>Create page</button></div></form></div>
@@ -316,8 +345,8 @@
       if(path==='dash.mode'){ST.dash.mode=t.value==='only'?'only':'add';saveDash();return render()}
       if(path.startsWith('page.')){const p=ST.pages.find(x=>x.id===ST.editId);if(p){p[path.slice(5)]=t.value;rebuild();savePage(p,true);paintTabs&&paintTabs();if(t.tagName==='SELECT')render()}return}
       /* text boxes are already saved by the input handler; re-drawing here would steal focus from the next box */
-      if(t.tagName!=='SELECT'){return}
-      setPath(ctxRoot(),path,t.value);afterEdit();render();return;
+      if(t.tagName!=='SELECT'&&t.type!=='date'){return}
+      setPath(ctxRoot(),path,/\.valCol$/.test(path)?(parseInt(t.value)||1):t.value);afterEdit();render();return;
     }
     if(t.dataset&&t.dataset.sdt){
       e.stopImmediatePropagation();const path=t.dataset.sdt;
@@ -356,7 +385,7 @@
       case 'sdBack':ST.editId=null;return render();
       case 'sdMove':{const arr=get(root,d.p),i=+d.i,j=i+ +d.d;if(!arr||j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];afterEdit();return render()}
       case 'sdDelBlock':{const arr=get(root,d.p);if(!arr||!confirm('Remove this block?'))return;arr.splice(+d.i,1);afterEdit();return render()}
-      case 'sdAddBlock':{const arr=get(root,d.p);if(!arr||arr.length>=60)return;arr.push(newBlock(d.t));afterEdit();return render()}
+      case 'sdAddBlock':{const arr=get(root,d.p);if(!arr||arr.length>=60)return;const nb=newBlock(d.t);if(nb.t==='chart'){const T=arr.find(x=>x.t==='table');if(T)nb.src=T.id}arr.push(nb);afterEdit();return render()}
       case 'sdAddItem':{const arr=get(root,d.p);if(!arr||arr.length>=100)return;const isLinks=/\.items$/.test(d.p)&&arr.length&&('label' in arr[0]||false)||(/\.items$/.test(d.p)&&get(root,d.p.replace(/\.items$/,'')).t==='links');
         arr.push(isLinks?{label:'New button',target:'tab:dash'}:{text:'New task',done:false});afterEdit();return render()}
       case 'sdDelItem':{const arr=get(root,d.p);if(!arr)return;arr.splice(+d.i,1);afterEdit();return render()}

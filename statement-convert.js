@@ -354,13 +354,13 @@
         <div class="scopt">
           <label>Reference prefix<input id="scPrefix" value="${esc(S.opt.prefix)}" maxlength="10" aria-label="Reference prefix"><small class="note">Gives BS03/001, BS03/002 &hellip; (month of the line)</small></label>
           <label>Year when the statement shows none<input id="scYear" value="${esc(S.opt.year)}" maxlength="4" inputmode="numeric" placeholder="auto"></label>
-          <label>Opening balance (only if not printed)<input id="scOpen" value="${esc(S.opt.open)}" inputmode="decimal" placeholder="auto"></label>
           <label class="row" style="gap:8px;align-items:center"><input type="checkbox" id="scTidy" ${S.opt.tidy?'checked':''}> Tidy descriptions (Title Case, as in the sample)</label>
         </div>
         <div class="scdrop" id="scDropZone" tabindex="0" role="button" aria-label="Choose statements"><b>Drop statements here, or click to choose</b><span>PDF, scanned PDF, JPG or PNG. Select as many as you like.</span></div>
         <input type="file" id="scFile" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden>
         <p class="note" style="margin:10px 0 0">Output columns: Date, Description, Reference, Debit (money out), Credit (money in), Balance. The file is read in this browser and is not stored or sent anywhere. Always check the marked lines and the balance check before importing into Zoho Books.</p>
       </div>
+      ${summaryHTML()}
       ${S.files.map((f,i)=>cardHTML(f,i)).join('')}
     </div>`;
   }
@@ -371,9 +371,9 @@
     f.status='run';f.msg='Opening the file…';f.pct=0;render();
     try{
       const x=await O.readFileWords(f.file,{rotate:0,progress:(m,p)=>{f.msg=m;f.pct=p||0;const b=document.querySelector('.scc[data-f="'+f.id+'"] .scbar i');if(b)b.style.width=Math.round((p||0)*100)+'%';const t=document.querySelector('.scc[data-f="'+f.id+'"] .note');if(t)t.textContent=m}});
-      let res=parse(x.pages,{year:+S.opt.year||0,openingBalance:S.opt.open});
+      let res=parse(x.pages,{year:+S.opt.year||0,openingBalance:''});
       if(!res.rows.length&&x.mode==='ocr'){ /* try the page turned, in case the scan is sideways */
-        for(const rot of [90,270,180]){f.msg='Trying the page turned '+rot+'°…';render();const y=await O.readFileWords(f.file,{rotate:rot,progress:()=>{}});const r2_=parse(y.pages,{year:+S.opt.year||0,openingBalance:S.opt.open});if(r2_.rows.length){res=r2_;x.mode='ocr';break}}
+        for(const rot of [90,270,180]){f.msg='Trying the page turned '+rot+'°…';render();const y=await O.readFileWords(f.file,{rotate:rot,progress:()=>{}});const r2_=parse(y.pages,{year:+S.opt.year||0,openingBalance:''});if(r2_.rows.length){res=r2_;x.mode='ocr';break}}
       }
       f.rows=res.rows;f.openBal=res.openBal;f.closeBal=res.closeBal;f.openType='';f.closeType='';f.pages=x.pages.length;f.mode=x.mode;f.status='done';f.msg='';f.raw=x.pages;
     }catch(e){console.error(e);f.status='error';f.msg='This file could not be read: '+(e&&e.message||'error')}
@@ -388,7 +388,7 @@
       S.files.push(f);
     }
     render();
-    (async()=>{if(S.busy)return;S.busy=true;for(const f of S.files.filter(x=>x.status==='wait'))await run(f);S.busy=false})();
+    (async()=>{if(S.busy)return;S.busy=true;for(const f of S.files.filter(x=>x.status==='wait'))await run(f);S.busy=false;const first=f=>{const d=(f.rows||[]).map(r=>r.iso).filter(Boolean).sort()[0];return d||'9999'};if(S.files.every(x=>x.status!=='wait'&&x.status!=='run')){S.files.sort((x,y)=>first(x)<first(y)?-1:first(x)>first(y)?1:0);render()}})();
   }
   const num=v=>{v=String(v).replace(/[, ]/g,'').trim();if(v==='')return null;const n=parseFloat(v);return isNaN(n)?null:r2(Math.abs(n))};
   function edit(i,k,field,val){
@@ -409,6 +409,22 @@
   const money_=NAV.adm.find(g=>g[0]==='Money');
   if(money_&&!money_[1].some(x=>x[0]==='stmt'))money_[1].push(['stmt','Statement conversion']);
 
+  function summaryHTML(){
+    const done=S.files.filter(f=>f.status==='done');if(S.files.length<2)return '';
+    const rowsH=[];let prev=null;
+    done.forEach(f=>{
+      const T=totals(f),ds=f.rows.map(r=>r.iso).filter(Boolean).sort(),fmt=d=>d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'-';
+      const st=T.ok==null?'<span class="pill warn">Cannot verify</span>':T.ok?'<span class="pill ok">Agrees</span>':'<span class="pill bad">Does not agree</span>';
+      let cont='-';
+      if(prev&&prev.close!=null&&T.open!=null)cont=Math.abs(Math.abs(prev.close)-Math.abs(T.open))<.005?'<span class="pill ok">Continues from previous</span>':'<span class="pill warn">Opening '+f2(T.open)+' differs from previous closing '+f2(prev.close)+'</span>';
+      rowsH.push(`<tr><td>${esc(f.name)}</td><td>${fmt(ds[0])} - ${fmt(ds[ds.length-1])}</td><td class="n">${f.rows.length}</td><td class="n">${T.open==null?'-':f2(T.open)}</td><td class="n">${f2(T.deb)}</td><td class="n">${f2(T.cre)}</td><td class="n">${T.close==null?'-':f2(T.close)}</td><td>${st}</td><td>${cont}</td></tr>`);
+      prev=T;
+    });
+    const pend=S.files.length-done.length;
+    return `<div class="panel"><div class="ph"><h3>All statements (${S.files.length})</h3><div class="row"><button class="btn sm" type="button" data-act="scAllX">Download all Excel (separate files)</button><button class="btn ghost sm" type="button" data-act="scAllC">Download all CSV</button></div></div>
+      <p class="note" style="margin:0 0 8px">Each statement is converted and exported as its own file, in date order. ${pend?pend+' still being read or not readable. ':''}Check that every row says Agrees before importing.</p>
+      <div class="tbl"><table style="min-width:860px"><thead><tr><th>File</th><th>Period</th><th class="n">Lines</th><th class="n">Opening</th><th class="n">Debits</th><th class="n">Credits</th><th class="n">Closing</th><th>Check</th><th>Month to month</th></tr></thead><tbody>${rowsH.join('')}</tbody></table></div></div>`;
+  }
   function preview(i){
     const f=S.files[i],T=totals(f),rs=sheetRowsPage(f);
     const old=document.getElementById('scPrv');if(old)old.remove();
@@ -430,6 +446,7 @@
     const b=e.target.closest&&e.target.closest('[data-act^="sc"]');if(!b)return;
     e.stopImmediatePropagation();
     const a=b.dataset.act,i=+b.dataset.i,f=S.files[i];
+    if(a==='scAllX'||a==='scAllC'){const list=S.files.filter(x=>x.status==='done');list.forEach((ff,k)=>setTimeout(()=>{if(a==='scAllX')buildXlsx(sheetRowsPage(ff)).then(bl=>save(bl,baseName(ff.name)+'.xlsx')).catch(x=>toast('Could not create '+ff.name));else save(buildCsv(sheetRowsPage(ff)),baseName(ff.name)+'.csv')},k*700));return}
     if(a==='scPrev'){if(f&&f.rows)preview(i);return}
     if(a==='scPrvClose'){const o=document.getElementById('scPrv');if(o)o.remove();return}
     if(a==='scPrvX'||a==='scPrvC'){const o=document.getElementById('scPrv');if(o)o.remove();const ff=S.files[+b.dataset.i];if(ff){if(a==='scPrvX')buildXlsx(sheetRowsPage(ff)).then(bl=>save(bl,baseName(ff.name)+'.xlsx')).catch(x=>toast('Could not create the Excel file: '+(x.message||'error')));else save(buildCsv(sheetRowsPage(ff)),baseName(ff.name)+'.csv')}return}

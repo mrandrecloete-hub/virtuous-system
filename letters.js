@@ -178,6 +178,9 @@ ${paras}
   .lttypes button{text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:10px;padding:10px 12px;font:inherit;cursor:pointer;min-height:48px}
   .lttypes button[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
   .lttypes b{display:block}.lttypes span{font-size:12px;color:var(--muted)}
+  .ltinfo{display:flex;gap:12px;align-items:flex-start;background:#eaf1ff;border:1px solid #c6d8fb;border-radius:12px;padding:12px 14px;color:#173a85;margin-bottom:14px}.ltinfo svg{flex:none;color:#1646c0}
+  .ltsub{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,#0a2a7a,#051a56);color:#fff;font-weight:800;padding:11px 16px;border-radius:10px 10px 0 0;margin-bottom:12px}.ltsub svg{color:#f3c64a}
+  .ltbtns{gap:10px}.ltbtns .kxnavy,.ltbtns .kxlite{min-height:44px;padding:0 16px;font-size:14.5px}
   #ltBody{width:100%;min-height:420px;font-family:var(--f-code,monospace);font-size:13px;line-height:1.5}`;
   document.head.appendChild(css);
   const opt=(list,cur)=>list.map(([v,l])=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(l)}</option>`).join('');
@@ -189,9 +192,14 @@ ${paras}
     if(!isAdm())return '<div class="panel"><p class="note">Only an administrator can generate client letters.</p></div>';
     if(S())S().load();
     const t=TYPES.find(x=>x[0]===L.type);
-    return `<div class="lttypes" role="group" aria-label="Letter type">${TYPES.map(([k,n,d])=>`<button type="button" data-act="wlType" data-t="${k}" aria-pressed="${k===L.type}"><b>${esc(n)}</b><span>${esc(d)}</span></button>`).join('')}</div>
-    <div class="ltw"><form class="panel form" id="ltForm" style="grid-template-columns:1fr 1fr" novalidate>
-      <h3 class="wide" style="margin:0">Letter details</h3>
+    const UI=window.VIRTUOSO_UI||{icon:()=>'',tabs:()=>''};
+    const btns=`<div class="wide row ltbtns"><button class="kxnavy" type="button" data-act="wlPreview">${UI.icon('eye',19)} Preview and print</button><button class="kxnavy" type="button" data-act="wlSave" ${SV.busy?'disabled':''}>${UI.icon('save',19)} ${L.id?'Save changes':'Save letter'}</button>${L.id?`<button class="kxlite" type="button" data-act="wlSaveNew">${UI.icon('copy',19)} Save as new</button><button class="kxlite" type="button" data-act="wlNew">${UI.icon('plus',19)} Start a new letter</button>`:''}<button class="kxlite" type="button" data-act="wlRegen">${UI.icon('reset',19)} Reset text to template</button><button class="kxlite" type="button" data-act="wlCopy">${UI.icon('copy',19)} Copy text</button></div>`;
+    return `<div class="row" style="margin:0 0 12px"><button class="kxlite" type="button" data-k="go" data-v="clients">&larr; Back to Client KYC</button></div>
+    ${UI.tabs(TYPES.map(([k,n])=>[k,n,'doc']),L.type,k=>`data-act="wlType" data-t="${k}"`)}
+    <div class="ltw"><div class="sdbox"><div class="sdbar">${UI.icon('gear',24)} ${esc(t[1])}</div><div class="in">
+      <div class="ltinfo">${UI.icon('info',24)}<span>${esc(t[2])}</span></div>
+      <div class="ltsub">${UI.icon('list',22)} Letter details</div>
+      <form class="form" id="ltForm" style="grid-template-columns:1fr 1fr" novalidate>
       <label class="wide">Start from a KYC submission<select id="ltSub">${subOptions()}</select></label>
       <label>Client name<input id="ltClient" value="${esc(L.client)}" maxlength="120" placeholder="e.g. Kalahari Mining Ltd"></label>
       <label>Entity type<select id="ltEntity">${opt([['company','Company'],['cc','Close corporation'],['trust','Trust'],['individual','Individual / sole trader'],['other','Other']],L.entity)}</select></label>
@@ -204,12 +212,12 @@ ${paras}
       ${L.type!=='mgmt'?`<label>Signed by<input id="ltSign" value="${esc(L.signName)}" maxlength="100" placeholder="${esc((state.user&&state.user.name)||'')}"></label><label>Signatory title<input id="ltSignT" value="${esc(L.signTitle)}" maxlength="80" placeholder="${esc((state.user&&state.user.title)||'')}"></label>`:''}
       <label class="wide">Extra paragraph (optional)<textarea id="ltExtra" rows="2" maxlength="800" placeholder="Anything specific to this client">${esc(L.extra)}</textarea></label>
       <div class="wide note" style="margin:0">${L.id?'Editing a saved letter. ':''}The text is a template. Review it, edit it on the right if needed, then save it, preview, print, save as PDF or download.</div>
-      <div class="wide row"><button class="btn" type="button" data-act="wlPreview">Preview and print</button><button class="btn" type="button" data-act="wlSave" ${SV.busy?'disabled':''}>${L.id?'Save changes':'Save letter'}</button>${L.id?'<button class="btn ghost" type="button" data-act="wlSaveNew">Save as new</button><button class="btn ghost" type="button" data-act="wlNew">Start a new letter</button>':''}<button class="btn ghost" type="button" data-act="wlRegen">Reset text to template</button><button class="btn ghost" type="button" data-act="wlCopy">Copy text</button></div>
-    </form>
-    <div class="panel"><div class="ph"><h3>${esc(t[1])}</h3><span class="note">Editable</span></div>
+      ${btns}
+    </form></div></div>
+    <div class="sdbox"><div class="sdbar" style="justify-content:space-between"><span style="display:flex;align-items:center;gap:12px">${UI.icon('doc',24)} ${esc(t[1])}</span><button class="kxlite" type="button" data-act="wlEdit" style="min-height:40px;padding:0 16px;background:transparent;color:#fff;border-color:rgba(255,255,255,.6)">${UI.icon('edit',18)} Edit template</button></div><div class="in">
       <textarea id="ltBody" aria-label="Letter text" spellcheck="true">${esc(currentBody())}</textarea>
-      <div class="err" id="ltErr" role="alert">${esc(L.msg)}</div></div></div>
-    <div class="panel" style="margin-top:14px"><div class="ph"><h3>Saved letters</h3><span class="note">${LIVE?'Stored in the database':'Sample mode: kept until you reload'}</span></div>${savedHTML()}</div>`;
+      <div class="err" id="ltErr" role="alert">${esc(L.msg)}</div></div></div></div>
+    <div class="sdbox"><div class="sdbar">${UI.icon('folder',24)} Saved letters <span class="note" style="margin-left:auto;color:#cfe0ff;font-weight:600;font-size:13px">${LIVE?'Stored in the database':'Sample mode: kept until you reload'}</span></div><div class="in">${savedHTML()}</div></div>`;
   }
   function savedHTML(){
     loadSaved();
@@ -226,9 +234,8 @@ ${paras}
   VIEWS.kyc=function(){
     const K=state.kyc;
     if(K&&K.view==='letters'&&isAdm()){
-      const tabs=`<div class="seg" role="tablist" style="margin-bottom:14px"><button class="btn ghost sm" data-k="go" data-v="forms" aria-pressed="false">Forms</button><button class="btn ghost sm" data-k="go" data-v="subs" aria-pressed="false">Submissions (${(state.subs||[]).length})</button><button class="btn ghost sm" data-k="go" data-v="letters" aria-pressed="true">Letters</button></div>`;
-      return `<h2>Client letters</h2><p class="sub">A page inside Client KYC: generate the management representation letter, letter of transmittal and accountant's letter on the firm's letterhead.</p>${tabs}
-      <div class="row" style="margin:-6px 0 12px"><button class="btn ghost sm" data-k="go" data-v="forms">&larr; Back to KYC</button></div>${view()}`;
+      const UI=window.VIRTUOSO_UI;
+      return (UI?UI.hero({title:'Client letters',sub:"A page inside Client KYC: generate the management representation letter, letter of transmittal and accountant's letter on the firm's letterhead.",icon:'folder',art:'letters',gold:7}):'<h2>Client letters</h2>')+view();
     }
     let html=kycView();
     const K2=state.kyc;/* kInit() inside the original view creates state.kyc on the first visit */
@@ -270,12 +277,13 @@ ${paras}
   const bodyTextFor=key=>{const saved={...L};try{const [type,client,contact,addr,entity,fye,encl,extra,signName,signTitle]=JSON.parse(key||'[]');Object.assign(L,{type,client,contact,addr,entity,fye,encl,extra,signName,signTitle});return bodyText()}catch(e){return null}finally{Object.assign(L,saved)}};
   document.addEventListener('click',async e=>{
     const b=e.target.closest&&e.target.closest('[data-act^="wl"]');if(!b)return;
-    const a=b.dataset.act;if(!['wlType','wlPreview','wlRegen','wlCopy','wlSave','wlSaveNew','wlNew','wlOpen','wlView','wlDel'].includes(a))return;
+    const a=b.dataset.act;if(!['wlType','wlPreview','wlRegen','wlCopy','wlSave','wlSaveNew','wlNew','wlOpen','wlView','wlDel','wlEdit'].includes(a))return;
     e.stopImmediatePropagation();if(!isAdm())return;
     readForm();
     if(a==='wlType'){L.type=b.dataset.t;L.body=null;L.msg='';return render()}
     if(a==='wlRegen'){L.body=null;L.msg='';return render()}
     if(a==='wlCopy'){if(navigator.clipboard)navigator.clipboard.writeText(L.body||currentBody()).then(()=>toast('Letter text copied'),()=>toast('Copy failed'));return}
+    if(a==='wlEdit'){const t=document.getElementById('ltBody');if(t){t.focus();t.scrollIntoView({block:'center'})}return}
     if(a==='wlSave')return saveLetter(false);
     if(a==='wlSaveNew')return saveLetter(true);
     if(a==='wlNew'){L.id=null;L.body=null;L.msg='';return render()}

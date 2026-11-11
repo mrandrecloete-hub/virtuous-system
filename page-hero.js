@@ -31,7 +31,11 @@
     link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
     table:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/>',
     task:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
-    list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'
+    list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    save:'<path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
+    copy:'<rect x="9" y="9" width="11" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+    info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+    folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
   };
   const icon=(n,s)=>`<svg viewBox="0 0 24 24" width="${s||20}" height="${s||20}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]||P.doc}</svg>`;
 
@@ -45,7 +49,11 @@
       <rect x="110" y="24" width="190" height="122" rx="16" fill="url(#phk1)" opacity=".92" stroke="#bcd7ff" stroke-width="2"/><circle cx="160" cy="68" r="17" fill="#e8f1ff"/><path d="M130 124c4-22 20-30 30-30s26 8 30 30z" fill="#e8f1ff"/><rect x="210" y="54" width="70" height="8" rx="4" fill="#e8f1ff"/><rect x="210" y="74" width="56" height="8" rx="4" fill="#e8f1ff" opacity=".8"/><rect x="210" y="94" width="64" height="8" rx="4" fill="#e8f1ff" opacity=".6"/>
       <circle cx="288" cy="112" r="26" fill="#1fb86a" stroke="#fff" stroke-width="4"/><path d="M276 112l8 8 14-16" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
   };
+  ART.letters=`<svg viewBox="0 0 360 170" aria-hidden="true"><defs><linearGradient id="phl1" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#cfe1ff"/><stop offset="1" stop-color="#7fa8ec"/></linearGradient><linearGradient id="phl2" x1="0" x2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs>
+      <g transform="rotate(-8 150 90)"><rect x="60" y="30" width="170" height="120" rx="8" fill="url(#phl1)" opacity=".9"/><rect x="78" y="52" width="100" height="8" rx="4" fill="#4b6fb8"/><rect x="78" y="72" width="130" height="6" rx="3" fill="#6f8fcb"/><rect x="78" y="88" width="120" height="6" rx="3" fill="#6f8fcb"/><rect x="78" y="104" width="126" height="6" rx="3" fill="#6f8fcb"/><rect x="78" y="120" width="80" height="6" rx="3" fill="#6f8fcb"/></g>
+      <g transform="rotate(35 280 80)"><rect x="268" y="6" width="22" height="104" rx="8" fill="#1a2f6e"/><rect x="268" y="14" width="22" height="10" fill="url(#phl2)"/><path d="M266 110h26l-6 36c-1 5-13 5-14 0z" fill="url(#phl2)"/></g></svg>`;
   const hasIcon={
+    folder:`<svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><defs><linearGradient id="phi3" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs><path d="M6 14a4 4 0 0 1 4-4h14l6 6h24a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4z" fill="url(#phi3)"/><rect x="18" y="22" width="30" height="26" rx="3" fill="#2f6fe4" stroke="#bcd7ff" stroke-width="2"/><path d="M24 30h18M24 36h18M24 42h11" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`,
     gear:`<svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><defs><linearGradient id="phi1" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs><circle cx="32" cy="32" r="22" fill="none" stroke="url(#phi1)" stroke-width="12" stroke-dasharray="9 6"/><circle cx="32" cy="32" r="18" fill="none" stroke="url(#phi1)" stroke-width="5"/><circle cx="32" cy="32" r="8" fill="#04134a" stroke="url(#phi1)" stroke-width="4"/></svg>`,
     shield:`<svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><defs><linearGradient id="phi2" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#d79b00"/></linearGradient></defs><path d="M32 4l24 9v18c0 15-10 26-24 30C18 57 8 46 8 31V13z" fill="#0a2a7a" stroke="url(#phi2)" stroke-width="4"/><path d="M20 32l8 8 17-18" fill="none" stroke="url(#phi2)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
   };

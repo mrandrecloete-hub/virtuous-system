@@ -21,7 +21,7 @@
   const monthsList=()=>{const out=[],end=(()=>{const t=parse(nowKey()+'-01');t.setMonth(t.getMonth()+1);const k=iso(t).slice(0,7);return k>'2027-02'?k:'2027-02'})();
     let y=2026,m=3;while((y+'-'+pad(m))<=end){out.push(y+'-'+pad(m));if(++m>12){m=1;y++}}return out};
   const defMonth=()=>{const l=monthsList(),k=nowKey();return l.includes(k)?k:l[l.length-1]};
-  const fresh=()=>({msg:'',uid:null,adv:null,loadA:false,people:null,month:null,docs:null,loadD:false,busy:false,reads:[],open:{}});
+  const fresh=()=>({msg:'',uid:null,adv:null,loadA:false,people:null,month:null,docs:null,loadD:false,busy:false,reads:[],open:{},revs:{}});
   let S=fresh();
   if(!state.pcDocs)state.pcDocs=[];
   const month=()=>S.month||(S.month=defMonth());
@@ -49,7 +49,7 @@
         <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" data-pfup="${ek}|${kk}" hidden aria-label="Upload scans to ${esc(el)} ${esc(kl)}">
         ${!op?'':readsHTML(ek+'|'+kk,m)}${!op?'':list.length?`<ul style="list-style:none;margin:10px 0 0;padding:0">${list.map(d=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)">
           <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}<span class="note"> ${d.size?kb(d.size)+', ':''}${esc(fd(d.created_at||d.at))}</span></span>
-          <span class="row" style="flex:none"><button class="btn ghost sm" type="button" data-act="pfOpen" data-id="${esc(d.id)}">Open</button><button class="btn ghost sm" type="button" data-act="pfDel" data-id="${esc(d.id)}">Delete</button></span></li>`).join('')}</ul>`
+          <span class="row" style="flex:none"><button class="btn ghost sm" type="button" data-act="pfRev" data-id="${esc(d.id)}">Review</button><button class="btn ghost sm" type="button" data-act="pfOpen" data-id="${esc(d.id)}">Open</button><button class="btn ghost sm" type="button" data-act="pfDel" data-id="${esc(d.id)}">Delete</button></span></li>`).join('')}</ul>`
           :'<p class="note" style="margin:10px 0 0">Empty.</p>'}</div>`}).join('')}
       </div></div>`).join('')}</div>`;
   }
@@ -96,6 +96,45 @@
   function readsHTML(key,mk){
     const rs=S.reads.filter(r=>r.key===key&&r.m===mk);if(!rs.length)return '';
     return `<div style="margin-top:10px"><b>Read</b> <span class="note">${esc(monthLabel(mk))}</span><ul style="list-style:none;margin:6px 0 0;padding:0">${rs.map(r=>`<li class="note" style="padding:3px 0">${esc(r.name)}${/^Reading|^Could/.test(r.st)?' ('+esc(r.st)+')':''}</li>`).join('')}</ul></div>`;
+  }
+  /* ---------- Review window: file on the left, what was read on the right ---------- */
+  function closeRev(){const o=document.getElementById('pcRv');if(o)o.remove();(closeRev.u||[]).forEach(u=>URL.revokeObjectURL(u));closeRev.u=[];document.removeEventListener('keydown',revKey)}
+  function revKey(e){if(e.key==='Escape')closeRev()}
+  async function docFile(d){
+    if(!LIVE){const r=await fetch(d.url);const b=await r.blob();return new File([b],d.name,{type:d.mime||b.type})}
+    const x=await sb().storage.from('documents').createSignedUrl(d.storage_path,120);
+    if(x.error||!x.data)throw new Error('Could not open the file');
+    const r=await fetch(x.data.signedUrl);if(!r.ok)throw new Error('Could not download the file');
+    const b=await r.blob();return new File([b],d.name,{type:d.mime||b.type});
+  }
+  async function reviewDoc(id){
+    const d=(LIVE?(S.docs||[]):state.pcDocs).find(x=>x.id===id);if(!d)return;
+    closeRev();
+    const o=document.createElement('div');o.id='pcRv';o.setAttribute('role','dialog');o.setAttribute('aria-label','Review '+d.name);
+    o.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.72);display:flex;flex-direction:column;padding:12px';
+    const [ek,kk]=[d.entity,d.kind],en=(ENTITIES.find(e=>e[0]===ek)||[0,ek])[1],kn=(KINDS.find(k=>k[0]===kk)||[0,kk])[1],mk=(d.month||month()).slice(0,7);
+    o.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;color:#fff;padding:2px 4px 10px"><div style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Review: ${esc(d.name)}</b><span style="font-size:12px;opacity:.85">${esc(monthLabel(mk))} / ${esc(en)} / ${esc(kn)}</span></div><button class="btn sm" type="button" data-rv="x">Close</button></div>
+    <div style="flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:10px"><div id="pcRvF" style="flex:1 1 380px;min-height:240px;background:#fff;border-radius:10px;overflow:auto"><p class="note" style="padding:14px">Opening the file…</p></div>
+    <div id="pcRvR" style="flex:1 1 340px;min-height:240px;background:#fff;border-radius:10px;overflow:auto;padding:14px"><b>What was read</b><p class="note">Reading the file…</p></div></div>`;
+    document.body.appendChild(o);document.addEventListener('keydown',revKey);closeRev.u=[];
+    o.addEventListener('click',e=>{if(e.target===o||(e.target.dataset&&e.target.dataset.rv==='x'))closeRev()});
+    const F=o.querySelector('#pcRvF'),R=o.querySelector('#pcRvR');
+    let file;
+    try{file=await docFile(d)}catch(e){F.innerHTML='<p class="note" style="padding:14px">'+esc(e.message||'The file could not be opened.')+'</p>';R.innerHTML='<b>What was read</b><p class="note">Nothing could be read.</p>';return}
+    const u=URL.createObjectURL(file);closeRev.u.push(u);
+    const pdf=/pdf/i.test(file.type)||/\.pdf$/i.test(d.name);
+    F.innerHTML=pdf?`<iframe src="${u}" title="${esc(d.name)}" style="border:0;width:100%;height:100%;min-height:360px"></iframe>`:`<img src="${u}" alt="${esc(d.name)}" style="max-width:100%;display:block;margin:auto">`;
+    const O=window.VIRTUOSO_OCR;
+    if(!O||!O.readFileWords){R.innerHTML='<b>What was read</b><p class="note">Reading is not available.</p>';return}
+    let rv=S.revs[id];
+    if(!rv){try{const x=await O.readFileWords(file,{rotate:0,progress:(m)=>{const q=document.querySelector('#pcRvR .note');if(q)q.textContent=m}});const p=O.parseWords(x.pages,{month:mk});rv=S.revs[id]={lines:p.lines,mode:x.mode}}
+      catch(e){R.innerHTML='<b>What was read</b><p class="note">The file could not be read: '+esc(e.message||'error')+'</p>';return}}
+    if(!document.getElementById('pcRv'))return;
+    const L=rv.lines,sum=L.reduce((a,l)=>a+(+l.amt||0),0);
+    R.innerHTML=`<b>What was read</b> <span class="note">${L.length} line${L.length===1?'':'s'}, total ${f2(sum)}${rv.mode==='ocr'?' (scanned text, check carefully)':''}</span>`+
+      (L.length?`<div style="overflow:auto;margin-top:8px"><table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr><th align="left">Date</th><th align="left">Description</th><th align="right">N$</th></tr></thead><tbody>${L.map(l=>`<tr style="border-top:1px solid var(--line)${l.flags&&l.flags.length?';background:#fff7e0':''}"><td>${esc(l.date||'?')}</td><td>${esc([l.desc,l.vendor].filter(Boolean).join(' - '))}${l.flags&&l.flags.length?`<div class="note">${esc(l.flags.join(', '))}</div>`:''}</td><td align="right">${f2(l.amt)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="note">No payment lines were found in this file.</p>')+
+      `<div class="row" style="margin-top:12px;gap:8px">${L.length&&O.sheet?`<button class="btn sm" type="button" data-rv="sheet">Add lines to the petty cash sheet</button>`:''}<button class="btn ghost sm" type="button" data-rv="x">Close</button></div>`;
+    R.onclick=e=>{const a=e.target.dataset&&e.target.dataset.rv;if(a==='x')closeRev();if(a==='sheet'){closeRev();O.sheet(file)}};
   }
   async function openDoc(id){
     if(!LIVE){const d=state.pcDocs.find(x=>x.id===id);if(d)window.open(d.url,'_blank');return}
@@ -176,6 +215,7 @@
     const b=e.target.closest&&e.target.closest('[data-act^="pf"]');if(!b)return;
     e.stopImmediatePropagation();
     const d=b.dataset;
+    if(d.act==='pfRev'){reviewDoc(d.id);return}
     if(d.act==='pfTog'){S.open[d.k2]=!S.open[d.k2];render();return}
     if(d.act==='pfPick'){const i=document.querySelector(`[data-pfup="${d.e}|${d.k}"]`);if(i)i.click();return}
     if(d.act==='pfOpen')return openDoc(d.id);

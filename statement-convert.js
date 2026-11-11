@@ -219,43 +219,32 @@
     return {hdr,rows:out,period:per,openBal:out.openUsed!=null?out.openUsed:openBal,closeBal,hasBalCol,pages:pages.length};
   }
 
-  /* Use the balances to decide debit/credit and to repair misread amounts or balances. */
+  /* Checks the printed figures against each other. It NEVER changes a printed amount or balance and never
+     calculates a missing one: disagreements are flagged, with a suggestion the user can accept (r.sugg). */
   function resolveChain(rows,openBal,manualOpen){
     const n=rows.length;if(!n)return;
-    let open=manualOpen!=null&&manualOpen!==''&&!isNaN(+manualOpen)?+manualOpen:openBal;
-    /* infer the opening balance from the first line when it is not printed */
-    const first=rows.find(r=>r.bal!=null&&r.amt!=null);
-    if(open==null&&first){
-      if(first.dir)open=r2(first.dir==='credit'?first.bal-first.amt:first.bal+first.amt);
-      else{
-        /* try both and keep the one that makes the next line add up */
-        const i=rows.indexOf(first),nx=rows[i+1];
-        if(nx&&nx.bal!=null&&nx.amt!=null){const ok=(sign)=>{const b=r2(first.bal);return Math.abs(r2(b+nx.amt)-nx.bal)<.005||Math.abs(r2(b-nx.amt)-nx.bal)<.005};ok()}
-        open=null;
-      }
-    }
-    rows.openUsed=open;
+    const open=manualOpen!=null&&manualOpen!==''&&!isNaN(+manualOpen)?+manualOpen:openBal;
+    rows.openUsed=open;                       /* printed (or typed by the user) only; never inferred */
     let prevBal=open;
     for(let i=0;i<n;i++){
-      const r=rows[i],nx=rows[i+1];
-      if(r.amt==null&&r.bal!=null&&prevBal!=null){const d=r2(r.bal-prevBal);if(Math.abs(d)>0){r.amt=Math.abs(d);r.dir=d>0?'credit':'debit';r.flags.push('Amount worked out from the balance')}}
-      if(r.amt==null){r.flags.push('Amount not read');if(r.bal!=null)prevBal=r.bal;continue}
-      if(prevBal!=null&&r.bal!=null){
-        const d=r2(r.bal-prevBal);
-        if(Math.abs(Math.abs(d)-r.amt)<.005){r.dir=d>0?'credit':'debit'}           /* everything agrees: direction comes from the balance */
-        else{
-          /* disagree: decide whether the amount or the balance was misread by looking at the next line */
-          const nextAgrees=nx&&nx.bal!=null&&nx.amt!=null&&(Math.abs(r2(r.bal+nx.amt)-nx.bal)<.005||Math.abs(r2(r.bal-nx.amt)-nx.bal)<.005);
-          const expected=r.dir?r2(prevBal+(r.dir==='credit'?r.amt:-r.amt)):null;
-          const nextAgreesExp=expected!=null&&nx&&nx.bal!=null&&nx.amt!=null&&(Math.abs(r2(expected+nx.amt)-nx.bal)<.005||Math.abs(r2(expected-nx.amt)-nx.bal)<.005);
-          if(nextAgrees&&!nextAgreesExp){const old=r.amt;r.amt=Math.abs(d);r.dir=d>0?'credit':'debit';r.flags.push('Amount corrected from the balance (read as '+f2(old)+')')}
-          else if(expected!=null){r.flags.push('Balance corrected (read as '+f2(r.bal)+')');r.bal=expected}
-          else{r.flags.push('Check: amount and balance do not agree')}
+      const r=rows[i];
+      if(r.amt==null){
+        r.flags.push('Amount not read');
+        if(r.bal!=null&&prevBal!=null){const d=r2(r.bal-prevBal);if(Math.abs(d)>0)r.sugg={amt:Math.abs(d),dir:d>0?'credit':'debit',why:'the balance moved by '+f2(Math.abs(d))}}
+      }else if(prevBal!=null&&r.bal!=null){
+        const d=r2(r.bal-prevBal),match=Math.abs(Math.abs(d)-r.amt)<.005;
+        if(match){
+          const dd=d>0?'credit':'debit';
+          if(r.dir&&r.dir!==dd){r.flags.push('Debit/credit disagrees with the balance');r.sugg={amt:r.amt,dir:dd,why:'the balance moved the other way'}}
+          else if(!r.dir)r.dir=dd;              /* direction only; the numbers are untouched */
+        }else{
+          r.flags.push('Amount and balance do not agree (printed amount '+f2(r.amt)+', balance moved '+f2(Math.abs(d))+')');
+          if(Math.abs(d)>0)r.sugg={amt:Math.abs(d),dir:d>0?'credit':'debit',why:'the balance moved by '+f2(Math.abs(d))};
         }
-      }else if(prevBal!=null&&r.bal==null&&r.dir){r.bal=r2(prevBal+(r.dir==='credit'?r.amt:-r.amt))}
-      if(!r.dir){r.flags.push('Debit or credit not clear');r.dir='debit'}
-      if(r.bal==null&&prevBal==null)r.balMissing=true;
-      prevBal=r.bal!=null?r.bal:prevBal;
+      }
+      if(r.amt!=null&&!r.dir&&!r.sugg){r.flags.push('Debit or credit not clear: left empty, please choose')}
+      if(r.bal==null)r.flags.push('Balance not read');
+      prevBal=r.bal!=null?r.bal:null;          /* an unread balance breaks the chain instead of being guessed */
     }
   }
 
@@ -311,7 +300,7 @@
       <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':s.debit}" inputmode="decimal" aria-label="Debit" style="width:92px;text-align:right"></td>
       <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':s.credit}" inputmode="decimal" aria-label="Credit" style="width:92px;text-align:right"></td>
       <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':s.balance}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
-      <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:''}</td>
+      <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:''}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
       <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>`}).join('');
     const chk=T.ok==null?'<span class="pill warn">Balance check not possible</span>':T.ok?'<span class="pill ok">Opening balance - debits + credits = closing balance</span>':'<span class="pill bad">Totals do not agree with the balances: please review the marked lines</span>';
     return `<div class="panel scc" data-f="${f.id}"><div class="ph"><h3>${esc(f.name)}</h3><div class="row"><button class="btn sm" type="button" data-act="scXlsx" data-i="${i}">Download Excel</button><button class="btn ghost sm" type="button" data-act="scCsv" data-i="${i}">Download CSV</button><button class="btn ghost sm" type="button" data-act="scDrop" data-i="${i}">Remove</button></div></div>
@@ -379,9 +368,9 @@
     if(field==='date'){const m=/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(val.trim());if(m&&validDate(+m[3],+m[2],+m[1])){r.iso=m[3]+'-'+pad(+m[2])+'-'+pad(+m[1]);r.flags=(r.flags||[]).filter(x=>x!=='Date not read')}else{r.flags=(r.flags||[]).filter(x=>x!=='Date not read');r.flags.push('Date not read');r.iso=null}}
     else if(field==='desc'){r.desc=val;r.tidyDone=true}
     else if(field==='ref'){r.refOverride=val}
-    else if(field==='debit'){const n=num(val);if(n!=null){r.amt=n;r.dir='debit'}else if(r.dir==='debit')r.amt=null;r.flags=[]}
-    else if(field==='credit'){const n=num(val);if(n!=null){r.amt=n;r.dir='credit'}else if(r.dir==='credit')r.amt=null;r.flags=[]}
-    else if(field==='balance'){const raw=String(val).replace(/[, ]/g,'').trim();r.bal=raw===''?null:parseFloat(raw);if(isNaN(r.bal))r.bal=null;r.flags=[]}
+    else if(field==='debit'){const n=num(val);if(n!=null){r.amt=n;r.dir='debit'}else if(r.dir==='debit')r.amt=null;r.flags=[];r.sugg=null}
+    else if(field==='credit'){const n=num(val);if(n!=null){r.amt=n;r.dir='credit'}else if(r.dir==='credit')r.amt=null;r.flags=[];r.sugg=null}
+    else if(field==='balance'){const raw=String(val).replace(/[, ]/g,'').trim();r.bal=raw===''?null:parseFloat(raw);if(isNaN(r.bal))r.bal=null;r.flags=[];r.sugg=null}
     render();
   }
   const sheetRowsPage=sheetRows;
@@ -400,7 +389,8 @@
     const a=b.dataset.act,i=+b.dataset.i,f=S.files[i];
     if(a==='scDrop'){S.files.splice(i,1);return render()}
     if(a==='scDel'){f.rows.splice(+b.dataset.k,1);return render()}
-    if(a==='scAdd'){f.rows.push({iso:null,date:{},desc:'',amt:null,bal:null,dir:'debit',flags:['New line'],raw:''});return render()}
+    if(a==='scUse'){const r=f.rows[+b.dataset.k];if(r&&r.sugg){r.amt=r.sugg.amt;r.dir=r.sugg.dir;r.sugg=null;r.flags=['Amount taken from the balance by you'];}return render()}
+    if(a==='scAdd'){f.rows.push({iso:null,date:{},desc:'',amt:null,bal:null,dir:null,flags:['New line'],raw:''});return render()}
     if(a==='scXlsx'){if(!f||!f.rows)return;buildXlsx(sheetRowsPage(f)).then(bl=>save(bl,baseName(f.name)+'.xlsx')).catch(x=>toast('Could not create the Excel file: '+(x.message||'error')));return}
     if(a==='scCsv'){if(!f||!f.rows)return;save(buildCsv(sheetRowsPage(f)),baseName(f.name)+'.csv');return}
   },true);

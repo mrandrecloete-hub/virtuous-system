@@ -25,7 +25,7 @@
     return `<h2>Leave applications</h2><p class="sub">Leave applications from your staff. View the form, approve or decline. You can still change a decision later; the employee is notified.</p>
     <div class="panel"><div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">${['All','Pending','Approved','Declined'].map(f=>`<button class="btn sm ${S.f===f?'':'ghost'}" data-act="alvF" data-f="${f}">${f}${f==='All'?'':' ('+cnt(f)+')'}</button>`).join('')}<button class="btn sm ghost" data-act="alvR">Refresh</button></div>
     <div class="tbl"><table style="min-width:640px"><thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th class="n">Days</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
-    ${rows.length?rows.map(r=>`<tr><td>${e(r.who)}</td><td>${e(r.type)}</td><td>${e(fd(r.from))} to ${e(fd(r.to))}</td><td class="n">${+r.days||0}</td><td>${e(r.reason||'')}${r.doc?'<div class="note">Document attached</div>':''}</td><td>${pill(r.status)}${r.note?`<div class="note">Reason: ${e(r.note)}</div>`:''}</td><td style="white-space:nowrap"><button class="btn sm ghost" data-act="alvV" data-id="${e(r.id)}">View</button>${r.status!=='Approved'?` <button class="btn sm" data-act="alvY" data-id="${e(r.id)}">Approve</button>`:''}${r.status!=='Rejected'&&r.status!=='Declined'?` <button class="btn sm ghost" data-act="alvN" data-id="${e(r.id)}">Decline</button>`:''}</td></tr>`).join(''):`<tr><td colspan="7" class="note">${S.rows===null?'Loading…':'No leave applications.'}</td></tr>`}
+    ${rows.length?rows.map(r=>`<tr><td>${e(r.who)}</td><td>${e(r.type)}</td><td>${e(fd(r.from))} to ${e(fd(r.to))}</td><td class="n">${+r.days||0}</td><td>${e(r.reason||'')}${r.doc?'<div class="note">Document attached</div>':''}</td><td>${pill(r.status)}${r.note?`<div class="note">Reason: ${e(r.note)}</div>`:''}</td><td style="white-space:nowrap"><button class="btn sm ghost" data-act="alvV" data-id="${e(r.id)}">View</button>${r.status!=='Pending'?` <button class="btn sm ghost" data-act="alvM" data-id="${e(r.id)}">${r.note?'Edit reason':'Add reason'}</button>`:''}${r.status!=='Approved'?` <button class="btn sm" data-act="alvY" data-id="${e(r.id)}">Approve</button>`:''}${r.status!=='Rejected'&&r.status!=='Declined'?` <button class="btn sm ghost" data-act="alvN" data-id="${e(r.id)}">Decline</button>`:''}</td></tr>`).join(''):`<tr><td colspan="7" class="note">${S.rows===null?'Loading…':'No leave applications.'}</td></tr>`}
     </tbody></table></div></div>`;
   }
   function wrap(){
@@ -41,6 +41,13 @@
     else if(a==='alvR'){S.rows=null;render()}
     else if(a==='alvV'&&r&&window.VIRTUOSO_LEAVEPRINT){const l=r.raw||{};
       window.VIRTUOSO_LEAVEPRINT.openApp({ref:'LV-'+String(r.id).slice(0,8).toUpperCase(),status:r.status,name:r.who,title:r.title,email:r.email,type:r.type,from:String(r.from).slice(0,10),to:String(r.to).slice(0,10),days:+r.days,half:!!l.half_day,reason:r.reason||'',phone:l.phone||'',cover:l.cover_name||(r.demo&&r.demo.cover)||'',doc:r.doc,note:r.note||''},r.id)}
+    else if(a==='alvM'&&r){
+      const w=prompt('Reason for the decision on '+r.who+"'s leave (shown in the form's Comments; the employee gets an alert). Leave empty to remove it:",r.note||'');
+      if(w===null)return;const reason=String(w).trim().slice(0,300);
+      if(live&&sb()){sb().rpc('set_leave_reason',{p_id:r.id,p_reason:reason||null}).then(x=>{
+        if(x.error)return toast(/schema cache|does not exist|Could not find/i.test(x.error.message)?'Saving a reason needs migration 0024 to be run.':/not permitted|policy/i.test(x.error.message)?'You are not allowed to do that.':x.error.message);
+        toast('Reason saved');S.rows=null;render()})}
+      else{r.demo.decision=reason;try{const u=(state.users||[]).find(x=>x.name===r.who);if(u&&typeof notifyTo==='function')notifyTo(u.id,'Leave','Your '+String(r.type).toLowerCase()+' leave ('+r.status.toLowerCase()+'): '+(reason?'reason: '+reason:'the reason was removed.'))}catch(z){}S.rows=null;render();toast('Reason saved')}}
     else if((a==='alvY'||a==='alvN')&&r){const ok=a==='alvY';
       const why=prompt((ok?'Approve':'Decline')+' '+r.who+"'s "+String(r.type).toLowerCase()+' leave ('+fd(r.from)+' to '+fd(r.to)+')?\nThe employee gets an alert.\n\nReason (optional, max 300 characters). Press OK to continue, Cancel to stop:','');
       if(why===null)return;const reason=String(why).trim().slice(0,300);

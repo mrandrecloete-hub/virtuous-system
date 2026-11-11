@@ -769,8 +769,6 @@ function dEmp(){
   </div>`;
 }
 function dAdm(){
-  const rows=staff().map(e=>({e,c:calc(e)}));
-  const net=rows.reduce((s,r)=>s+r.c.net,0),maxG=Math.max(1,...rows.map(r=>r.c.gross));
   const act=state.users.filter(u=>status(u)[0]==='Active Now').length;
   const pc=pcSummary(),tot=Math.max(1,pc.rec+pc.dis+pc.mis+pc.orp);
   const pend=state.approvals.filter(a=>a.status==='Pending');
@@ -792,9 +790,6 @@ function dAdm(){
       ${pend.length?pend.slice(0,4).map(a=>`<div class="li"><div class="tx"><b>${esc(a.who)}</b><div class="note">${esc(a.type)}: ${esc(a.detail)}</div></div><button class="btn sm" data-act="approve" data-id="${a.id}">Approve</button></div>`).join(''):'<p class="note" style="margin:0">Nothing waiting. All requests are reviewed.</p>'}</div>
     <div class="panel"><div class="ph"><h3>Month-end checklist</h3></div>
       ${chk.map(([t,d,go])=>`<div class="check ${d?'done':''}"><span class="mk">${d?'&#10003;':''}</span><span class="tx">${t}</span>${d?pill('Done','ok'):`<button class="btn sm ghost" data-tab="${go}">Open</button>`}</div>`).join('')}</div>
-    <div class="panel"><div class="ph"><h3>Gross pay by employee</h3></div>
-      ${rows.map(({e,c})=>`<div class="hb"><span>${esc(e.name.split(' ')[0])}</span><div class="t"><i style="width:${c.gross/maxG*100}%"></i></div><span class="mono">${c.gross.toFixed(0)}</span></div>`).join('')}
-      <p class="note" style="margin:6px 0 0">N$ per month, before deductions.</p></div>
     <div class="panel"><div class="ph"><h3>Petty cash reconciliation</h3><button class="btn sm ghost" data-tab="petty">Review</button></div>
       <div class="stackbar">${seg(pc.rec,'var(--ok)')}${seg(pc.dis,'var(--bad)')}${seg(pc.mis,'var(--warn)')}${seg(pc.orp,'var(--muted)')}</div>
       <div class="legend"><span style="--c:var(--ok)">${pc.rec} reconciled</span><span style="--c:var(--bad)">${pc.dis} disputed</span><span style="--c:var(--warn)">${pc.mis} missing receipt</span><span style="--c:var(--muted)">${pc.orp} orphan</span></div></div>

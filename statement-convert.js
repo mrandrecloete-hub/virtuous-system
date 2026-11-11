@@ -335,7 +335,7 @@
     const E=await loadEx();const wb=new E.Workbook();const ws=wb.addWorksheet('Sheet1');
     ws.columns=[{header:'Date',key:'date',width:14.3},{header:'Description',key:'desc',width:58.3},{header:'Reference',key:'ref',width:13.2},{header:'Debit',key:'debit',width:14},{header:'Credit',key:'credit',width:14.85},{header:'Balance',key:'balance',width:16.5}];
     ws.getRow(1).eachCell(c=>{c.font={name:'Arial',size:11,bold:true}});
-    rows.forEach(r=>{const row=ws.addRow({date:r.date,desc:r.desc,ref:r.ref,debit:r.debit==null?null:r.debit,credit:r.credit==null?null:r.credit,balance:r.balance==null?null:r.balance});row.eachCell({includeEmpty:true},c=>{c.font={name:'Arial',size:11}})});
+    rows.forEach(r=>{const row=ws.addRow({date:r.date,desc:r.desc,ref:r.ref,debit:r.debit==null?null:r.debit,credit:r.credit==null?null:r.credit,balance:r.balance==null?null:r.balance});row.eachCell({includeEmpty:true},c=>{c.font={name:'Arial',size:11}});[4,5,6].forEach(k=>{row.getCell(k).numFmt='#,##0.00'})});
     const buf=await wb.xlsx.writeBuffer();
     return new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   }
@@ -373,6 +373,7 @@
       return `<tr class="${bad?'scbad':''}"><td><input data-sc="date" data-i="${i}" data-k="${k}" value="${esc(s.date)}" aria-label="Date" style="width:92px"></td>
       <td><input data-sc="desc" data-i="${i}" data-k="${k}" value="${esc(s.desc)}" aria-label="Description" style="width:100%;min-width:380px"></td>
       <td><input data-sc="ref" data-i="${i}" data-k="${k}" value="${esc(s.ref)}" aria-label="Reference" style="width:84px"></td>
+<<<<<<< Updated upstream
       <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':s.debit}" inputmode="decimal" aria-label="Debit" style="width:92px;text-align:right"></td>
       <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':s.credit}" inputmode="decimal" aria-label="Credit" style="width:92px;text-align:right"></td>
       <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':s.balance}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
@@ -383,6 +384,13 @@
     if(!f.hasBalCol)warn.push('This statement has no running balance, so amounts could not be checked line by line. Compare the totals box below with the statement before importing.');
     if(f.skipped&&f.skipped.length)warn.push(f.skipped.length+' line'+(f.skipped.length===1?'':'s')+' with an amount but no readable date '+(f.skipped.length===1?'was':'were')+' NOT added: '+f.skipped.slice(0,6).map(x=>'"'+esc(x.text.slice(0,70))+'" (page '+x.page+')').join('; ')+(f.skipped.length>6?'; …':'')+'. Use Add a line if they are transactions.');
     if(f.mode==='ocr')warn.push('This is a scan, read with OCR. Numbers are checked against the running balance, but descriptions can have small spelling slips: use Show every scan line to compare them with the original.');
+=======
+      <td><input data-sc="debit" data-i="${i}" data-k="${k}" value="${s.debit==null?'':f2(s.debit)}" inputmode="decimal" aria-label="Debit" style="width:92px;text-align:right"></td>
+      <td><input data-sc="credit" data-i="${i}" data-k="${k}" value="${s.credit==null?'':f2(s.credit)}" inputmode="decimal" aria-label="Credit" style="width:92px;text-align:right"></td>
+      <td><input data-sc="balance" data-i="${i}" data-k="${k}" value="${s.balance==null?'':f2(s.balance)}" inputmode="decimal" aria-label="Balance" style="width:104px;text-align:right"></td>
+      <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:''}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
+      <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>`}).join('');
+>>>>>>> Stashed changes
     const cls=T.ok==null?'warn':T.ok?'ok':'bad';
     const msg=T.ok==null?'Cannot verify yet: '+(T.open==null?'opening balance not found (type it below)':'closing balance not found (type it below)'):T.ok?(T.altOk?'AGREES (card statement: balances are amounts owed): opening '+f2(T.open)+' + debits '+f2(T.deb)+' - credits '+f2(T.cre)+' = closing '+f2(T.close):T.flip?'AGREES: closing balance on the statement is the amount owed ('+f2(T.close)+'), which equals opening (credit) less debits plus credits':'AGREES: opening - debits + credits = closing balance'):'DOES NOT AGREE: difference '+f2(T.diff)+(T.altOk?'. It would agree if debits ADD to the balance (card-style statement): check the Debit/Credit columns.':'. Check the marked lines against the statement.');
     const inp=(k,v,ph)=>`<input data-scb="${k}" data-i="${i}" value="${esc(v||'')}" inputmode="decimal" placeholder="${ph}" style="width:120px;text-align:right">`;

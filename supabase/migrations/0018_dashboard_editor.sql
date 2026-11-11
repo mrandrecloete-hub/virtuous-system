@@ -56,3 +56,6 @@ do $$ begin
     perform audit_attach('dash_configs');
   end if;
 end $$;
+
+grant select on dash_configs to authenticated;
+grant select, insert, delete on dash_task_done to authenticated;

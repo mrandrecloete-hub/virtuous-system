@@ -118,7 +118,7 @@
       await loadThreads();M.err='';
       if(!isAdm()&&!M.active&&M.threads[0])M.active=M.threads[0].id;
       if(M.active)await loadMsgs(M.active);
-    }catch(e){M.err=/relation .* does not exist|schema cache|msg_threads/i.test(e.message||'')?'Messages are not set up yet (migration 0017 must be run).':'Could not load messages.'}
+    }catch(e){M.err=/does not exist|schema cache/i.test(e.message||'')?'Messages are not set up yet (migration 0017 must be run).':'Could not load messages: '+(e.message||'error')}
     M.loaded=true;badge();
     if(onPage()){if(M.active&&isOpen())markRead(M.active);paintAll()}
   }

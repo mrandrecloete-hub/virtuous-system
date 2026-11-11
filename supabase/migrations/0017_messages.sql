@@ -123,3 +123,7 @@ do $$ begin
     begin alter publication supabase_realtime add table msg_threads; exception when duplicate_object then null; end;
   end if;
 end $$;
+
+-- table access for signed-in users (row-level security still decides which rows)
+grant select on msg_threads, msg_messages to authenticated;
+grant select, insert, delete on msg_reactions to authenticated;

@@ -9,9 +9,9 @@
   let logo=null;
   async function logoData(){
     if(logo)return logo;
-    try{const r=await fetch('logo.png',{cache:'force-cache'}),b=await r.blob();
-      logo=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.onerror=()=>ok('logo.png');f.readAsDataURL(b)})}
-    catch(e){logo='logo.png'}
+    try{const r=await fetch('logo-bw.png',{cache:'force-cache'}),b=await r.blob();
+      logo=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.onerror=()=>ok('logo-bw.png');f.readAsDataURL(b)})}
+    catch(e){logo='logo-bw.png'}
     return logo;
   }
   const sigRow=(a,b)=>`<div class="sig2"><div><canvas class="pad" width="640" height="130"></canvas><button class="clr noprint" type="button">Clear signature</button><div class="ln">${a}</div></div><div><div class="dtw"><span class="ed" contenteditable="true" spellcheck="false" style="min-width:140px"></span><button class="today noprint" type="button">Today</button></div><div class="ln">${b}</div></div></div>`;

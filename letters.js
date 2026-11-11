@@ -151,7 +151,7 @@ ${firm('firm_address')||'Windhoek, Namibia'}`].filter(Boolean).join('\n\n');
   let VL=null;
   async function vlogo(){
     if(VL)return VL;
-    try{const r=await fetch('logo-virtuoso.png');const b=await r.blob();VL=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)})}catch(e){VL=''}
+    try{const r=await fetch('logo-bw.png');const b=await r.blob();VL=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)})}catch(e){VL=''}
     return VL;
   }
   const lhImg=async()=>L.type==='mgmt'?await window.VIRTUOSO_DOCS.logoData():(await vlogo()||await window.VIRTUOSO_DOCS.logoData());

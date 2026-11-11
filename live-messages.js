@@ -111,11 +111,19 @@
       if(up&&M.loaded&&state.tab[state.role]!=='messages')toast('You have a new message');
       if(state.tab[state.role]==='dash'&&typeof render==='function')render()}}
 
+  async function loadPres(){
+    if(!LIVE){const n=Date.now(),p={};(state.users||[]).forEach((u,i)=>{p[u.id]={a:u.type==='admin',t:new Date(u.id===state.user.id?n:i===1?n-20000:n-(3+i)*36e5).toISOString()}});
+      (state.users||[]).filter(u=>u.id!==state.user.id&&(u.type==='admin')).forEach(u=>{p[u.id].t=new Date(n-5000).toISOString()});M.pres=p;return}
+    const r=await sb().from('user_presence').select('user_id,is_admin,last_seen');
+    if(r.error)return;const p={};(r.data||[]).forEach(x=>{p[x.user_id]={a:!!x.is_admin,t:x.last_seen}});M.pres=p}
+  let hbT=0;
+  function heartbeat(){if(!LIVE||!state.user||state.user.mustChange||document.hidden)return;if(Date.now()-hbT<25000)return;hbT=Date.now();sb().rpc('touch_presence').then(()=>{},()=>{})}
+  document.addEventListener('visibilitychange',()=>{hbT=0;heartbeat()});
   async function refresh(full){
     if(!state.user||state.user.mustChange)return;
     try{
       if(M.emps===null)await loadEmps();
-      await loadThreads();M.err='';
+      await loadThreads();await loadPres();M.err='';
       if(!isAdm()&&!M.active&&M.threads[0])M.active=M.threads[0].id;
       if(M.active)await loadMsgs(M.active);
     }catch(e){M.err=/does not exist|schema cache/i.test(e.message||'')?'Messages are not set up yet (migration 0017 must be run).':'Could not load messages: '+(e.message||'error')}
@@ -129,6 +137,7 @@
     if(u!==M.uid){M.uid=u;M.threads=[];M.msgs={};M.reacts={};M.emps=null;M.active=null;M.loaded=false;M.lastUnread=0;M.reply=null;M.draft={};M.att={chat:[],nw:[]};M.nw=null;M.tPoll=0;
       if(M.rt){try{sb().removeChannel(M.rt)}catch(e){}M.rt=null}
       if(u&&!state.user.mustChange){if(LIVE)subscribe();refresh()}return}
+    heartbeat();
     if(u&&Date.now()-M.tPoll>(onPage()?6000:15000)){M.tPoll=Date.now();refresh()}
   },500);
   function subscribe(){
@@ -156,7 +165,7 @@
 .me .mg-b{background:var(--accent-soft);border-color:var(--accent)}
 .mg-nm{font-size:12px;font-weight:600;color:var(--accent)}
 .mg-q{border-left:3px solid var(--accent);background:rgba(127,127,127,.12);border-radius:4px;padding:3px 8px;margin:3px 0;font-size:13px;color:var(--muted);cursor:pointer}
-.mg-meta{display:flex;gap:6px;justify-content:flex-end;align-items:center;font-size:11px;color:var(--muted);margin-top:2px}.tick.rd{color:#2a8ce0}
+.mg-meta{display:flex;gap:6px;justify-content:flex-end;align-items:center;font-size:11px;color:var(--muted);margin-top:2px}.tick{letter-spacing:-3px;font-weight:700}.tick.dl,.tick.sent{color:#8a93a6}.tick.rd{color:#2a8ce0}.mg-on{color:#1f9d55;font-weight:600}.mg-on:before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:#1f9d55;margin-right:5px}
 .mg-mb{border:0;background:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px}
 .mg-menu{position:absolute;z-index:5;top:100%;right:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.2);padding:6px;min-width:190px}
 .me .mg-menu{right:0}.mg-row:not(.me) .mg-menu{left:0;right:auto}
@@ -184,7 +193,18 @@
 @media(max-width:820px){.mg{grid-template-columns:1fr;height:calc(100vh - 130px)}.mg[data-m=chat] .mg-l{display:none}.mg[data-m=list] .mg-c{display:none}.mg-ch .back{display:inline-block}.mg-b{max-width:88%}}`;
   (function(){const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s)})();
 
-  const ticks=(m,t)=>{if(!m.mine)return '';const rd=new Date(isAdm()?t.emp_read_at:t.admin_read_at)>=new Date(m.created_at);return `<span class="tick${rd?' rd':''}" title="${rd?'Read':'Sent'}">${rd?'✓✓':'✓'}</span>`};
+  /* presence: M.pres = {userId:{a:isAdmin,t:ISO}}. Online = seen in the last 75 s. */
+  const lastSeenOf=empId=>{
+    if(isAdm()){const p=(M.pres||{})[empId];return p?p.t:null}
+    let best=null;Object.values(M.pres||{}).forEach(p=>{if(p.a&&(!best||p.t>best))best=p.t});return best};
+  const isOnline=iso=>!!iso&&Date.now()-new Date(iso).getTime()<75000;
+  const seenTxt=iso=>{if(!iso)return 'Last seen: not yet';if(isOnline(iso))return 'Online';const d=new Date(iso),t=tm(iso),now=new Date(),y=new Date(Date.now()-864e5),same=(a,b)=>a.toDateString()===b.toDateString();
+    return 'Last seen '+(same(d,now)?'today at '+t:same(d,y)?'yesterday at '+t:d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' at '+t)};
+  const ticks=(m,t)=>{if(!m.mine)return '';
+    const rd=new Date(isAdm()?t.emp_read_at:t.admin_read_at)>=new Date(m.created_at);
+    const seen=lastSeenOf(t.employee_id),dl=rd||(seen&&new Date(seen)>=new Date(m.created_at));
+    const st=rd?'rd':dl?'dl':'sent',tx=rd?'Read':dl?'Delivered':'Sent (recipient offline)';
+    return `<span class="tick ${st}" title="${tx}" aria-label="${tx}">${st==='sent'?'✓':'✓✓'}</span>`};
   function fileIcon(a){const n=(a.name||'').toLowerCase();return /\.pdf$/.test(n)?'📕':/\.docx?$/.test(n)?'📘':/\.xlsx?$|\.csv$/.test(n)?'📗':/\.pptx?$/.test(n)?'📙':/\.zip$/.test(n)?'🗜️':/\.(mp3|m4a|wav|ogg)$/.test(n)?'🎵':/\.(mp4|mov)$/.test(n)?'🎬':'📄'}
   function bubble(m,t,list,rx){
     const mine=m.sender_id===state.user.id;m.mine=mine;
@@ -217,7 +237,7 @@
   function composer(key,idp){
     return `${key==='chat'?'<div id="mgReply">'+replyBar()+'</div>':''}<div id="${idp}Att">${attStrip(key)}</div>
       <div class="mg-in"><button class="mg-ib" data-act="mgEm" data-k="${key}" aria-label="Emoji" title="Emoji">😊</button>
-      <button class="mg-ib" data-act="mgPick" data-k="${key}" aria-label="Attach files" title="Attach files">📎</button>
+      <button class="mg-ib" data-act="mgPick" data-k="${key}" aria-label="Attach files" title="Attach files" style="font-size:24px;font-weight:300;line-height:1">+</button>
       <textarea id="${idp}Text" data-k="${key}" rows="1" maxlength="${MAXT}" placeholder="Type a message" aria-label="Message"></textarea>
       <button class="mg-ib mg-send" data-act="mgSend" data-k="${key}" aria-label="Send" ${M.busy?'disabled':''}>➤</button></div><div id="${idp}Em">${emojiPanel(key)}</div>`;
   }
@@ -233,7 +253,7 @@
   function head(){
     if(!M.active&&isAdm())return '';
     const t=curThread(),name=isAdm()?empName(t?t.employee_id:M.pendingEmp):'Virtuous Accounting',sub=isAdm()?((M.emps||[]).find(e=>e.id===(t?t.employee_id:M.pendingEmp))||{}).title||'Employee':'Administrator';
-    return `${isAdm()?'<button class="mg-ib back" data-act="mgBack" aria-label="Back">←</button>':''}<span class="mg-av">${esc(ini(name))}</span><div><b>${esc(name)}</b><div class="note" style="font-size:12px">${esc(sub||'')}</div></div>`;
+    return `${isAdm()?'<button class="mg-ib back" data-act="mgBack" aria-label="Back">←</button>':''}<span class="mg-av">${esc(ini(name))}</span><div><b>${esc(name)}</b><div class="note" style="font-size:12px">${esc(sub||'')} &middot; ${(()=>{const ls=lastSeenOf(t?t.employee_id:M.pendingEmp);return isOnline(ls)?'<span class="mg-on">Online</span>':esc(seenTxt(ls))})()}</div></div>`;
   }
   function paintMsgs(stick){
     const box=document.getElementById('mgMsgs');if(!box)return;

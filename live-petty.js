@@ -95,7 +95,7 @@
   const m_=()=>month();
   function readsHTML(key,mk){
     const rs=S.reads.filter(r=>r.key===key&&r.m===mk);if(!rs.length)return '';
-    return `<div style="margin-top:10px"><b>Read results</b> <span class="note">${esc(monthLabel(mk))} / ${esc(key.split('|').map((v,i)=>i?(KINDS.find(k=>k[0]===v)||[0,v])[1]:(ENTITIES.find(e=>e[0]===v)||[0,v])[1]).join(' / '))}</span><ul style="list-style:none;margin:6px 0 0;padding:0">${rs.map(r=>`<li style="padding:6px 0;border-top:1px solid var(--line)"><b>${esc(r.name)}</b> <span class="note">${esc(r.st)}${r.n?`: ${r.n} line${r.n>1?'s':''}, total ${f2(r.sum)}`:''}</span>${r.lines&&r.lines.length?`<details><summary class="note">Show lines</summary><div class="note">${r.lines.map(l=>esc((l.date||'')+'  '+(l.desc||l.vendor||'')+'  '+f2(l.amt))).join('<br>')}</div></details>`:''}</li>`).join('')}</ul></div>`;
+    return `<div style="margin-top:10px"><b>Read</b> <span class="note">${esc(monthLabel(mk))}</span><ul style="list-style:none;margin:6px 0 0;padding:0">${rs.map(r=>`<li class="note" style="padding:3px 0">${esc(r.name)}${/^Reading|^Could/.test(r.st)?' ('+esc(r.st)+')':''}</li>`).join('')}</ul></div>`;
   }
   async function openDoc(id){
     if(!LIVE){const d=state.pcDocs.find(x=>x.id===id);if(d)window.open(d.url,'_blank');return}

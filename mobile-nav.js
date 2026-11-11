@@ -9,6 +9,12 @@
   css.textContent=`
 @media (max-width:${BP}px){
   body{overflow-x:hidden}
+  /* signed out: no menu rail, no app shell, only the sign-in card */
+  body.auth-out #side,body.auth-out .shell,body.auth-out #scrim{display:none!important}
+  body.auth-out #login{padding-left:16px;padding-right:16px}
+  body.auth-out #login .lcard{max-width:100%;padding:18px 16px}
+  body.auth-out #login .lcard::after{display:none}
+  body.auth-out .lcard::before{font-size:20px}
   /* the rail is fixed, so the page simply starts after it */
   .shell{display:block!important;padding-left:calc(${RAIL}px + env(safe-area-inset-left,0px))}
   .col{min-width:0}

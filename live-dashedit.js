@@ -73,8 +73,12 @@
   /* ---------------- employee side ---------------- */
   const M={uid:null,loaded:false,loading:false,config:empty(),pages:[],version:0,seen:0,note:'',done:new Set(),pulse:0};
   const isNew=()=>state.user&&state.user.type==='emp'&&M.loaded&&M.version>M.seen&&(M.config.blocks.length||M.config.pages.length);
+  let BASE=null;
   function applyNav(){
-    NAV.emp=NAV.emp.filter(g=>g[0]!==GROUP);
+    /* per-employee menu changes made by the admin (hide / rename built-in pages). Hidden pages are cosmetic: RLS still decides access. */
+    if(!BASE)BASE=JSON.parse(JSON.stringify(NAV.emp.filter(g=>g[0]!==GROUP)));
+    const mn=(M.config&&M.config.menu)||{},hid=Array.isArray(mn.hidden)?mn.hidden:[],ren=mn.rename&&typeof mn.rename==='object'?mn.rename:{};
+    NAV.emp=BASE.map(g=>[g[0],g[1].filter(x=>x[0]==='dash'||!hid.includes(x[0])).map(x=>[x[0],String(ren[x[0]]||x[1]).slice(0,40)])]).filter(g=>g[1].length);
     Object.keys(VIEWS).filter(k=>k.startsWith('cp_')).forEach(k=>{delete VIEWS[k];delete ICON[k]});
     const pages=M.config.pages||[];M.pages=pages;
     if(!pages.length)return;
@@ -152,7 +156,7 @@
   };
   VIEWS.dashedit=vEdit;ICON.dashedit='<rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4M7 8h6M7 12h10"/>';
   {const p=NAV.adm.find(x=>x[0]==='People');if(p&&!p[1].some(x=>x[0]==='dashedit'))p[1].splice(1,0,['dashedit','Employee dashboards'])}
-  window.VIRTUOSO_DASHEDIT={isNew};
+  window.VIRTUOSO_DASHEDIT={isNew,admin:()=>A,dirty:()=>{A.dirty=true},rid,base:()=>BASE||NAV.emp.filter(g=>g[0]!==GROUP)};
   setInterval(()=>{const u=state.user?state.user.id:null;if(u!==M.uid){M.uid=u;M.loaded=false;M.loading=false;M.config=empty();M.version=0;M.seen=0;M.done=new Set();NAV.emp=NAV.emp.filter(g=>g[0]!==GROUP);A.emps=null;A.sel=null;A.config=empty()}},700);
   setInterval(()=>{if(state.user&&state.user.type==='emp'&&M.loaded)loadMine(true)},20000);
 

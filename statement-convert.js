@@ -331,7 +331,7 @@
       <tr><td>Closing balance calculated</td><td class="n"><b>${T.calc==null?'-':f2(T.calc)}</b></td><td></td></tr>
       <tr><td>Closing balance on the statement${T.closeSrc?' ('+T.closeSrc+')':''}</td><td class="n"><b>${T.close==null?'not found':f2(T.close)}</b></td><td>${inp('close',f.closeType,'type from statement')}</td></tr>
       <tr><td>Difference</td><td class="n"><b>${T.diff==null?'-':f2(T.diff)}</b></td><td></td></tr></tbody></table></div>`;
-    return `<div class="panel scc" data-f="${f.id}"><div class="ph"><h3>${esc(f.name)}</h3><div class="row"><button class="btn sm" type="button" data-act="scXlsx" data-i="${i}">Download Excel</button><button class="btn ghost sm" type="button" data-act="scCsv" data-i="${i}">Download CSV</button><button class="btn ghost sm" type="button" data-act="scDrop" data-i="${i}">Remove</button></div></div>
+    return `<div class="panel scc" data-f="${f.id}"><div class="ph"><h3>${esc(f.name)}</h3><div class="row"><button class="btn sm" type="button" data-act="scPrev" data-i="${i}">Preview</button><button class="btn sm" type="button" data-act="scXlsx" data-i="${i}">Download Excel</button><button class="btn ghost sm" type="button" data-act="scCsv" data-i="${i}">Download CSV</button><button class="btn ghost sm" type="button" data-act="scDrop" data-i="${i}">Remove</button></div></div>
       <p class="note" style="margin:0 0 8px">${f.rows.length} line${f.rows.length===1?'':'s'} read from ${f.pages} page${f.pages===1?'':'s'} (${f.mode==='ocr'?'scanned, read with OCR':'text in the PDF'}).${T.flagged?' <b>'+T.flagged+' line'+(T.flagged===1?'':'s')+' to review.</b>':''} The balances above are only a check; they are never added to the lines.</p>
       ${box}
       <div class="tbl" style="max-height:520px;overflow:auto"><table style="min-width:860px"><thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="n">Debit</th><th class="n">Credit</th><th class="n">Balance</th><th>Review</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="note">No transactions were found. Check that the file is a bank statement and try a clearer scan.</td></tr>'}</tbody></table></div>
@@ -409,12 +409,30 @@
   const money_=NAV.adm.find(g=>g[0]==='Money');
   if(money_&&!money_[1].some(x=>x[0]==='stmt'))money_[1].push(['stmt','Statement conversion']);
 
+  function preview(i){
+    const f=S.files[i],T=totals(f),rs=sheetRowsPage(f);
+    const old=document.getElementById('scPrv');if(old)old.remove();
+    const n=v=>v==null?'':f2(v);
+    const ok=T.ok==null?'Cannot verify (balance missing)':T.ok?'Totals agree with the statement':'Totals DO NOT agree (difference '+f2(T.diff)+')';
+    const o=document.createElement('div');o.id='scPrv';
+    o.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,15,40,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+    o.innerHTML=`<div style="background:#fff;color:#111;border-radius:12px;max-width:1000px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid #ddd;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="flex:1;min-width:160px">Preview: ${esc(baseName(f.name))}.xlsx (Sheet1)</b>
+      <button class="btn sm" type="button" data-act="scPrvX" data-i="${i}">Download Excel</button><button class="btn ghost sm" type="button" data-act="scPrvC" data-i="${i}">Download CSV</button><button class="btn ghost sm" type="button" data-act="scPrvClose">Close</button></div>
+      <div style="padding:8px 16px;font-size:13px;border-bottom:1px solid #eee"><b style="color:${T.ok?'#1b7a45':T.ok==null?'#8a6d00':'#c22'}">${esc(ok)}</b> &middot; Opening ${T.open==null?'-':f2(T.open)} &middot; Debits ${f2(T.deb)} &middot; Credits ${f2(T.cre)} &middot; Closing on statement ${T.close==null?'-':f2(T.close)} &middot; ${rs.length} lines</div>
+      <div style="overflow:auto;padding:0 16px 16px"><table style="border-collapse:collapse;font:11pt Arial,sans-serif;width:100%;margin-top:8px"><thead><tr>${['Date','Description','Reference','Debit','Credit','Balance'].map((h,k)=>`<th style="text-align:${k>2?'right':'left'};border:1px solid #bbb;padding:4px 8px;background:#f2f2f2">${h}</th>`).join('')}</tr></thead>
+      <tbody>${rs.map(r=>`<tr><td style="border:1px solid #ddd;padding:3px 8px;white-space:nowrap">${esc(r.date)}</td><td style="border:1px solid #ddd;padding:3px 8px">${esc(r.desc)}</td><td style="border:1px solid #ddd;padding:3px 8px;white-space:nowrap">${esc(r.ref)}</td><td style="border:1px solid #ddd;padding:3px 8px;text-align:right">${n(r.debit)}</td><td style="border:1px solid #ddd;padding:3px 8px;text-align:right">${n(r.credit)}</td><td style="border:1px solid #ddd;padding:3px 8px;text-align:right">${n(r.balance)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    document.body.appendChild(o);
+  }
   document.addEventListener('click',e=>{
     const z=e.target.closest&&e.target.closest('#scDropZone');
     if(z){e.stopImmediatePropagation();const i=document.getElementById('scFile');if(i)i.click();return}
     const b=e.target.closest&&e.target.closest('[data-act^="sc"]');if(!b)return;
     e.stopImmediatePropagation();
     const a=b.dataset.act,i=+b.dataset.i,f=S.files[i];
+    if(a==='scPrev'){if(f&&f.rows)preview(i);return}
+    if(a==='scPrvClose'){const o=document.getElementById('scPrv');if(o)o.remove();return}
+    if(a==='scPrvX'||a==='scPrvC'){const o=document.getElementById('scPrv');if(o)o.remove();const ff=S.files[+b.dataset.i];if(ff){if(a==='scPrvX')buildXlsx(sheetRowsPage(ff)).then(bl=>save(bl,baseName(ff.name)+'.xlsx')).catch(x=>toast('Could not create the Excel file: '+(x.message||'error')));else save(buildCsv(sheetRowsPage(ff)),baseName(ff.name)+'.csv')}return}
     if(a==='scDrop'){S.files.splice(i,1);return render()}
     if(a==='scDel'){f.rows.splice(+b.dataset.k,1);return render()}
     if(a==='scUse'){const r=f.rows[+b.dataset.k];if(r&&r.sugg){r.amt=r.sugg.amt;r.dir=r.sugg.dir;r.sugg=null;r.flags=['Amount taken from the balance by you'];}return render()}

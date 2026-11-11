@@ -21,7 +21,7 @@
   const monthsList=()=>{const out=[],end=(()=>{const t=parse(nowKey()+'-01');t.setMonth(t.getMonth()+1);const k=iso(t).slice(0,7);return k>'2027-02'?k:'2027-02'})();
     let y=2026,m=3;while((y+'-'+pad(m))<=end){out.push(y+'-'+pad(m));if(++m>12){m=1;y++}}return out};
   const defMonth=()=>{const l=monthsList(),k=nowKey();return l.includes(k)?k:l[l.length-1]};
-  const fresh=()=>({msg:'',uid:null,adv:null,loadA:false,people:null,month:null,docs:null,loadD:false,busy:false});
+  const fresh=()=>({msg:'',uid:null,adv:null,loadA:false,people:null,month:null,docs:null,loadD:false,busy:false,reads:[]});
   let S=fresh();
   if(!state.pcDocs)state.pcDocs=[];
   const month=()=>S.month||(S.month=defMonth());
@@ -37,9 +37,9 @@
     if(LIVE&&S.docs===null)loadDocs();
     const m=month();
     return `<div class="panel" id="pfPanel"><h3>Scanned documents</h3>
-    <p class="note" style="margin-top:0">Upload scanned bank and cash documents into the month's folders. PDF, JPG or PNG, up to 10 MB each.${LIVE?'':' (Sample mode: files stay in this browser tab only.)'}</p>
+    <p class="note" style="margin-top:0">Upload scanned bank and cash documents into the month's folders. Select as many files as you like (PDF, JPG or PNG, up to 10 MB each); each is uploaded and then read automatically.${LIVE?'':' (Sample mode: files stay in this browser tab only.)'}</p>
     <label style="max-width:260px">Month<select id="pfMonth" aria-label="Month">${monthsList().map(k=>`<option value="${k}" ${k===m?'selected':''}>${esc(monthLabel(k))}</option>`).join('')}</select></label>
-    <div class="err" id="pfMsg" role="alert">${esc(S.msg||'')}</div>
+    <div class="err" id="pfMsg" role="alert">${esc(S.msg||'')}</div>${readsHTML()}
     ${ENTITIES.map(([ek,el])=>`<div style="margin-top:14px"><b>${esc(el)}</b>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px">
       ${KINDS.map(([kk,kl])=>{const list=docsFor(ek,kk);return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px">
@@ -57,10 +57,10 @@
   const safeName=n=>n.replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^\.+/,'').slice(-90)||'scan';
   const guess=f=>f.type||(/\.pdf$/i.test(f.name)?'application/pdf':/\.png$/i.test(f.name)?'image/png':/\.jpe?g$/i.test(f.name)?'image/jpeg':'');
 
-  const hint=(m,fallback)=>/relation .* does not exist|schema cache|could not find the table/i.test(m||'')?'the petty_documents table is missing: apply migration 0009':/bucket not found/i.test(m||'')?'the "documents" storage bucket does not exist: apply migration 0010':/row-level security|violates|not allowed|unauthori[sz]ed|permission/i.test(m||'')?'permission denied: apply migration 0010 and check you are signed in as an admin':fallback+' ['+String(m||'').slice(0,80)+']';
+  const hint=(m,fallback)=>/relation .* does not exist|schema cache|could not find the table/i.test(m||'')?'the petty_documents table is missing: apply migration 0009':/bucket not found/i.test(m||'')?'the "documents" storage bucket does not exist: apply migration 0010':/row-level security|violates|not allowed|unauthori[sz]ed|permission/i.test(m||'')?'permission denied: apply migration 0026 (table grants) and check you are signed in as an admin':fallback+' ['+String(m||'').slice(0,80)+']';
   async function upload(ek,kk,files){
     if(S.busy)return;S.busy=true;lockAll(true);S.msg='';err('pfMsg','');
-    const msgs=[];let done=0;const m=month();
+    const msgs=[],okFiles=[];let done=0;const m=month();
     for(const f of files){
       const mime=guess(f);
       if(!OK.test(mime)){msgs.push(f.name+': only PDF, JPG or PNG files.');continue}
@@ -74,12 +74,28 @@
           const ins=await sb().from('petty_documents').insert({month:m+'-01',entity:ek,kind:kk,storage_path:path,name:f.name,size:f.size,mime});
           if(ins.error){await sb().storage.from('documents').remove([path]);throw new Error('record: '+hint(ins.error.message,'migration 0009 may not be applied yet'))}
         }else state.pcDocs.unshift({id:uid(),month:m,entity:ek,kind:kk,name:f.name,size:f.size,mime,url:URL.createObjectURL(f),at:new Date().toISOString()});
-        done++;
+        done++;okFiles.push(f);
       }catch(x){msgs.push(f.name+': could not be uploaded ('+(x.message||'unknown error')+').')}
     }
     S.busy=false;lockAll(false);
     if(done){S.docs=null;toast(done+' file'+(done>1?'s':'')+' uploaded')}
     S.msg=msgs.join(' ');render();
+    if(okFiles.length)readAll(okFiles);
+  }
+  async function readAll(fs){
+    const O=window.VIRTUOSO_OCR;if(!O||!O.readFileWords)return;
+    for(const f of fs){
+      const r={name:f.name,st:'Reading…'};S.reads.unshift(r);render();
+      try{const x=await O.readFileWords(f,{rotate:0,progress:()=>{}});const p=O.parseWords(x.pages,{month:m_()});
+        r.n=p.lines.length;r.sum=p.lines.reduce((a,l)=>a+(+l.amt||0),0);r.lines=p.lines.slice(0,50);r.st=r.n?'Read':'Read, no payment lines found'}
+      catch(e){r.st='Could not be read: '+(e.message||'error')}
+      render();
+    }
+  }
+  const m_=()=>month();
+  function readsHTML(){
+    if(!S.reads.length)return '';
+    return `<div style="margin-top:14px"><b>Read results</b><ul style="list-style:none;margin:6px 0 0;padding:0">${S.reads.map(r=>`<li style="padding:6px 0;border-top:1px solid var(--line)"><b>${esc(r.name)}</b> <span class="note">${esc(r.st)}${r.n?`: ${r.n} line${r.n>1?'s':''}, total ${f2(r.sum)}`:''}</span>${r.lines&&r.lines.length?`<details><summary class="note">Show lines</summary><div class="note">${r.lines.map(l=>esc((l.date||'')+'  '+(l.desc||l.vendor||'')+'  '+f2(l.amt))).join('<br>')}</div></details>`:''}</li>`).join('')}</ul></div>`;
   }
   async function openDoc(id){
     if(!LIVE){const d=state.pcDocs.find(x=>x.id===id);if(d)window.open(d.url,'_blank');return}

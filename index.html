@@ -240,7 +240,7 @@ th{background:rgba(11,63,181,.07);color:var(--fg)}
 .lcard{border-radius:20px;border:1px solid rgba(246,213,106,.7);box-shadow:0 20px 50px rgba(3,10,40,.45)}
 body.auth-out{background:radial-gradient(800px 400px at 80% 0,rgba(246,213,106,.25),transparent 60%),linear-gradient(160deg,#040d2b,#0b2a78);background-attachment:fixed}
 .auth-out .wm{display:none}
-body.auth-out::before{display:block;content:"";position:fixed;inset:0;height:auto;background:url(logo-dark.png) 4vw center/min(54vw,calc(88vh*1.37)) auto no-repeat;opacity:.95;z-index:0;pointer-events:none}
+body.auth-out::before{display:block;content:"";position:fixed;inset:0;height:auto;background:url(logo-v2.png) 4vw center/min(54vw,calc(88vh*1.37)) auto no-repeat;opacity:.95;z-index:0;pointer-events:none}
 .auth-out #login{justify-content:flex-end;padding-right:max(24px,6vw)}
 body.auth-out #login .lcard{margin:auto 0 auto auto}
 @media (max-width:900px){
@@ -262,12 +262,15 @@ body.auth-out #login .lcard{margin:auto 0 auto auto}
   header{padding:12px 14px 2px}main{padding:6px 14px 20px}.foot{padding-inline:14px}
   #side{position:fixed;left:0;top:0;bottom:0;height:100vh;height:100dvh;align-self:stretch;z-index:30;width:286px;overflow-y:auto;overscroll-behavior:contain}h2{font-size:26px}
 }
+.logo.v2{mix-blend-mode:normal!important;filter:none!important;background:none!important;border-radius:0!important}
+#side .logo.v2{filter:drop-shadow(0 6px 14px rgba(0,0,0,.45))!important;max-width:230px}
+.lcard .logo.v2{max-width:320px}
 </style>
 
 <div id="login"><div class="lcard" id="lcard"></div></div>
 <div class="shell">
   <aside id="side" aria-label="Main navigation">
-    <div class="brand"><img class="logo" src="logo-dark.png" alt="Virtuous Accounting Solutions CC System"><small>Preview with example data, Oct 2026 (FY2027)</small></div>
+    <div class="brand"><img class="logo v2" src="logo-v2.png" alt="Virtuous Accounting Solutions CC System"><small>Preview with example data, Oct 2026 (FY2027)</small></div>
     <div id="tabs"></div>
     <div class="sidefoot" id="who"></div>
   </aside>
@@ -476,10 +479,10 @@ function authHTML(){
   <label>Confirm new password<input id="cpConf" type="password" autocomplete="new-password" required></label>
   <div class="note">At least 8 characters, with a number.</div><div class="err" id="cpErr" role="alert"></div>
   <button class="btn" type="submit">Save and continue</button><button class="btn ghost" type="button" data-act="signout">Cancel</button></form>`;
-  if(state.authView==='forgot')return `<img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System"><div class="brand" style="text-align:center">Forgot your password?<small>Enter your email and we will send you a link to choose a new one.</small></div>
+  if(state.authView==='forgot')return `<img class="logo v2" src="logo-v2.png" alt="Virtuous Accounting Solutions CC System"><div class="brand" style="text-align:center">Forgot your password?<small>Enter your email and we will send you a link to choose a new one.</small></div>
   <form id="forgotForm" method="post"><label>Email<input id="fgEmail" name="email" type="email" autocomplete="username" required></label>
   <div class="err" id="fgMsg" role="alert"></div><button class="btn" type="submit">Send reset link</button><button class="btn ghost" type="button" data-act="demoBack">Back to sign in</button></form>`;
-  return `<img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System"><div class="brand" style="text-align:center"><small>Sign in with the details your administrator gave you</small></div>
+  return `<img class="logo v2" src="logo-v2.png" alt="Virtuous Accounting Solutions CC System"><div class="brand" style="text-align:center"><small>Sign in with the details your administrator gave you</small></div>
   <form id="loginForm" method="post"><label>Email<input id="liEmail" name="email" type="email" autocomplete="username" required></label>
   <label>Password<input id="liPass" name="password" type="password" autocomplete="current-password" required></label>
   <div style="text-align:right;margin:-2px 0 4px"><button type="button" style="background:none;border:0;padding:4px 0;color:inherit;text-decoration:underline;cursor:pointer;font:inherit;font-size:13px;min-height:40px" data-act="demoForgot">Forgot password?</button></div>

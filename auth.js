@@ -25,7 +25,7 @@
     <label>Confirm new password<input id="cpConf" type="password" autocomplete="new-password" required></label>
     <div class="note">At least 8 characters, with a number.</div><div class="err" id="cpErr" role="alert"></div>
     <button class="btn" type="submit">Save and continue</button><button class="btn ghost" type="button" data-act="signout">Cancel</button></form>`;
-    const logo='<img class="logo" src="logo.png" alt="Virtuous Accounting Solutions CC System">';
+    const logo='<img class="logo v2" src="logo-v2.png" alt="Virtuous Accounting Solutions CC System">';
     if(mode==='reset')return `${logo}<div class="brand" style="text-align:center">Reset your password<small>Choose a new password for your account.</small></div>
     <form id="rsForm"><label>New password<input id="rsNew" type="password" autocomplete="new-password" required></label>
     <label>Confirm new password<input id="rsConf" type="password" autocomplete="new-password" required></label>

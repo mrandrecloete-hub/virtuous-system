@@ -186,7 +186,7 @@
   /* Draw to a canvas, rotate, grayscale, stretch contrast, binarise (Otsu) and wipe table lines so the recogniser sees clean text. */
   function prepare(src,sw,sh,rot,targetW){
     const r=((rot||0)%360+360)%360,w0=r%180?sh:sw,h0=r%180?sw:sh;
-    const k=Math.min(2.2,Math.max(.5,targetW/w0)),W=Math.round(w0*k),H=Math.round(h0*k);
+    const k=Math.min(window.__OCR_KMAX||2.2,Math.max(.5,targetW/w0)),W=Math.round(w0*k),H=Math.round(h0*k);
     const cv=document.createElement('canvas');cv.width=W;cv.height=H;const cx=cv.getContext('2d',{willReadFrequently:true});
     cx.fillStyle='#fff';cx.fillRect(0,0,W,H);cx.save();cx.translate(W/2,H/2);cx.rotate(r*Math.PI/180);
     const dw=r%180?H:W,dh=r%180?W:H;cx.drawImage(src,-dw/2,-dh/2,dw,dh);cx.restore();
@@ -232,16 +232,41 @@
     })();
     return wLoading;
   }
+  /* Second look at every number: crop each numeric word, enlarge it and read it again with only digits, separators and Cr/Dr allowed.
+     Numbers are what matters most on a statement, and a single-word, digits-only read is far more reliable than the page-wide read.
+     When the two reads differ the new one is used and the word is marked (w.fx) so the line is flagged for review. */
+  const NUMLIKE=t=>{t=String(t).trim();if(!/\d/.test(t)||/[\/]/.test(t)||/[A-Za-z]{3,}/.test(t))return false;return t.replace(/[^\d]/g,'').length/t.length>=.5};
+  const STRICT=/^[-(+]?\d{1,3}(?:[, ]\d{3})*[.,]\d{2}\)?-?(?:cr|dr)?$|^[-(+]?\d+[.,]\d{2}\)?-?(?:cr|dr)?$/i;
+  async function refineNumbers(w,cv,words){
+    const cx=cv.getContext('2d',{willReadFrequently:true});let changed=0;
+    try{
+      await w.setParameters({tessedit_pageseg_mode:'8',tessedit_char_whitelist:'0123456789.,-CcRrDd'});
+      for(const x of words){
+        if(!NUMLIKE(x.t))continue;
+        const pad=6,x0=Math.max(0,Math.floor(x.x0)-pad),y0=Math.max(0,Math.floor(x.y0)-pad),ww=Math.min(cv.width-x0,Math.ceil(x.x1-x.x0)+pad*2),hh=Math.min(cv.height-y0,Math.ceil(x.y1-x.y0)+pad*2);
+        if(ww<8||hh<8)continue;
+        const k=Math.min(4,Math.max(1,64/hh)),c=document.createElement('canvas');c.width=Math.round(ww*k)+24;c.height=Math.round(hh*k)+24;
+        const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.imageSmoothingEnabled=true;g.drawImage(cv,x0,y0,ww,hh,12,12,Math.round(ww*k),Math.round(hh*k));
+        const r=await w.recognize(c),t=String(r.data.text||'').replace(/\s+/g,'').trim();
+        if(!t||!STRICT.test(t))continue;
+        const old=String(x.t).replace(/\s+/g,'');
+        if(t.toLowerCase()!==old.toLowerCase()){x.alt=x.t;x.t=t;x.fx=true;changed++}
+      }
+    }catch(e){console.warn('number re-read skipped',e)}
+    try{await w.setParameters({tessedit_pageseg_mode:'6',tessedit_char_whitelist:''})}catch(e){}
+    return changed;
+  }
   async function ocrCanvas(cv){
     const w=await getWorker(),res=await w.recognize(cv),data=res.data;
     let words=[];
     (data.lines||[]).forEach((l,li)=>(l.words||[]).forEach(x=>words.push({t:x.text,x0:x.bbox.x0,x1:x.bbox.x1,y0:x.bbox.y0,y1:x.bbox.y1,c:x.confidence,ln:li})));
     if(!words.length)words=(data.words||[]).map(x=>({t:x.text,x0:x.bbox.x0,x1:x.bbox.x1,y0:x.bbox.y0,y1:x.bbox.y1,c:x.confidence}));
+    await refineNumbers(w,cv,words);
     return {words,text:data.text||''};
   }
   /* returns {pages:[words[]], text, mode} */
   async function readFileWords(file,o){
-    const prog=(o&&o.progress)||(()=>{}),rot=(o&&o.rotate)||0,pages=[],texts=[];let mode='text';
+    const prog=(o&&o.progress)||(()=>{}),rot=(o&&o.rotate)||0,pages=[],texts=[],imgs=[];let mode='text';
     const isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name);
     if(isPdf){
       const doc=await pdfDoc(file),n=Math.min(doc.numPages,20);
@@ -250,21 +275,21 @@
         const page=await doc.getPage(p);let words=rot?[]:await pdfTextWords(page);
         if(words.reduce((s,w)=>s+w.t.length,0)>=40){pages.push(words);texts.push(words.map(w=>w.t).join(' '));continue}
         mode='ocr';
-        const vp1=page.getViewport({scale:1}),scale=Math.min(4,2600/Math.max(vp1.width,1)),vp=page.getViewport({scale}),cv=document.createElement('canvas');
+        const vp1=page.getViewport({scale:1}),scale=Math.min(window.__OCR_KMAX||4,(window.__OCR_W||2600)/Math.max(vp1.width,1)),vp=page.getViewport({scale}),cv=document.createElement('canvas');
         cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
-        const pc=prepare(cv,cv.width,cv.height,rot,2600);
+        const pc=prepare(cv,cv.width,cv.height,rot,window.__OCR_W||2600);
         onProg=(st,f)=>prog('Recognising text on page '+p+' of '+n+' ('+Math.round(f*100)+'%)',(p-1+f)/n);
-        const r=await ocrCanvas(pc);pages.push(r.words);texts.push(r.text);
+        const r=await ocrCanvas(pc);pages.push(r.words);texts.push(r.text);try{imgs[p-1]=pc.toDataURL('image/jpeg',.8)}catch(e){}
       }
     }else{
       mode='ocr';prog('Opening the image',0);
       const bmp=await new Promise((ok,bad)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{ok(im);setTimeout(()=>URL.revokeObjectURL(u),2000)};im.onerror=()=>bad(new Error('That image could not be opened.'));im.src=u});
       const pc=prepare(bmp,bmp.naturalWidth,bmp.naturalHeight,rot,2400);
       onProg=(st,f)=>prog('Recognising text ('+Math.round(f*100)+'%)',f);
-      const r=await ocrCanvas(pc);pages.push(r.words);texts.push(r.text);
+      const r=await ocrCanvas(pc);pages.push(r.words);texts.push(r.text);try{imgs[0]=pc.toDataURL('image/jpeg',.8)}catch(e){}
     }
     onProg=null;
-    return {pages,text:texts.join('\n\n'),mode};
+    return {pages,imgs,text:texts.join('\n\n'),mode};
   }
 
   /* ---------- screens ---------- */

@@ -96,7 +96,7 @@
   /* ---------- page ---------- */
   const css=document.createElement('style');
   css.textContent=`
-  .ssw{display:grid;gap:10px}
+  .ssw{display:grid;gap:10px;grid-template-columns:minmax(0,1fr)}.ssw>*{min-width:0}.sstool{min-width:0}
   .sstool{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .sstool .grow{flex:1}.sstool #ssStatus{font-size:12.5px;color:var(--muted)}
   .sscard{background:#fff;color:#16254a;border:1px solid #cfd6e4;border-radius:6px;overflow:hidden}

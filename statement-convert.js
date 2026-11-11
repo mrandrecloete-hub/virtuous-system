@@ -77,7 +77,7 @@
   function headerOf(row){
     const found={};
     const w=expand(row.w);
-    if(w.some(x=>money(x.t)))return null;
+    if(w.length>10||w.some(x=>money(x.t)))return null;
     for(let i=0;i<w.length;i++){
       const t1=String(w[i].t).trim(),t2=w[i+1]?t1+' '+String(w[i+1].t).trim():'';
       for(const [k,re] of HDR){
@@ -94,7 +94,7 @@
   /* the reader may hand over whole phrases ("03 Mar", "1,600.00 Cr"): split them into single words with estimated positions */
   function expand(ws){
     const out=[];
-    ws.forEach(w=>{const t=String(w.t);if(!/\s/.test(t.trim())){out.push(w);return}
+    ws.forEach(w=>{const t=String(w.t);if(!/\s/.test(t.trim())||/^\d{1,3}( \d{3})+\.\d{2}\s?(cr|dr)?$/i.test(t.trim())){out.push(w);return}
       const len=t.length||1,wd=w.x1-w.x0;let m;const re=/\S+/g;
       while(m=re.exec(t)){out.push({...w,t:m[0],x0:w.x0+wd*m.index/len,x1:w.x0+wd*(m.index+m[0].length)/len})}});
     return out;
@@ -163,7 +163,7 @@
         const low=a.text.trim();
         if(!a.date){
           const mo=OPEN.test(low),mc=CLOSE.test(low);
-          if((mo||mc)&&a.money.length){const mv=a.money[a.money.length-1].mv;const v=(mv.mk==='dr'||mv.neg)?-mv.v:mv.v;if(mo&&openBal==null)openBal=v;if(mc)closeBal=v;prev=null;continue}
+          if((mo||mc)&&a.money.length){const mv=a.money[(hdr&&hdr.balance)||a.money.length===1?a.money.length-1:0].mv;const v=(mv.mk==='dr'||mv.neg)?-mv.v:mv.v;if(mo&&openBal==null)openBal=v;if(mc)closeBal=v;prev=null;continue}
           if(prev&&a.money.length===0&&low&&!SKIP.test(low)&&a.y0-prev.y1<H*1.7&&prev.extra<2&&!/^(\d+\s*)?(of\s*\d+)?$/.test(low)){prev.desc+=' '+low;prev.extra++;prev.y1=a.y1}
           else prev=null;
           continue;
@@ -214,14 +214,24 @@
       const anyCr=out.some(o=>o.dir==='credit'),anyDr=out.some(o=>o.dir==='debit');
       out.forEach(o=>{if(!o.dir&&o.amt!=null){if(anyCr&&!anyDr)o.dir='debit';else if(anyDr&&!anyCr)o.dir='credit'}});
     }
-    resolveChain(out,openBal,opt.openingBalance);
+    /* No balance column and no markers (e.g. a card statement with one amount column): the printed opening and closing
+       balances decide whether the unmarked amounts are debits. Only the direction is set; no number is changed. */
+    if(!hasBalCol&&openBal!=null&&closeBal!=null){
+      const un=out.filter(o=>o.amt!=null&&!o.dir);
+      if(un.length){
+        const cr=r2(out.filter(o=>o.dir==='credit').reduce((a,o)=>a+o.amt,0)),dr=r2(out.filter(o=>o.dir==='debit').reduce((a,o)=>a+o.amt,0)),u=r2(un.reduce((a,o)=>a+o.amt,0));
+        const calc=r2(openBal-dr-u+cr);
+        if(Math.abs(calc-closeBal)<.005||Math.abs(calc+closeBal)<.005)un.forEach(o=>{o.dir='debit'});
+      }
+    }
+    resolveChain(out,openBal,opt.openingBalance,hasBalCol);
     out.forEach(o=>{if(o.dconf!=null&&o.dconf<85)o.flags.push('Check the description (scan was hard to read)')});
     return {hdr,rows:out,period:per,openBal:out.openUsed!=null?out.openUsed:openBal,closeBal,hasBalCol,pages:pages.length};
   }
 
   /* Checks the printed figures against each other. It NEVER changes a printed amount or balance and never
      calculates a missing one: disagreements are flagged, with a suggestion the user can accept (r.sugg). */
-  function resolveChain(rows,openBal,manualOpen){
+  function resolveChain(rows,openBal,manualOpen,hasBal){
     const n=rows.length;if(!n)return;
     const open=manualOpen!=null&&manualOpen!==''&&!isNaN(+manualOpen)?+manualOpen:openBal;
     rows.openUsed=open;                       /* printed (or typed by the user) only; never inferred */
@@ -243,7 +253,7 @@
         }
       }
       if(r.amt!=null&&!r.dir&&!r.sugg){r.flags.push('Debit or credit not clear: left empty, please choose')}
-      if(r.bal==null)r.flags.push('Balance not read');
+      if(r.bal==null&&hasBal)r.flags.push('Balance not read');
       prevBal=r.bal!=null?r.bal:null;          /* an unread balance breaks the chain instead of being guessed */
     }
   }
@@ -290,10 +300,11 @@
     const close=tn(f.closeType)!=null?tn(f.closeType):(f.closeBal!=null?f.closeBal:lastBal);
     const closeSrc=tn(f.closeType)!=null?'typed by you':(f.closeBal!=null?'printed closing balance':(lastBal!=null?'balance on the last line':''));
     const calc=open!=null?r2(open-deb+cre):null,alt=open!=null?r2(open+deb-cre):null;
-    const diff=calc!=null&&close!=null?r2(calc-close):null;
-    const ok=diff==null?null:Math.abs(diff)<.005;
+    let diff=calc!=null&&close!=null?r2(calc-close):null;
+    const flip=diff!=null&&Math.abs(diff)>=.005&&close!=null&&Math.abs(r2(calc+close))<.005;if(flip)diff=0;
+    const ok=diff==null?null:(Math.abs(diff)<.005||flip);
     const altOk=diff!=null&&!ok&&Math.abs(r2(alt-close))<.005;
-    return {rs,deb,cre,open,close,closeSrc,calc,diff,ok,altOk,lastBal,flagged:f.rows.filter(r=>r.flags&&r.flags.length).length};
+    return {rs,deb,cre,open,close,closeSrc,calc,diff,ok,altOk,flip,lastBal,flagged:f.rows.filter(r=>r.flags&&r.flags.length).length};
   }
   function cardHTML(f,i){
     if(f.status!=='done')return `<div class="panel scc" data-f="${f.id}"><div class="ph"><h3>${esc(f.name)}</h3><button class="btn ghost sm" type="button" data-act="scDrop" data-i="${i}">Remove</button></div>
@@ -309,7 +320,7 @@
       <td class="scf">${bad?`<span title="${esc((r.raw||'')+'')}">${esc(r.flags.join('; '))}</span>`:''}${r.sugg?` <button class="btn ghost sm" type="button" data-act="scUse" data-i="${i}" data-k="${k}" title="Because ${esc(r.sugg.why)}">Use ${f2(r.sugg.amt)} ${r.sugg.dir}</button>`:''}</td>
       <td><button class="btn ghost sm" type="button" data-act="scDel" data-i="${i}" data-k="${k}" aria-label="Delete line">&times;</button></td></tr>`}).join('');
     const cls=T.ok==null?'warn':T.ok?'ok':'bad';
-    const msg=T.ok==null?'Cannot verify yet: '+(T.open==null?'opening balance not found (type it below)':'closing balance not found (type it below)'):T.ok?'AGREES: opening - debits + credits = closing balance':'DOES NOT AGREE: difference '+f2(T.diff)+(T.altOk?'. It would agree if debits ADD to the balance (card-style statement): check the Debit/Credit columns.':'. Check the marked lines against the statement.');
+    const msg=T.ok==null?'Cannot verify yet: '+(T.open==null?'opening balance not found (type it below)':'closing balance not found (type it below)'):T.ok?(T.flip?'AGREES: closing balance on the statement is the amount owed ('+f2(T.close)+'), which equals opening (credit) less debits plus credits':'AGREES: opening - debits + credits = closing balance'):'DOES NOT AGREE: difference '+f2(T.diff)+(T.altOk?'. It would agree if debits ADD to the balance (card-style statement): check the Debit/Credit columns.':'. Check the marked lines against the statement.');
     const inp=(k,v,ph)=>`<input data-scb="${k}" data-i="${i}" value="${esc(v||'')}" inputmode="decimal" placeholder="${ph}" style="width:120px;text-align:right">`;
     const box=`<div class="scver ${cls}" style="border:2px solid ${T.ok==null?'#c9a227':T.ok?'#2e9e5b':'#d33'};border-radius:10px;padding:10px 12px;margin:0 0 10px">
       <b>${esc(msg)}</b>

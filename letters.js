@@ -147,7 +147,7 @@ ${firm('firm_address')||'Windhoek, Namibia'}`].filter(Boolean).join('\n\n');
   const currentBody=()=>{const key=JSON.stringify([L.type,L.client,L.contact,L.addr,L.entity,L.fye,L.encl,L.extra,L.signName,L.signTitle]);if(L.body===null||L.bodyFor!==key){L.body=bodyText();L.bodyFor=key}return L.body};
 
   /* ---------- letterhead document ---------- */
-  const VF={name:'VIRTUOSO ACCOUNTING SOLUTIONS CC',reg:'Registration Nr: CC/2020/04943',addr:'PO BOX 10704, Windhoek, Namibia',member:'Member: Barry Losper, NIPA Practice Nr: 20026'};
+  const VF={name:'VIRTUOSO ACCOUNTING SOLUTIONS CC',reg:'Registration Nr: CC/2020/04943',addr:'PO BOX 10704, Windhoek, Namibia'};
   let VL=null;
   async function vlogo(){
     if(VL)return VL;
@@ -170,7 +170,7 @@ ${firm('firm_address')||'Windhoek, Namibia'}`].filter(Boolean).join('\n\n');
         return `<p>${h}</p>`};
       const rows=parts.map(x=>fx(x));
       const logo=`<div class="vlogo"><img src="${esc(img)}" alt="Virtuoso logo"></div>`;
-      const foot=`<div class="vft"><b>${esc(VF.name)}</b><i>${esc(VF.reg)}</i><i>${esc(VF.addr)}</i><i>${esc(VF.member)}</i></div>`;
+      const foot=`<div class="vft"><b>${esc(VF.name)}</b><i>${esc(VF.reg)}</i><i>${esc(VF.addr)}</i></div>`;
       const ack=L.type==='trans'?`<div class="vpb"></div><div class="vsec">${logo}<p style="margin-top:22px">I acknowledge the contents of this transmittal letter and agree that the contents of the [return] is correct and that I am authorised to sign this confirmation on behalf of <b>${esc(L.client||'[Client name]')}</b>.</p>
 <table class="vsig"><tr><td>SIGNATURE</td><td>&nbsp;</td></tr><tr><td>NAME OF SIGNATORY</td><td>&nbsp;</td></tr><tr><td>POSITION</td><td>&nbsp;</td></tr><tr><td>DATE</td><td>&nbsp;</td></tr></table></div>`:'';
       return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(t[1])} - ${esc(L.client||'client')}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>

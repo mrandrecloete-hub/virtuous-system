@@ -254,7 +254,20 @@ body.auth-out #login .lcard::after{content:"";position:absolute;top:14px;left:16
 }
 .auth-out #login{position:relative;z-index:1;overflow:auto;align-items:flex-start;min-height:100dvh}
 .auth-out .lcard{margin:auto}
-.lcard{background:rgba(255,255,255,.93);backdrop-filter:blur(6px)}
+.lcard{background:rgba(214,230,255,.97);backdrop-filter:blur(6px);color-scheme:light;
+  --fg:#0b1a44;--muted:#2c4378;--line:#8fb0e6;--surface:#ffffff;--accent:#0b3fae}
+#login .lcard,#login .lcard *{color-scheme:light}
+#login .lcard{color:#0b1a44}
+#login .lcard .brand{color:#0b1a44}
+#login .lcard button[data-act=demoForgot],#login .lcard #liForgot{color:#0b3fae!important;font-weight:600}
+#login .lcard label,#login .lcard b,#login .lcard strong,#login .lcard h3,#login .lcard .li,#login .lcard .li *{color:#0b1a44}
+#login .lcard label{font-weight:600}
+#login .lcard input{background:#fff;color:#0b1a44;border:1px solid #8fb0e6;-webkit-text-fill-color:#0b1a44}
+#login .lcard input::placeholder{color:#5a6f9f}
+#login .lcard input:focus{outline:2px solid #0b3fae;outline-offset:1px;border-color:#0b3fae}
+#login .lcard .sub,#login .lcard p,#login .lcard small,#login .lcard .note{color:#1f3566}
+#login .lcard a,#login .lcard a:visited,#login .lcard .link{color:#0b3fae;text-decoration:underline}
+#login .lcard .btn.ghost,#login .lcard button.ghost{color:#0b3fae;background:#eef4ff;border-color:#8fb0e6}
 .lcard .logo{display:none}
 .lcard::before{content:"Sign in to Virtuoso System";font-size:22px;font-weight:700;color:var(--fg);text-align:center}
 .foot{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;padding:14px 28px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,#0b2a78,#040d2b);border-top:2px solid var(--gold2);color:#cfd9f7;font-size:12.5px}

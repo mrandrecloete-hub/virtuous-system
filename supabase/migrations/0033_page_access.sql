@@ -76,18 +76,18 @@ do $$ begin
 end $$;
 
 -- One-time starting grant (owner's request): Bjorn's work functions are exactly these four pages, with full access.
--- Matches an employee whose name starts with Bjorn, Björn, Bjørn or Bjoern (any capitals). Runs once per marker; the NOTICE says
--- how many people received it. Administrators can change it any time under People > Employee dashboards.
--- (Marker page_access_seed2: an earlier version of this block only matched the plain spelling "Bjorn" and may have matched nobody.)
+-- Matches by his email (ecrypted5@gmail.com) OR by name (Bjorn, Björn, Bjørn, Bjoern, any capitals), employees only. Runs once per
+-- marker; the NOTICE says how many people received it. Administrators can change it any time under People > Employee dashboards.
+-- (Marker page_access_seed3: earlier versions matched only the plain spelling "Bjorn" and may have matched nobody.)
 do $$ declare n int;
 begin
-  if not exists (select 1 from app_settings where key = 'page_access_seed2') then
+  if not exists (select 1 from app_settings where key = 'page_access_seed3') then
     alter table profiles disable trigger profiles_guard;
     update profiles set perms = array['formbuilder','receipts','sheets','petty']
-      where name ~* '^bj(o|ö|ø|oe)rn' and role = 'emp';
+      where role = 'emp' and (lower(email) = 'ecrypted5@gmail.com' or name ~* '^bj(o|ö|ø|oe)rn');
     get diagnostics n = row_count;
     alter table profiles enable trigger profiles_guard;
-    insert into app_settings (key, value) values ('page_access_seed2', to_jsonb(now()::text)) on conflict (key) do nothing;
-    raise notice 'Work functions: % employee(s) named Bjorn/Björn received Form builder, Receipts, Petty cash sheet and Reconcile.', n;
+    insert into app_settings (key, value) values ('page_access_seed3', to_jsonb(now()::text)) on conflict (key) do nothing;
+    raise notice 'Work functions: % employee(s) received Form builder, Receipts, Petty cash sheet and Reconcile.', n;
   end if;
 end $$;

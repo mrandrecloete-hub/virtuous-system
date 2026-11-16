@@ -602,7 +602,7 @@ function vLeave(){
     <div class="wide"><button class="btn" type="submit">Send application</button></div></form></div>
   <div class="panel"><h3>My applications</h3><div class="tbl"><table style="min-width:640px"><thead><tr><th>Type</th><th>Dates</th><th class="n">Days</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
     ${d.leaves.length?d.leaves.map(l=>`<tr><td>${esc(l.type)}</td><td>${fmtD(l.from)} to ${fmtD(l.to)}</td><td class="n">${l.days}</td><td>${esc(l.reason)}${l.file?`<div class="note">Attached: ${esc(l.file)}</div>`:''}</td><td>${pill(l.status,stc(l.status))}${l.decision?`<div class="note">Reason: ${esc(l.decision)}</div>`:''}${l.signed?' '+pill('Signed','ok'):''}</td>
-      <td>${l.status==='Pending'?`<button class="btn sm ghost" data-act="withdraw" data-id="${l.id}">Withdraw</button>`:''}</td></tr>`).join(''):'<tr><td colspan="6" class="note">No applications yet.</td></tr>'}
+      <td>${l.status==='Pending'?`<button class="btn sm ghost" data-act="withdraw" data-id="${l.id}">Withdraw</button>`:`<button class="btn sm bad" data-act="deleteLeave" data-id="${l.id}">Delete</button>`}</td></tr>`).join(''):'<tr><td colspan="6" class="note">No applications yet.</td></tr>'}
   </tbody></table></div></div></div>`;
 }
 function leaveCalc(){
@@ -1500,6 +1500,7 @@ document.addEventListener('click',async e=>{
   if(a==='toggleAccess'){const u=byId(id);u.access=!u.access;if(!u.access)u.beat=null;toast(u.name+(u.access?' can sign in again':' can no longer sign in'))}
   if(a==='resetPw'){const u=byId(id),p=genPw();u.password=p;u.mustChange=true;state.newCred={name:u.name,email:u.email,password:p,mustChange:true}}
   if(a==='withdraw'){const d=D(),l=d.leaves.find(x=>x.id===id);l.status='Withdrawn';state.approvals=state.approvals.filter(x=>x.obj!==l);queue();toast('Application withdrawn')}
+  if(a==='deleteLeave'){if(!confirm('Delete this application? This cannot be undone.'))return;const d=D(),i=d.leaves.findIndex(x=>x.id===id);if(i>=0){const l=d.leaves[i];state.approvals=state.approvals.filter(x=>x.obj!==l);d.leaves.splice(i,1)}queue();toast('Application deleted')}
   if(a==='submitWeek'){const d=D(),list=d.entries.filter(x=>x.status==='Draft');list.forEach(x=>x.status='Submitted');
     const tot=d.entries.reduce((s,x)=>s+x.hrs,0);
     state.approvals.push({id:uid(),uid:state.user.id,type:'Timesheet',who:state.user.name,detail:'Week 19-23 Oct, '+tot.toFixed(1)+' h',status:'Pending',kind:'time',list});

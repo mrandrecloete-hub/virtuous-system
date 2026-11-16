@@ -42,7 +42,7 @@
       <div class="wide row"><button class="btn" type="submit">Send application</button><button class="btn ghost" type="button" data-act="llPreview">Preview, print or save form</button></div></form></div>
     <div class="panel"><h3>My applications</h3><div class="tbl"><table style="min-width:640px"><thead><tr><th>Type</th><th>Dates</th><th class="n">Days</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
       ${reqs.length?reqs.map(l=>`<tr><td>${esc(l.leave_type)}</td><td>${esc(fd(l.from_date))} to ${esc(fd(l.to_date))}</td><td class="n">${+l.days}</td><td>${esc(l.reason||'')}${l.doc_path?'<div class="note">Document attached</div>':''}</td><td>${pill(l.status,stc(l.status))}${l.decision_reason?`<div class="note">Reason: ${esc(l.decision_reason)}</div>`:''}</td>
-        <td><button class="btn sm ghost" data-act="llView" data-id="${esc(l.id)}">View form</button> ${l.status==='Pending'?`<button class="btn sm ghost" data-act="llWithdraw" data-id="${esc(l.id)}">Withdraw</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" class="note">${S.reqs===null?'Loading…':'No applications yet.'}</td></tr>`}
+        <td><button class="btn sm ghost" data-act="llView" data-id="${esc(l.id)}">View form</button> ${l.status==='Pending'?`<button class="btn sm ghost" data-act="llWithdraw" data-id="${esc(l.id)}">Withdraw</button>`:`<button class="btn sm bad" data-act="llDelete" data-id="${esc(l.id)}">Delete</button>`}</td></tr>`).join(''):`<tr><td colspan="6" class="note">${S.reqs===null?'Loading…':'No applications yet.'}</td></tr>`}
     </tbody></table></div></div></div>`;
   }
   /* The app calls this after every render of the Leave page and on input; use live balances. */
@@ -98,6 +98,14 @@
       return LP.open({ref:'LV-'+String(l.id).slice(0,8).toUpperCase(),status:l.status,name:u.name,title:u.title,email:u.email,type:l.leave_type,from:String(l.from_date).slice(0,10),to:String(l.to_date).slice(0,10),days:+l.days,half:!!l.half_day,reason:l.reason||'',phone:l.phone||'',cover:l.cover_name||'',doc:!!l.doc_path,note:l.decision_reason||''},l.id);
     }
     if(S.busy)return;
+    if(b.dataset.act==='llDelete'){
+      if(!confirm('Delete this application? This cannot be undone.'))return;
+      S.busy=true;lockAll(true);
+      const r=await sb().rpc('delete_leave_request',{p_id:b.dataset.id});
+      S.busy=false;lockAll(false);
+      if(r.error)return toast(safeMsg(r.error.message));
+      S.reqs=null;toast('Application deleted');return render();
+    }
     const kind='leave';
     if(!confirm('Withdraw this request?'))return;
     S.busy=true;lockAll(true);

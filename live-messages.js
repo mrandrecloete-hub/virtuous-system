@@ -131,7 +131,16 @@
   const unread=()=>state.user?M.threads.filter(unreadT).length:0;
   function badge(){const n=unread();if(n!==M.lastUnread){const up=n>M.lastUnread;M.lastUnread=n;if(typeof paintTabs==='function'&&state.user&&!state.user.mustChange)paintTabs();
       if(up&&M.loaded&&state.tab[state.role]!=='messages')toast('You have a new message');
+      if(up&&M.loaded&&!(onPage()&&isOpen()))desktopNotify();
       if(state.tab[state.role]==='dash'&&typeof render==='function')render()}}
+  function desktopNotify(){
+    if(!(window.VIRTUOSO_PREFS&&VIRTUOSO_PREFS.notifOn()))return;
+    const t=M.threads.filter(unreadT).sort((a,b)=>new Date(b.last_at)-new Date(a.last_at))[0];
+    if(!t)return;
+    let n;
+    try{n=new Notification(contactName(t.other_id),{body:t.last_text||'New message',icon:'icon-192.png',tag:'vx-dm-'+t.id,renotify:true})}catch(e){return}
+    n.onclick=()=>{try{window.focus()}catch(e){}state.tab[state.role]='messages';M.active=t.id;M.mobile='chat';if(typeof render==='function')render();n.close()};
+  }
 
   async function loadPres(){
     if(!LIVE){const n=Date.now(),p={};(state.users||[]).forEach((u,i)=>{p[u.id]={a:u.type==='admin',t:new Date(u.id===state.user.id?n:i===1?n-20000:n-(3+i)*36e5).toISOString()}});M.pres=p;return}

@@ -12,7 +12,7 @@
   const canEditTitle=()=>!!(state.user&&state.user.email&&TITLE_EDIT_ALLOWED.includes(state.user.email.toLowerCase()));
   const VERSION='v124';
   const PK='vx_prefs';
-  const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
+  const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true,notif:false};
 
   /* ---------- device preferences ---------- */
   let prefs=Object.assign({},DEF);
@@ -103,7 +103,7 @@
 
   /* ---------- view ---------- */
   const TABS=()=>{
-    const t=[['My settings',[['profile','My profile'],['appearance','Appearance'],['security','Password and sign-in'],['bruno','Bruno and voice']]]];
+    const t=[['My settings',[['profile','My profile'],['appearance','Appearance'],['notif','Notifications'],['security','Password and sign-in'],['bruno','Bruno and voice']]]];
     t.push(['Tools',[['apps','Linked apps']].concat(isAdm()?[['claude','Claude access']]:[])]);
     if(isAdm())t.push(['Firm settings (admin)',[['company','Company details'],['office','Petty cash'],['system','Data and system']]]);
     return t;
@@ -139,6 +139,9 @@
         ${chk('stCompact',prefs.compact,'Compact tables and panels','Less spacing, more rows on screen.')}
         ${chk('stMotion',prefs.motion,'Reduce animation','Turns off movement such as Bruno blinking and slide effects.')}</div>
         <div class="stbar"><button class="btn ghost" type="button" data-act="stDefaults">Reset my appearance</button></div></div>`;
+      case 'notif':return `<div class="panel stsec"><h3>Notifications</h3><p class="note" style="margin:0">Saved on this device only.</p><div>
+        ${chk('stNotif',prefs.notif,'Desktop notification for new messages','Pops up on this computer when someone messages you on Messages, even if this tab is not in front. Your browser will ask you to allow this the first time.')}</div>
+        ${typeof Notification!=='undefined'&&Notification.permission==='denied'?'<p class="note" style="margin:0">Notifications are blocked for this site in your browser. Allow them from your browser\'s site settings, then turn this back on.</p>':''}</div>`;
       case 'security':return `<form id="stPw" class="panel stsec" novalidate><h3>Change password</h3>
         <div>${LIVE?'':`<div class="strow"><label class="l" for="stPwOld"><b>Current password</b></label><input id="stPwOld" type="password" autocomplete="current-password"></div>`}
         <div class="strow"><label class="l" for="stPwNew"><b>New password</b><span>At least 8 characters, with a number.</span></label><input id="stPwNew" type="password" autocomplete="new-password"></div>
@@ -259,10 +262,26 @@
       case 'stMotion':prefs.motion=el.checked;break;
       case 'stBruno':prefs.bruno=el.checked;break;
       case 'stVoice':prefs.voice=el.checked;break;
+      case 'stNotif':
+        if(el.checked){
+          if(typeof Notification==='undefined'){prefs.notif=false;el.checked=false;toast('Your browser does not support notifications');savePrefs();return}
+          if(Notification.permission==='granted')prefs.notif=true;
+          else if(Notification.permission==='denied'){prefs.notif=false;el.checked=false;toast('Notifications are blocked for this site in your browser')}
+          else{
+            Notification.requestPermission().then(p=>{
+              prefs.notif=p==='granted';
+              if(p!=='granted')toast('Notifications were not allowed');
+              savePrefs();render();
+            });
+            return;
+          }
+        }else prefs.notif=false;
+        break;
       default:return;
     }
     savePrefs();applyPrefs();toast('Saved on this device');
   }
+  window.VIRTUOSO_PREFS={notifOn:()=>!!prefs.notif&&typeof Notification!=='undefined'&&Notification.permission==='granted'};
   document.addEventListener('submit',e=>{
     const id=e.target.id;if(id!=='stForm'&&id!=='stPw'&&id!=='pfPw'&&id!=='pfTitle')return;
     e.preventDefault();e.stopImmediatePropagation();

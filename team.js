@@ -7,10 +7,10 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
-  const TM={users:null,loading:false,busy:false,cred:null,msg:'',uid:null,q:''};
+  const TM={users:null,loading:false,busy:false,cred:null,msg:'',uid:null,q:'',edit:null,editErr:''};
   const signInUrl=()=>location.origin+location.pathname.replace(/index\.html$/,'');
   const EMAIL=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  setInterval(()=>{const u=state.user?state.user.id:null;if(u!==TM.uid){TM.uid=u;TM.users=null;TM.cred=null;TM.msg=''}},700);
+  setInterval(()=>{const u=state.user?state.user.id:null;if(u!==TM.uid){TM.uid=u;TM.users=null;TM.cred=null;TM.msg='';TM.edit=null;TM.editErr=''}},700);
 
   async function call(payload){
     const token=await cfg.getAccessToken();
@@ -43,6 +43,8 @@
   .tmgrid #tmForm{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))!important}.tmgrid #tmForm>.note,.tmgrid #tmForm>.err,.tmgrid #tmForm>div,.tmgrid #tmForm>.chk{grid-column:1/-1}
   .tmcred pre{white-space:pre-wrap;word-break:break-all;user-select:all}
   .tmq{max-width:260px}
+  .tmedit td{background:var(--panel2,rgba(0,0,0,.03));padding:12px}
+  .tmedit form{display:grid;gap:10px}
   `;
   document.head.appendChild(css);
 
@@ -74,11 +76,24 @@
     <div class="panel"><div class="ph"><h3>Everyone</h3><input class="tmq" id="tmQ" type="search" placeholder="Search name or email" value="${esc(TM.q)}" aria-label="Search the team"><button class="btn sm ghost" data-act="tmCopyAll">Copy all emails</button></div>
       <p class="note" style="margin:6px 0 10px">Delete removes the person and frees their email address so it can be used for a new login. If the person already has records (timesheets, receipts, approvals), the account is closed instead: they cannot sign in, the email is freed, and the history stays.</p>
       <div class="tbl"><table style="min-width:640px"><thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
-      ${rows.length?rows.map(u=>`<tr><td>${esc(u.name)}<div class="note">${esc(u.title)}</div></td><td class="mono">${esc(u.email)}</td><td>${pill(u.admin?'Admin':'Employee')}</td>
+      ${rows.length?rows.map(u=>u.id===TM.edit?editRow(u):`<tr><td>${esc(u.name)}<div class="note">${esc(u.title)}</div></td><td class="mono">${esc(u.email)}</td><td>${pill(u.admin?'Admin':'Employee')}</td>
         <td>${pill(u.access?'Can sign in':'Disabled',u.access?'ok':'bad')}${u.must?'<div class="note">Has not set own password yet</div>':''}</td>
         <td class="note">${u.last?fmtDT(u.last):'Never'}</td>
-        <td><div class="row"><button class="btn sm ghost" data-act="tmReset" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Reset password</button>${u.id===state.user.id?'':`<button class="btn sm ${u.access?'bad':''}" data-act="tmToggle" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>${u.access?'Disable':'Enable'}</button>`}<button class="btn sm bad" data-act="tmDel" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Delete</button></div></td></tr>`).join(''):`<tr><td colspan="6" class="note">${all.length?'Nobody matches that search.':'No team members yet.'}</td></tr>`}
+        <td><div class="row"><button class="btn sm ghost" data-act="tmEdit" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Edit</button><button class="btn sm ghost" data-act="tmReset" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Reset password</button>${u.id===state.user.id?'':`<button class="btn sm ${u.access?'bad':''}" data-act="tmToggle" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>${u.access?'Disable':'Enable'}</button>`}<button class="btn sm bad" data-act="tmDel" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Delete</button></div></td></tr>`).join(''):`<tr><td colspan="6" class="note">${all.length?'Nobody matches that search.':'No team members yet.'}</td></tr>`}
       </tbody></table></div></div></div></div>`;
+  }
+  function editRow(u){
+    const self=u.id===state.user.id;
+    return `<tr class="tmedit"><td colspan="6"><form id="tmEditForm" class="form" data-id="${esc(u.id)}" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));align-items:end" novalidate>
+      <label>Full name<input id="tmEName" value="${esc(u.name)}" required maxlength="100" autocomplete="off"></label>
+      <label>Job title<input id="tmETitle" value="${esc(u.title)}" maxlength="80" autocomplete="off"></label>
+      <label>Account type<select id="tmERole" ${self?'disabled title="You cannot change your own account type."':''}>
+        <option value="emp" ${u.admin?'':'selected'}>Employee (own dashboard, time, leave, requests)</option>
+        <option value="admin" ${u.admin?'selected':''}>Administrator (full access)</option></select>${self?'<div class="note">You cannot change your own account type here.</div>':''}</label>
+      <div class="note" style="grid-column:1/-1">Email cannot be changed here; use Delete and re-add if it must change.</div>
+      <div class="err" role="alert" style="grid-column:1/-1">${esc(TM.editErr)}</div>
+      <div class="row" style="grid-column:1/-1"><button class="btn" type="submit" ${TM.busy?'disabled':''}>Save changes</button><button class="btn ghost" type="button" data-act="tmEditCancel" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Cancel</button></div>
+      </form></td></tr>`;
   }
   VIEWS.team=view;
   window.ICON=window.ICON||{};
@@ -98,6 +113,29 @@
     w.document.close();w.focus();setTimeout(()=>w.print(),300);
   }
   document.addEventListener('submit',e=>{
+    if(e.target.id==='tmEditForm'){
+      e.preventDefault();e.stopImmediatePropagation();
+      if(!isAdm()||TM.busy)return;
+      const id=e.target.dataset.id,u=(TM.users||[]).find(x=>x.id===id);
+      if(!u)return;
+      const name=$('#tmEName').value.trim(),title=$('#tmETitle').value.trim(),self=id===state.user.id,role=self?(u.admin?'admin':'emp'):$('#tmERole').value;
+      TM.editErr='';
+      if(name.length<2){TM.editErr='Enter the full name.';return render()}
+      if(role==='emp'&&u.admin&&!self){
+        const others=(TM.users||[]).filter(x=>x.admin&&x.access&&x.id!==id).length;
+        if(!others){TM.editErr='You cannot remove the only active admin. Make someone else an admin first.';return render()}
+      }
+      if(!LIVE){
+        const t=state.users.find(x=>x.id===id);t.name=name;t.title=title;if(!self)t.type=role==='admin'?'admin':'emp';
+        logA('Team member updated',name);toast(name+' updated');TM.edit=null;reload();return render();
+      }
+      return act(async()=>{
+        const patch={name,title};if(!self)patch.role=role;
+        const r=await sb().from('profiles').update(patch).eq('id',id);
+        if(r.error)throw new Error(/row-level|policy|permission|not permitted/i.test(r.error.message)?'You are not allowed to make that change.':r.error.message||'Could not save. Try again.');
+        TM.edit=null;toast(name+' updated');
+      });
+    }
     if(e.target.id!=='tmForm')return;
     e.preventDefault();e.stopImmediatePropagation();
     if(!isAdm()||TM.busy)return;
@@ -122,6 +160,8 @@
     const id=b.dataset.id,u=(TM.users||[]).find(x=>x.id===id);
     switch(b.dataset.act){
       case 'tmDone':TM.cred=null;return render();
+      case 'tmEdit':if(!u||!isAdm())return;TM.edit=id;TM.editErr='';return render();
+      case 'tmEditCancel':TM.edit=null;TM.editErr='';return render();
       case 'tmCopyAll':{const t=(TM.users||[]).map(x=>x.email).join('\n');if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('Emails copied'),()=>toast('Copy failed'));return}
       case 'tmDel':{if(!u||!isAdm())return;
         const self=u.id===state.user.id,others=(TM.users||[]).filter(x=>x.admin&&x.access&&x.id!==id).length;

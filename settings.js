@@ -10,7 +10,7 @@
   const isAdm=()=>state.user&&state.user.type==='admin';
   const TITLE_EDIT_ALLOWED=['ecrypted5@gmail.com'];
   const canEditTitle=()=>!!(state.user&&state.user.email&&TITLE_EDIT_ALLOWED.includes(state.user.email.toLowerCase()));
-  const VERSION='v125';
+  const VERSION='v126';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true,notif:false};
 
@@ -104,7 +104,7 @@
   /* ---------- view ---------- */
   const TABS=()=>{
     const t=[['My settings',[['profile','My profile'],['appearance','Appearance'],['dashbg','Dashboard look'],['notif','Notifications'],['security','Password and sign-in'],['bruno','Bruno and voice']]]];
-    t.push(['Tools',[['apps','Linked apps']].concat(isAdm()?[['claude','Claude access']]:[])]);
+    t.push(['Tools',[['apps','Linked apps'],['zoho','Zoho tasks']].concat(isAdm()?[['claude','Claude access']]:[])]);
     if(isAdm())t.push(['Firm settings (admin)',[['company','Company details'],['office','Petty cash'],['system','Data and system']]]);
     return t;
   };
@@ -155,6 +155,7 @@
         ${chk('stBruno',prefs.bruno,'Show the Bruno button','The bear in the corner. You can still open AI Tools from the menu.')}
         ${chk('stVoice',prefs.voice,'Show the Voice button','Dictate to Bruno. It uses your browser\'s speech service, so audio may go to your browser vendor. Off if you prefer typing.')}</div></div>`;
       case 'claude':return window.VIRTUOSO_CLAUDE?window.VIRTUOSO_CLAUDE.html():'<div class="panel"><p class="note">Not available.</p></div>';
+      case 'zoho':return window.VIRTUOSO_ZOHO?window.VIRTUOSO_ZOHO.settingsHTML():'<div class="panel"><p class="note">Not available.</p></div>';
       case 'apps':return window.VIRTUOSO_APPS?window.VIRTUOSO_APPS.html():'<div class="panel"><p class="note">Not available.</p></div>';
       case 'company':return firmForm('company','<h3>Company details</h3><p class="note" style="margin:0">Master details for the firm. Leave blank anything you do not have.</p>');
       case 'office':return firmForm('office','<h3>Petty cash</h3><p class="note" style="margin:0">Controls how receipts are matched on Reconcile.</p>');

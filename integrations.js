@@ -99,7 +99,7 @@
     const cust=d.custom.map((c,i)=>card('',c.name||'Other tool','','',c,adm,true,i)).filter(Boolean).join('');
     const any=ALL.some(([id])=>d.apps[id]&&d.apps[id].url&&(adm||d.apps[id].staff))||d.custom.some(c=>c.url&&(adm||c.staff));
     return `<div class="panel igw"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><h3 style="margin:0">Linked apps</h3><span style="flex:1"></span><span id="igStatus" class="stlock" role="status">${esc(O.status)}</span></div>
-      <p class="note" style="margin:0">${adm?'Save the address of each tool the firm uses and everyone who needs it gets an Open button. These are shortcuts only: no data is copied between the tools and this app. <b>Do not paste passwords, API keys or tokens here.</b> Sign in to each tool in its own window as usual.':'Shortcuts to the firm\'s own tools, set up by an administrator. They open in a new tab.'}</p>
+      <p class="note" style="margin:0">${adm?'Save the address of each tool the firm uses and everyone who needs it gets an Open button. These are shortcuts only: nothing is copied from the tools by this page. To see your Zoho Projects tasks on your dashboard, use <b>Settings, Zoho tasks</b>. <b>Do not paste passwords, API keys or tokens here.</b> Sign in to each tool in its own window as usual.':'Shortcuts to the firm\'s own tools, set up by an administrator. They open in a new tab.'}</p>
       ${!adm&&!any?'<p class="note">No apps have been shared with staff yet.</p>':''}
       ${body}
       ${(cust||adm)?`<div class="igcat"><h4>Other tools</h4><div class="igg">${cust}</div>${adm&&d.custom.length<MAXC?'<div style="margin-top:8px"><button type="button" class="btn sm ghost" data-act="igAdd">+ Add another tool</button></div>':''}</div>`:''}

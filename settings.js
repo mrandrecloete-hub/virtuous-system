@@ -103,7 +103,7 @@
 
   /* ---------- view ---------- */
   const TABS=()=>{
-    const t=[['My settings',[['profile','My profile'],['appearance','Appearance'],['notif','Notifications'],['security','Password and sign-in'],['bruno','Bruno and voice']]]];
+    const t=[['My settings',[['profile','My profile'],['appearance','Appearance'],['dashbg','Dashboard look'],['notif','Notifications'],['security','Password and sign-in'],['bruno','Bruno and voice']]]];
     t.push(['Tools',[['apps','Linked apps']].concat(isAdm()?[['claude','Claude access']]:[])]);
     if(isAdm())t.push(['Firm settings (admin)',[['company','Company details'],['office','Petty cash'],['system','Data and system']]]);
     return t;
@@ -139,6 +139,7 @@
         ${chk('stCompact',prefs.compact,'Compact tables and panels','Less spacing, more rows on screen.')}
         ${chk('stMotion',prefs.motion,'Reduce animation','Turns off movement such as Bruno blinking and slide effects.')}</div>
         <div class="stbar"><button class="btn ghost" type="button" data-act="stDefaults">Reset my appearance</button></div></div>`;
+      case 'dashbg':return window.VIRTUOSO_DASHBG?VIRTUOSO_DASHBG.html():'<div class="panel"><p class="note">Not available.</p></div>';
       case 'notif':return `<div class="panel stsec"><h3>Notifications</h3><p class="note" style="margin:0">Saved on this device only.</p><div>
         ${chk('stNotif',prefs.notif,'Desktop notification for new messages','Pops up on this computer when someone messages you on Messages, even if this tab is not in front. Your browser will ask you to allow this the first time.')}</div>
         ${typeof Notification!=='undefined'&&Notification.permission==='denied'?'<p class="note" style="margin:0">Notifications are blocked for this site in your browser. Allow them from your browser\'s site settings, then turn this back on.</p>':''}</div>`;

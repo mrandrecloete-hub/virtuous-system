@@ -8,7 +8,7 @@
   const SYNC=window.VIRTUOSO_SYNC={status:'idle',last:null,error:'',renamed:[]};
   const sb=()=>window.VIRTUOSO.client;
   const isUuid=s=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s));
-  const isAdm=()=>state.user&&state.user.type==='admin';
+  const isAdm=()=>state.user&&(state.user.type==='admin'||(window.VIRTUOSO_PERMS&&VIRTUOSO_PERMS.canForms()));   /* administrators and employees given the Form builder */
   const known={forms:new Map(),subs:new Map()};
   let loadedFor=null,loading=false,busy=false,backoff=0;const changed={};
   const fail=e=>{SYNC.status='error';SYNC.error=(e&&e.message)||'Could not save';backoff=Date.now()+10000};

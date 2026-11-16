@@ -48,7 +48,7 @@
     S.last=json;S.status='Saved';
   }
   setInterval(()=>{
-    const u=state.user&&state.user.type==='admin'?state.user.id:null;
+    const u=state.user&&(state.user.type==='admin'||(window.VIRTUOSO_PERMS&&VIRTUOSO_PERMS.canPetty()))?state.user.id:null;   /* administrators and employees given Receipts / Petty cash sheet / Reconcile */
     if(u!==S.uid){S.uid=u;S.loaded=false;S.last='';if(u)load();return}
     if(!LIVE||!u||!S.loaded||S.busy)return;
     const j=JSON.stringify(pack());if(j!==S.last)save(j);

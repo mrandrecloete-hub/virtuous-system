@@ -501,14 +501,14 @@
     openEditor(nf.id,'build');
   }
   function openFill(id){
-    kInit();const K=state.kyc;K.formId=id;K.view='fill';K.ans={};K.errs={};K.done=null;FB.fromFill=true;state.tab.adm='kyc';document.body.classList.remove('open');window.scrollTo(0,0);render();
+    kInit();const K=state.kyc;K.formId=id;K.view='fill';K.ans={};K.errs={};K.done=null;FB.fromFill=true;state.tab[state.role]='kyc';document.body.classList.remove('open');window.scrollTo(0,0);render();
   }
   /* The fill screen shows the form's saved design and a way back to the builder. */
   const origFill=kFill;
   kFill=function(){
     const K=state.kyc,f=kForm(K.formId),h=origFill();
     if(!f)return h;
-    const back=FB.fromFill&&state.user&&state.user.type==='admin'?`<div class="row" style="margin-bottom:10px"><button class="btn ghost sm" data-act="fbFromFill">← Back to Form builder</button></div>`:'';
+    const back=FB.fromFill&&state.user&&(state.user.type==='admin'||(window.VIRTUOSO_PERMS&&VIRTUOSO_PERMS.canForms()))?`<div class="row" style="margin-bottom:10px"><button class="btn ghost sm" data-act="fbFromFill">← Back to Form builder</button></div>`:'';
     const d=f.design||{};
     return back+`<div class="fbfill" style="${esc(dvars(d))}">${h}</div>`;
   };
@@ -612,7 +612,7 @@
       case 'fbPreviewRow':openEditor(d.id,'build');FB.preview=true;return render();
       case 'fbPreviewBtn':{if(!f)return;if(FB.mode==='build')FB.preview=!FB.preview;else{FB.mode='build';FB.preview=true}FB.sel=null;FB.pv={ans:{},done:false};return render()}
       case 'fbFill':return openFill(d.id);
-      case 'fbFromFill':{FB.fromFill=false;state.tab.adm='formbuilder';return render()}
+      case 'fbFromFill':{FB.fromFill=false;state.tab[state.role]='formbuilder';return render()}
       case 'fbExport':{const sf=forms().find(x=>x.id===d.id);if(sf){exportForm(sf);toast('Form file saved')}return}
       case 'fbImportPick':{const i=document.getElementById('fbImportFile');if(i)i.click();return}
       case 'fbRespCsv':{const sf=forms().find(x=>x.id===FB.ana.id);if(!sf)return toast('Choose a form first');if(!subsOf(sf).length)return toast('There are no responses to export yet');kDownload((slug(sf.title)||'form')+'-responses.csv','text/csv',kCsv(sf));return}
@@ -647,8 +647,8 @@
       case 'fbCondRemove':{const x=f&&f.fields.find(q=>q.id===d.id);if(x){x.showIf=null;toast('Condition removed')}return render()}
       case 'fbDraftEmail':{if(!f)return;const r=F().draftEmail('draft a confirmation email for the '+f.title+' form','draft a confirmation email for the '+f.title.toLowerCase()+' form'),p=parseDraft(r);f.settings=f.settings||{};f.settings.email={subject:p.subject,body:p.body};return render()}
       case 'fbCopyEmail':{const em=f&&f.settings&&f.settings.email;if(em&&(em.subject||em.body))copy((em.subject?'Subject: '+em.subject+'\n\n':'')+(em.body||''));else toast('Write or draft a message first');return}
-      case 'fbToKyc':kInit();state.kyc.view='forms';state.tab.adm='kyc';return render();
-      case 'fbClassic':kInit();state.kyc.formId=d.id;state.kyc.view='build';state.tab.adm='kyc';window.scrollTo(0,0);return render();
+      case 'fbToKyc':kInit();state.kyc.view='forms';state.tab[state.role]='kyc';return render();
+      case 'fbClassic':kInit();state.kyc.formId=d.id;state.kyc.view='build';state.tab[state.role]='kyc';window.scrollTo(0,0);return render();
       case 'fbDeleteForm':{if(!f)return;const n=subsOf(f).length;if(n)return toast('This form has '+n+' response(s). Delete them first.');if(!confirm('Delete "'+f.title+'"? This cannot be undone.'))return;state.forms=forms().filter(x=>x.id!==f.id);toast('Form deleted');return back()}
       case 'fbPTab':FB.pTab=d.t;if(d.t==='assign'&&FB.people===null)loadPeople();return render();
       case 'fbCopy':return copy(d.v);

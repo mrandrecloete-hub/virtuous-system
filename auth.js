@@ -44,7 +44,7 @@
 
   function userFromProfile(p){
     const u=Object.assign({},{id:p.id,type:p.role==='admin'?'admin':'emp',name:p.name,title:p.title||'',email:p.email,password:null,
-      access:p.access_enabled,mustChange:!!p.must_change_password,base:0,allow:0,ot:0,loan:0,ded:0,
+      access:p.access_enabled,perms:Array.isArray(p.perms)?p.perms:[],mustChange:!!p.must_change_password,base:0,allow:0,ot:0,loan:0,ded:0,
       lastSeen:new Date(),lastLogin:new Date(),beat:Date.now()});
     return u;
   }

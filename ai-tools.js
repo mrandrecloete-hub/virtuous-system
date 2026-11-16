@@ -306,7 +306,7 @@
       case 'aitForm':{const p=(val('form','prompt')||'').trim();if(p.length<8){AIT.out.form='Describe the form first, for example: Create a client onboarding form with name, email and phone.';return render()}
         if(!window.VIRTUOSO_FORMS)return;const q=/\b(create|make|build|generate|draft|set up|new|design)\b/i.test(p)?p:'Create '+p;
         let r;try{r=window.VIRTUOSO_FORMS.createFromPrompt(q)}catch(_){r='Something went wrong building that. Try rephrasing.'}
-        if(/^Created/.test(r)&&window.VIRTUOSO_FB){state.tab.adm='formbuilder';window.VIRTUOSO_FB.open(window.VIRTUOSO_FORMS.ctx.formId,'build');return}
+        if(/^Created/.test(r)&&window.VIRTUOSO_FB){state.tab[state.role]='formbuilder';window.VIRTUOSO_FB.open(window.VIRTUOSO_FORMS.ctx.formId,'build');return}
         AIT.out.form=r;return render()}
       case 'aitData':{const q=(val('data','q')||'').trim();if(!q){AIT.out.data='Type a question first.';return render()}
         if(!hasEngine()){AIT.out.data='The data helper is not available yet.';return render()}

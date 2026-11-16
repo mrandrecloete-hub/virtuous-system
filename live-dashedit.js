@@ -81,12 +81,12 @@
     NAV.emp=BASE.map(g=>[g[0],g[1].filter(x=>x[0]==='dash'||!hid.includes(x[0])).map(x=>[x[0],String(ren[x[0]]||x[1]).slice(0,40)])]).filter(g=>g[1].length);
     Object.keys(VIEWS).filter(k=>k.startsWith('cp_')).forEach(k=>{delete VIEWS[k];delete ICON[k]});
     const pages=M.config.pages||[];M.pages=pages;
-    if(!pages.length)return;
+    if(!pages.length){if(window.VIRTUOSO_PERMS)VIRTUOSO_PERMS.inject();return}
     NAV.emp.push([GROUP,pages.map(p=>['cp_'+p.id,p.title||'Page'])]);
     pages.forEach(p=>{
       ICON['cp_'+p.id]='<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/>';
       VIEWS['cp_'+p.id]=()=>`<h2 style="margin:0 0 4px">${esc(p.title||'Page')}</h2><p class="sub">Added for you by your administrator.</p>${(p.blocks||[]).length?blocksHTML(p.blocks,M.done,true):'<p class="note">Nothing on this page yet.</p>'}`;
-    });
+    });    if(window.VIRTUOSO_PERMS)VIRTUOSO_PERMS.inject();
   }
   async function loadMine(quiet){
     if(!state.user||state.user.type!=='emp'||M.loading)return;M.loading=true;

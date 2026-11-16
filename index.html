@@ -1227,8 +1227,10 @@ const KDOC_CSS='.kdoc{font-family:Arial,sans-serif;color:#111;background:#fff;ma
 /* ---- views ---- */
 function kBack(label){return `<button class="btn ghost sm" data-k="go" data-v="${label==='Submissions'&&state.user.type==='admin'?'subs':'forms'}">Back to ${label.toLowerCase()}</button>`}
 function vKyc(){
-  if(!kycAllowed())return '<div class="panel"><h3>Client KYC</h3><p class="note">You don\'t have access to this page.</p></div>';
-  kInit();const K=state.kyc;
+  kInit();
+  /* the Client KYC page stays limited to KYC_ALLOWED; people given the Form builder may only open the form screens reached FROM the builder (fill, classic editor) */
+  if(!kycAllowed()&&!(window.VIRTUOSO_PERMS&&VIRTUOSO_PERMS.canForms()&&state.user.type!=='admin'&&['fill','build'].includes(state.kyc.view)))return '<div class="panel"><h3>Client KYC</h3><p class="note">You don\'t have access to this page.</p></div>';
+  const K=state.kyc;
   const tabs=`<div class="seg" role="tablist" style="margin-bottom:14px"><button class="btn ghost sm" data-k="go" data-v="forms" aria-pressed="${K.view==='forms'}">Forms</button><button class="btn ghost sm" data-k="go" data-v="subs" aria-pressed="${K.view==='subs'}">Submissions (${state.subs.length})</button></div>`;
   if(K.view==='build')return kBuild();
   if(K.view==='fill')return kFill();
@@ -1451,7 +1453,7 @@ function render(){
   paintAuth();
   if(!state.user||state.user.mustChange)return;
   checkCash();paintTabs();paintNet();
-  if(state.role==='emp'&&!NAV.emp.some(g=>g[1].some(x=>x[0]===state.tab.emp)))state.tab.emp='dash';
+  if(state.role==='emp'&&!NAV.emp.some(g=>g[1].some(x=>x[0]===state.tab.emp))&&!(window.VIRTUOSO_PERMS&&VIRTUOSO_PERMS.allowTab(state.tab.emp)))state.tab.emp='dash';
   try{$('#view').innerHTML=VIEWS[state.tab[state.role]]()}
   catch(e){console.error(e);$('#view').innerHTML='<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">This page could not load. Try another page or reload. If it keeps happening, tell your administrator.</div>'}
   if(window.kycAfter)kycAfter();
@@ -1700,6 +1702,7 @@ render();
 <script src="claude-access.js"></script>
 <script src="meetings.js"></script>
 <script src="zoho.js"></script>
+<script src="page-access.js"></script>
 <script src="team.js"></script>
 <script src="dash-employee.js"></script>
 <script src="live-dashedit.js"></script>

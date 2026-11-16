@@ -1,11 +1,15 @@
-/* MESSAGES page (everyone): WhatsApp-style two-way chat between the admin(s) and each employee. Needs migration 0017.
-   One conversation per employee. Admins see every conversation, can start one with any employee and can send one message
-   to several or all employees at once (it lands in each person's own conversation; replies stay private).
-   Employees see only their own conversation. Text, emoji, reactions, replies, delete, read ticks, attachments
-   (images, PDF, Office files, text, zip, audio; 15 MB each, 5 per message; paste or drag and drop) stored in the private
-   'chat' bucket and opened through short-lived signed links. Live: updates arrive through Supabase Realtime plus a 15 s check.
-   ?demo keeps everything in memory (state.msgdemo). Unread conversations show a badge on the Messages menu item and a
-   card on every dashboard. */
+/* MESSAGES page (everyone): WhatsApp-style two-way chat between ANY two active people - admin or
+   employee, anyone can start a conversation with anyone else. Needs migration 0029 (dm_* tables).
+   One conversation per pair of people. Everyone sees their own list of conversations, with every
+   other active colleague available to start a new one. Text, emoji, reactions, replies, delete,
+   read ticks, attachments (images, PDF, Office files, text, zip, audio; 15 MB each, 5 per message;
+   paste or drag and drop) stored in the private 'chat' bucket under dm/<thread id>/... and opened
+   through short-lived signed links. Live: updates arrive through Supabase Realtime plus a 15 s
+   check. ?demo keeps everything in memory (state.msgdemo). Unread conversations show a badge on the
+   Messages menu item and a card on every dashboard.
+   Admins additionally get a "Send to several/all" bulk composer; everyone else starts one
+   conversation at a time. The earlier admin-only inbox (msg_* tables) is not read by this page any
+   more; its history stays in the database but is not shown here - see migration 0029's note. */
 (function(){
   const cfg=window.VIRTUOSO||{};
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
@@ -20,8 +24,8 @@
     'Work':'✅ ❌ ⚠️ ❗ ❓ 📌 📎 📝 📅 ⏰ 📊 📈 💼 🧾 💰 🏦 📧 📞 🔒 🔑 ⭐ 🎯 🚀 💡'.split(' '),
     'Hearts & fun':'❤️ 🧡 💛 💚 💙 💜 🔥 🎉 🎂 🏆 ☕ 🍕 🌞 🌈 🌟 ✨'.split(' ')};
   const QUICK=['👍','❤️','😂','😮','🙏'];
-  const M={uid:null,threads:[],msgs:{},reacts:{},names:{},emps:null,active:null,q:'',draft:{},reply:null,menu:null,emoji:null,emojiCat:'Smileys',
-    att:{chat:[],nw:[]},nw:null,lb:null,loaded:false,busy:false,err:'',urls:{},lastUnread:0,tPoll:0,rt:null,mobile:'list',stick:true};
+  const M={uid:null,threads:[],msgs:{},reacts:{},contacts:null,active:null,q:'',draft:{},reply:null,menu:null,emoji:null,emojiCat:'Smileys',
+    att:{chat:[],nw:[]},nw:null,lb:null,loaded:false,busy:false,err:'',urls:{},lastUnread:0,tPoll:0,rt:null,mobile:'list',stick:true,pendingWith:null};
   const clean=(s,n)=>String(s==null?'':s).replace(/\u0000/g,'').slice(0,n||MAXT);
   const tm=d=>new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   const dayLbl=d=>{const x=new Date(d),t=new Date(),y=new Date(Date.now()-864e5),same=(a,b)=>a.toDateString()===b.toDateString();
@@ -31,39 +35,55 @@
   const isImg=a=>/^image\//.test(a.type||'')||/\.(jpe?g|png|gif|webp)$/i.test(a.name||'');
   const ini=n=>(String(n||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('')||'?').toUpperCase();
   const linkify=t=>esc(t).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]])/g,u=>`<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`).replace(/\n/g,'<br>');
+  const pairKey=(a,b)=>[a,b].sort().join('_');
 
   /* ---------- demo store ---------- */
   function demo(){
     if(state.msgdemo)return state.msgdemo;
     const d=state.msgdemo={threads:{},msgs:[],reacts:[]},now=Date.now();
-    const seed=(u,txt,ago)=>{const t=new Date(now-ago).toISOString();
-      d.threads[u]={id:'T'+u,employee_id:u,admin_read_at:t,emp_read_at:new Date(now-9e7).toISOString(),last_at:t,last_text:txt};
-      d.msgs.push({id:rid(),thread_id:'T'+u,sender_id:'u0',sender_name:'Administrator',from_admin:true,body:txt,attachments:[],reply_to:null,deleted:false,created_at:t})};
-    seed('u1','Welcome to Messages. Reply here if you need anything from the office. 👋',36e5);
-    seed('u2','Please submit your timesheet for this week by Friday. ✅',72e5);
+    const seed=(a,b,txt,ago,from)=>{const t=new Date(now-ago).toISOString(),k=pairKey(a,b);
+      d.threads[k]={id:'T'+k,a,b,reads:{[a]:t,[b]:new Date(now-9e7).toISOString()},last_at:t,last_text:txt};
+      d.msgs.push({id:rid(),thread_key:k,sender_id:from,sender_name:(state.users.find(u=>u.id===from)||{}).name||'',body:txt,attachments:[],reply_to:null,deleted:false,created_at:t})};
+    const admin=(state.users.find(u=>u.type==='admin')||{}).id;
+    const emps=state.users.filter(u=>u.type!=='admin');
+    if(admin&&emps[0])seed(admin,emps[0].id,'Welcome to Messages. Reply here if you need anything. 👋',36e5,admin);
+    if(admin&&emps[1])seed(admin,emps[1].id,'Please submit your timesheet for this week by Friday. ✅',72e5,admin);
     return d;
   }
-  const empName=id=>{const e=(M.emps||[]).find(x=>x.id===id);return e?e.name:(M.names[id]||'Employee')};
+  const contactName=id=>{const c=(M.contacts||[]).find(x=>x.id===id);return c?c.name:(M.names&&M.names[id])||'Someone'};
 
   /* ---------- data layer ---------- */
-  async function loadEmps(){
-    if(!isAdm()){M.emps=[];return}
-    if(!LIVE){M.emps=staff().map(u=>({id:u.id,name:u.name,title:u.title}));return}
-    const r=await sb().from('profiles').select('id,name,title').eq('role','emp').eq('access_enabled',true).order('name');
-    M.emps=r.data||[];
+  async function loadContacts(){
+    if(!state.user){M.contacts=[];return}
+    if(!LIVE){M.contacts=state.users.filter(u=>u.id!==state.user.id&&u.access!==false).map(u=>({id:u.id,name:u.name,title:u.title,admin:u.type==='admin'}));return}
+    const r=await sb().from('profiles').select('id,name,title,role').eq('access_enabled',true).neq('id',state.user.id).order('name');
+    M.contacts=(r.data||[]).map(u=>({id:u.id,name:u.name,title:u.title,admin:u.role==='admin'}));
   }
   async function loadThreads(){
-    if(!LIVE){M.threads=Object.values(demo().threads).filter(t=>isAdm()||t.employee_id===state.user.id).map(t=>({...t}));return}
-    const r=await sb().from('msg_threads').select('*').order('last_at',{ascending:false});
-    if(r.error)throw r.error;M.threads=r.data||[];
+    const me=state.user.id;
+    if(!LIVE){
+      M.threads=Object.values(demo().threads).filter(t=>t.a===me||t.b===me).map(t=>{
+        const other=t.a===me?t.b:t.a;
+        return {id:t.id,other_id:other,last_at:t.last_at,last_text:t.last_text,my_read:(t.reads||{})[me],other_read:(t.reads||{})[other]};
+      });return;
+    }
+    const r=await sb().from('dm_threads').select('*').or(`user_lo.eq.${me},user_hi.eq.${me}`);
+    if(r.error)throw r.error;
+    M.threads=(r.data||[]).map(t=>{
+      const amLo=t.user_lo===me,other=amLo?t.user_hi:t.user_lo;
+      return {id:t.id,other_id:other,last_at:t.last_at,last_text:t.last_text,my_read:amLo?t.read_lo:t.read_hi,other_read:amLo?t.read_hi:t.read_lo};
+    });
   }
   async function loadMsgs(tid){
     if(!tid)return;
-    if(!LIVE){M.msgs[tid]=demo().msgs.filter(m=>m.thread_id===tid).map(m=>({...m}));
-      const ids=new Set(M.msgs[tid].map(m=>m.id));M.reacts[tid]=demo().reacts.filter(r=>ids.has(r.message_id));return}
-    const r=await sb().from('msg_messages').select('*').eq('thread_id',tid).order('created_at',{ascending:false}).limit(300);
+    if(!LIVE){
+      const d=demo(),th=Object.values(d.threads).find(x=>x.id===tid);const k=th?pairKey(th.a,th.b):null;
+      M.msgs[tid]=d.msgs.filter(m=>m.thread_key===k).map(m=>({...m,thread_id:tid}));
+      const ids=new Set(M.msgs[tid].map(m=>m.id));M.reacts[tid]=d.reacts.filter(r=>ids.has(r.message_id));return;
+    }
+    const r=await sb().from('dm_messages').select('*').eq('thread_id',tid).order('created_at',{ascending:false}).limit(300);
     if(r.error)throw r.error;const list=(r.data||[]).reverse();M.msgs[tid]=list;
-    if(list.length){const rr=await sb().from('msg_reactions').select('*').in('message_id',list.map(m=>m.id));M.reacts[tid]=rr.data||[]}else M.reacts[tid]=[];
+    if(list.length){const rr=await sb().from('dm_reactions').select('*').in('message_id',list.map(m=>m.id));M.reacts[tid]=rr.data||[]}else M.reacts[tid]=[];
     resolveUrls(list);
   }
   async function resolveUrls(list){
@@ -76,78 +96,77 @@
     if(any&&M.active)paintMsgs(false);
   }
   const urlOf=a=>LIVE?((M.urls[a.path]||{}).url||''):(a.url||'');
-  async function ensureThread(empId){
-    if(!LIVE){const d=demo();if(!d.threads[empId]){const t=new Date().toISOString();d.threads[empId]={id:'T'+empId,employee_id:empId,admin_read_at:t,emp_read_at:t,last_at:t,last_text:''}}return d.threads[empId].id}
-    const r=await sb().rpc('ensure_thread',{p_employee:empId});if(r.error)throw r.error;return r.data;
+  async function ensureThread(otherId){
+    if(!LIVE){const d=demo(),me=state.user.id,k=pairKey(me,otherId);
+      if(!d.threads[k]){const t=new Date().toISOString();d.threads[k]={id:'T'+k,a:me,b:otherId,reads:{[me]:t,[otherId]:t},last_at:t,last_text:''}}
+      return d.threads[k].id}
+    const r=await sb().rpc('dm_ensure_thread',{p_other:otherId});if(r.error)throw r.error;return r.data;
   }
   async function uploadFiles(tid,files){
     const out=[];
     for(const f of files){
       if(!LIVE){out.push({name:f.name,size:f.size,type:f.type||'',url:f.blobUrl});continue}
-      const safe=f.name.replace(/[^\w.\- ]+/g,'_').slice(-80),path=tid+'/'+rid()+'-'+safe;
+      const safe=f.name.replace(/[^\w.\- ]+/g,'_').slice(-80),path='dm/'+tid+'/'+rid()+'-'+safe;
       const r=await sb().storage.from('chat').upload(path,f.file,{contentType:f.type||'application/octet-stream'});
       if(r.error)throw r.error;out.push({name:f.name,size:f.size,type:f.type||'',path});
     }
     return out;
   }
-  async function sendTo(empId,body,files,replyTo){
-    const tid=await ensureThread(empId),atts=files.length?await uploadFiles(tid,files):[];
-    if(!LIVE){const d=demo(),t=d.threads[empId],now=new Date().toISOString(),adm=isAdm();
-      d.msgs.push({id:rid(),thread_id:tid,sender_id:state.user.id,sender_name:state.user.name,from_admin:adm,body,attachments:atts,reply_to:replyTo||null,deleted:false,created_at:now});
-      t.last_at=now;t.last_text=(body||'Attachment').slice(0,120);if(adm)t.admin_read_at=now;else t.emp_read_at=now;return tid}
-    const r=await sb().rpc('send_message',{p_employee:empId,p_body:body,p_attachments:atts,p_reply:replyTo||null});
+  async function sendTo(otherId,body,files,replyTo){
+    const tid=await ensureThread(otherId),atts=files.length?await uploadFiles(tid,files):[];
+    if(!LIVE){const d=demo(),me=state.user.id,th=Object.values(d.threads).find(x=>x.id===tid),now=new Date().toISOString();
+      d.msgs.push({id:rid(),thread_key:pairKey(th.a,th.b),sender_id:me,sender_name:state.user.name,body,attachments:atts,reply_to:replyTo||null,deleted:false,created_at:now});
+      th.last_at=now;th.last_text=(body||'Attachment').slice(0,120);th.reads[me]=now;return tid}
+    const r=await sb().rpc('dm_send',{p_other:otherId,p_body:body,p_attachments:atts,p_reply:replyTo||null});
     if(r.error)throw r.error;return tid;
   }
   async function markRead(tid){
     const t=M.threads.find(x=>x.id===tid);if(!t||!unreadT(t))return;
-    const now=new Date().toISOString();if(isAdm())t.admin_read_at=now;else t.emp_read_at=now;
-    if(!LIVE){const d=Object.values(demo().threads).find(x=>x.id===tid);if(d){if(isAdm())d.admin_read_at=now;else d.emp_read_at=now}}
-    else sb().rpc('mark_thread_read',{p_thread:tid}).then(()=>{});
+    const now=new Date().toISOString();t.my_read=now;
+    if(!LIVE){const d=Object.values(demo().threads).find(x=>x.id===tid);if(d)d.reads[state.user.id]=now}
+    else sb().rpc('dm_mark_read',{p_thread:tid}).then(()=>{});
     badge();
   }
-  const unreadT=t=>new Date(t.last_at)>new Date(isAdm()?t.admin_read_at:t.emp_read_at);
+  const unreadT=t=>new Date(t.last_at)>new Date(t.my_read||0);
   const unread=()=>state.user?M.threads.filter(unreadT).length:0;
   function badge(){const n=unread();if(n!==M.lastUnread){const up=n>M.lastUnread;M.lastUnread=n;if(typeof paintTabs==='function'&&state.user&&!state.user.mustChange)paintTabs();
       if(up&&M.loaded&&state.tab[state.role]!=='messages')toast('You have a new message');
       if(state.tab[state.role]==='dash'&&typeof render==='function')render()}}
 
   async function loadPres(){
-    if(!LIVE){const n=Date.now(),p={};(state.users||[]).forEach((u,i)=>{p[u.id]={a:u.type==='admin',t:new Date(u.id===state.user.id?n:i===1?n-20000:n-(3+i)*36e5).toISOString()}});
-      (state.users||[]).filter(u=>u.id!==state.user.id&&(u.type==='admin')).forEach(u=>{p[u.id].t=new Date(n-5000).toISOString()});M.pres=p;return}
+    if(!LIVE){const n=Date.now(),p={};(state.users||[]).forEach((u,i)=>{p[u.id]={a:u.type==='admin',t:new Date(u.id===state.user.id?n:i===1?n-20000:n-(3+i)*36e5).toISOString()}});M.pres=p;return}
     const r=await sb().from('user_presence').select('user_id,is_admin,last_seen');
     if(r.error)return;const p={};(r.data||[]).forEach(x=>{p[x.user_id]={a:!!x.is_admin,t:x.last_seen}});M.pres=p}
   let hbT=0;
   function heartbeat(){if(!LIVE||!state.user||state.user.mustChange||document.hidden)return;if(Date.now()-hbT<25000)return;hbT=Date.now();sb().rpc('touch_presence').then(()=>{},()=>{})}
   document.addEventListener('visibilitychange',()=>{hbT=0;heartbeat()});
-  async function refresh(full){
+  async function refresh(){
     if(!state.user||state.user.mustChange)return;
     try{
-      if(M.emps===null)await loadEmps();
+      if(M.contacts===null)await loadContacts();
       await loadThreads();await loadPres();M.err='';
-      if(!isAdm()&&!M.active&&M.threads[0])M.active=M.threads[0].id;
       if(M.active)await loadMsgs(M.active);
-    }catch(e){M.err=/does not exist|schema cache/i.test(e.message||'')?'Messages are not set up yet (migration 0017 must be run).':'Could not load messages: '+(e.message||'error')}
+    }catch(e){M.err=/does not exist|schema cache/i.test(e.message||'')?'Messages are not set up yet (migration 0029 must be run).':'Could not load messages: '+(e.message||'error')}
     M.loaded=true;badge();
     if(onPage()){if(M.active&&isOpen())markRead(M.active);paintAll()}
   }
   const onPage=()=>state.user&&state.tab[state.role]==='messages'&&document.getElementById('mgRoot');
-  const isOpen=()=>onPage()&&(!isAdm()||M.mobile==='chat'||window.innerWidth>820);
+  const isOpen=()=>onPage()&&(M.mobile==='chat'||window.innerWidth>820);
   setInterval(()=>{
     const u=state.user?state.user.id:null;
-    if(u!==M.uid){M.uid=u;M.threads=[];M.msgs={};M.reacts={};M.emps=null;M.active=null;M.loaded=false;M.lastUnread=0;M.reply=null;M.draft={};M.att={chat:[],nw:[]};M.nw=null;M.tPoll=0;
+    if(u!==M.uid){M.uid=u;M.threads=[];M.msgs={};M.reacts={};M.contacts=null;M.active=null;M.pendingWith=null;M.loaded=false;M.lastUnread=0;M.reply=null;M.draft={};M.att={chat:[],nw:[]};M.nw=null;M.tPoll=0;
       if(M.rt){try{sb().removeChannel(M.rt)}catch(e){}M.rt=null}
       if(u&&!state.user.mustChange){if(LIVE)subscribe();refresh()}return}
     heartbeat();
     if(u&&Date.now()-M.tPoll>(onPage()?6000:15000)){M.tPoll=Date.now();refresh()}
   },500);
   function subscribe(){
-    try{M.rt=sb().channel('vx-msg-'+M.uid).on('postgres_changes',{event:'*',schema:'public',table:'msg_messages'},()=>{M.tPoll=Date.now();refresh()})
-      .on('postgres_changes',{event:'*',schema:'public',table:'msg_threads'},()=>{M.tPoll=Date.now();refresh()}).subscribe()}catch(e){}
+    try{M.rt=sb().channel('vx-dm-'+M.uid).on('postgres_changes',{event:'*',schema:'public',table:'dm_messages'},()=>{M.tPoll=Date.now();refresh()})
+      .on('postgres_changes',{event:'*',schema:'public',table:'dm_threads'},()=>{M.tPoll=Date.now();refresh()}).subscribe()}catch(e){}
   }
 
   /* ---------- rendering ---------- */
   const CSS=`.mg{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - 150px);min-height:430px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
-.mg.solo{grid-template-columns:1fr}
 .mg-l{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
 .mg-lh{padding:10px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}.mg-lh input{flex:1;min-width:0}
 .mg-ll{overflow:auto;flex:1}
@@ -194,15 +213,13 @@
   (function(){const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s)})();
 
   /* presence: M.pres = {userId:{a:isAdmin,t:ISO}}. Online = seen in the last 75 s. */
-  const lastSeenOf=empId=>{
-    if(isAdm()){const p=(M.pres||{})[empId];return p?p.t:null}
-    let best=null;Object.values(M.pres||{}).forEach(p=>{if(p.a&&(!best||p.t>best))best=p.t});return best};
+  const lastSeenOf=id=>{const p=(M.pres||{})[id];return p?p.t:null};
   const isOnline=iso=>!!iso&&Date.now()-new Date(iso).getTime()<75000;
   const seenTxt=iso=>{if(!iso)return 'Last seen: not yet';if(isOnline(iso))return 'Online';const d=new Date(iso),t=tm(iso),now=new Date(),y=new Date(Date.now()-864e5),same=(a,b)=>a.toDateString()===b.toDateString();
     return 'Last seen '+(same(d,now)?'today at '+t:same(d,y)?'yesterday at '+t:d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' at '+t)};
   const ticks=(m,t)=>{if(!m.mine)return '';
-    const rd=new Date(isAdm()?t.emp_read_at:t.admin_read_at)>=new Date(m.created_at);
-    const seen=lastSeenOf(t.employee_id),dl=rd||(seen&&new Date(seen)>=new Date(m.created_at));
+    const rd=new Date(t.other_read||0)>=new Date(m.created_at);
+    const seen=lastSeenOf(t.other_id),dl=rd||(seen&&new Date(seen)>=new Date(m.created_at));
     const st=rd?'rd':dl?'dl':'sent',tx=rd?'Read':dl?'Delivered':'Sent (recipient offline)';
     return `<span class="tick ${st}" title="${tx}" aria-label="${tx}">${st==='sent'?'✓':'✓✓'}</span>`};
   function fileIcon(a){const n=(a.name||'').toLowerCase();return /\.pdf$/.test(n)?'📕':/\.docx?$/.test(n)?'📘':/\.xlsx?$|\.csv$/.test(n)?'📗':/\.pptx?$/.test(n)?'📙':/\.zip$/.test(n)?'🗜️':/\.(mp3|m4a|wav|ogg)$/.test(n)?'🎵':/\.(mp4|mov)$/.test(n)?'🎬':'📄'}
@@ -210,8 +227,6 @@
     const mine=m.sender_id===state.user.id;m.mine=mine;
     const q=m.reply_to?list.find(x=>x.id===m.reply_to):null;
     let h=`<div class="mg-row ${mine?'me':''}" id="m_${esc(m.id)}"><div class="mg-b">`;
-    if(!mine&&(m.from_admin||isAdm()))h+=`<div class="mg-nm">${esc(m.from_admin&&!isAdm()?'Virtuous Accounting':m.sender_name||'')}</div>`;
-    else if(mine&&isAdm()&&false)h+='';
     if(m.deleted)return h+`<i style="color:var(--muted)">🚫 This message was deleted</i><div class="mg-meta">${tm(m.created_at)}</div></div></div>`;
     if(q)h+=`<div class="mg-q" data-act="mgJump" data-id="${esc(q.id)}"><b>${esc(q.sender_id===state.user.id?'You':(q.sender_name||''))}</b><br>${esc((q.deleted?'Deleted message':q.body||'Attachment').slice(0,100))}</div>`;
     (m.attachments||[]).forEach((a,i)=>{const u=urlOf(a);
@@ -222,7 +237,7 @@
     const mine2={};(rx||[]).filter(r=>r.message_id===m.id).forEach(r=>{(mine2[r.emoji]=mine2[r.emoji]||[]).push(r.user_id)});
     const keys=Object.keys(mine2);
     if(keys.length)h+=`<div class="mg-rx">${keys.map(e=>`<button class="${mine2[e].includes(state.user.id)?'on':''}" data-act="mgReact" data-id="${esc(m.id)}" data-e="${e}">${e} ${mine2[e].length}</button>`).join('')}</div>`;
-    if(M.menu===m.id)h+=`<div class="mg-menu"><div class="qr">${QUICK.map(e=>`<button data-act="mgReact" data-id="${esc(m.id)}" data-e="${e}">${e}</button>`).join('')}</div><button data-act="mgReply" data-id="${esc(m.id)}">↩ Reply</button>${(mine||isAdm())?`<button data-act="mgDel" data-id="${esc(m.id)}" style="color:var(--bad)">🗑 Delete</button>`:''}</div>`;
+    if(M.menu===m.id)h+=`<div class="mg-menu"><div class="qr">${QUICK.map(e=>`<button data-act="mgReact" data-id="${esc(m.id)}" data-e="${e}">${e}</button>`).join('')}</div><button data-act="mgReply" data-id="${esc(m.id)}">↩ Reply</button>${mine?`<button data-act="mgDel" data-id="${esc(m.id)}" style="color:var(--bad)">🗑 Delete</button>`:''}</div>`;
     return h+'</div></div>';
   }
   function curThread(){return M.threads.find(t=>t.id===M.active)}
@@ -244,25 +259,24 @@
   const replyBar=()=>{const m=M.reply&&(M.msgs[M.active]||[]).find(x=>x.id===M.reply);return m?`<div class="mg-rp"><span><b>${esc(m.sender_id===state.user.id?'You':m.sender_name)}</b>: ${esc((m.body||'Attachment').slice(0,80))}</span><button class="mg-mb" data-act="mgNoReply" aria-label="Cancel reply">✕</button></div>`:''};
 
   function rows(){
-    if(!isAdm())return '';
-    const q=M.q.toLowerCase(),byEmp={};M.threads.forEach(t=>byEmp[t.employee_id]=t);
-    const list=(M.emps||[]).filter(e=>!q||e.name.toLowerCase().includes(q)).map(e=>({e,t:byEmp[e.id]}))
-      .sort((a,b)=>(b.t?+new Date(b.t.last_at):0)-(a.t?+new Date(a.t.last_at):0)||a.e.name.localeCompare(b.e.name));
-    return list.map(({e,t})=>`<button class="mg-r ${t&&t.id===M.active?'on':''}" data-act="mgOpen" data-e="${esc(e.id)}"><span class="mg-av">${esc(ini(e.name))}</span><span class="mg-rt"><b><span style="color:inherit;font-size:inherit">${esc(e.name)}</span>${t&&t.last_text?`<small>${short(t.last_at)}</small>`:''}</b><span>${t&&t.last_text?esc(t.last_text):esc(e.title||'No messages yet')}</span></span>${t&&unreadT(t)?'<span class="mg-dot">●</span>':''}</button>`).join('')||'<div class="mg-empty">No employees found.</div>';
+    const q=M.q.toLowerCase(),byOther={};M.threads.forEach(t=>byOther[t.other_id]=t);
+    const list=(M.contacts||[]).filter(c=>!q||c.name.toLowerCase().includes(q)).map(c=>({c,t:byOther[c.id]}))
+      .sort((a,b)=>(b.t?+new Date(b.t.last_at):0)-(a.t?+new Date(a.t.last_at):0)||a.c.name.localeCompare(b.c.name));
+    return list.map(({c,t})=>`<button class="mg-r ${t&&t.id===M.active?'on':''}" data-act="mgOpen" data-e="${esc(c.id)}"><span class="mg-av">${esc(ini(c.name))}</span><span class="mg-rt"><b><span style="color:inherit;font-size:inherit">${esc(c.name)}${c.admin?' (Admin)':''}</span>${t&&t.last_text?`<small>${short(t.last_at)}</small>`:''}</b><span>${t&&t.last_text?esc(t.last_text):esc(c.title||'No messages yet')}</span></span>${t&&unreadT(t)?'<span class="mg-dot">●</span>':''}</button>`).join('')||'<div class="mg-empty">No colleagues found.</div>';
   }
   function head(){
-    if(!M.active&&isAdm())return '';
-    const t=curThread(),name=isAdm()?empName(t?t.employee_id:M.pendingEmp):'Virtuous Accounting',sub=isAdm()?((M.emps||[]).find(e=>e.id===(t?t.employee_id:M.pendingEmp))||{}).title||'Employee':'Administrator';
-    return `${isAdm()?'<button class="mg-ib back" data-act="mgBack" aria-label="Back">←</button>':''}<span class="mg-av">${esc(ini(name))}</span><div><b>${esc(name)}</b><div class="note" style="font-size:12px">${esc(sub||'')} &middot; ${(()=>{const ls=lastSeenOf(t?t.employee_id:M.pendingEmp);return isOnline(ls)?'<span class="mg-on">Online</span>':esc(seenTxt(ls))})()}</div></div>`;
+    const t=curThread(),otherId=t?t.other_id:M.pendingWith,c=(M.contacts||[]).find(x=>x.id===otherId)||{};
+    const name=c.name||'Someone';
+    return `<button class="mg-ib back" data-act="mgBack" aria-label="Back">←</button><span class="mg-av">${esc(ini(name))}</span><div><b>${esc(name)}${c.admin?' <span class="note">(Admin)</span>':''}</b><div class="note" style="font-size:12px">${esc(c.title||'')} &middot; ${(()=>{const ls=lastSeenOf(otherId);return isOnline(ls)?'<span class="mg-on">Online</span>':esc(seenTxt(ls))})()}</div></div>`;
   }
   function paintMsgs(stick){
     const box=document.getElementById('mgMsgs');if(!box)return;
     const near=box.scrollHeight-box.scrollTop-box.clientHeight<80;
     const t=curThread(),list=M.msgs[M.active]||[],rx=M.reacts[M.active]||[];
-    if(!M.active&&!M.pendingEmp&&isAdm()){box.innerHTML='<div class="mg-empty">Choose an employee on the left to read or start a conversation.</div>';return}
+    if(!M.active&&!M.pendingWith){box.innerHTML='<div class="mg-empty">Choose a colleague on the left to read or start a conversation.</div>';return}
     if(!list.length){box.innerHTML='<div class="mg-empty">No messages yet. Say hello. 👋</div>';return}
     let last='',h='';
-    list.forEach(m=>{const d=dayLbl(m.created_at);if(d!==last){h+=`<div class="mg-day">${d}</div>`;last=d}h+=bubble(m,t||{emp_read_at:0,admin_read_at:0},list,rx)});
+    list.forEach(m=>{const d=dayLbl(m.created_at);if(d!==last){h+=`<div class="mg-day">${d}</div>`;last=d}h+=bubble(m,t||{other_read:0,other_id:M.pendingWith},list,rx)});
     box.innerHTML=h;if(stick!==false&&(stick||near||M.stick))box.scrollTop=box.scrollHeight;M.stick=false;
   }
   function paintAll(){
@@ -275,31 +289,30 @@
   }
   function vMessages(){
     if(!state.user)return '';
-    const adm=isAdm();
-    if(!adm&&!M.active){const t=M.threads[0];if(t)M.active=t.id}
+    if(!M.active&&!M.pendingWith){const t=M.threads[0];if(t)M.active=t.id}
     if(!M.loaded)refresh();
-    const mt=adm?'':'';
     const h=`<div class="note" id="mgErr" role="alert" style="color:var(--bad);margin-bottom:6px">${esc(M.err)}</div>
-      <div class="mg ${adm?'':'solo'}" id="mgRoot" data-m="${M.mobile}">
-      ${adm?`<aside class="mg-l"><div class="mg-lh"><input id="mgQ" placeholder="Search employees" value="${esc(M.q)}" aria-label="Search employees"><button class="btn sm" data-act="mgNew">New message</button></div><div class="mg-ll" id="mgList">${rows()}</div></aside>`:''}
+      <div class="mg" id="mgRoot" data-m="${M.mobile}">
+      <aside class="mg-l"><div class="mg-lh"><input id="mgQ" placeholder="Search colleagues" value="${esc(M.q)}" aria-label="Search colleagues"><button class="btn sm" data-act="mgNew">New message</button></div><div class="mg-ll" id="mgList">${rows()}</div></aside>
       <section class="mg-c" id="mgChat"><div class="mg-ch" id="mgHead">${head()}</div><div class="mg-ms" id="mgMsgs" aria-live="polite"></div><div class="mg-comp" id="mgComp">${composer('chat','mg')}</div></section></div>`;
-    setTimeout(()=>{paintAll();const ta=document.getElementById('mgText');if(ta){ta.value=M.draft[M.active||M.pendingEmp||'']||'';grow(ta)}
+    setTimeout(()=>{paintAll();const ta=document.getElementById('mgText');if(ta){ta.value=M.draft[M.active||M.pendingWith||'']||'';grow(ta)}
       if(M.active&&isOpen())markRead(M.active);const b=document.getElementById('mgMsgs');if(b)b.scrollTop=b.scrollHeight},0);
     return h;
   }
   function grow(ta){ta.style.height='auto';ta.style.height=Math.min(140,ta.scrollHeight)+'px'}
 
-  /* ---------- new message dialog (admin) ---------- */
+  /* ---------- new message dialog ---------- */
   function modal(){
     let el=document.getElementById('mgNw');
     if(!M.nw){if(el)el.remove();return}
     if(!el){el=document.createElement('div');el.id='mgNw';el.className='mg-ov';document.body.appendChild(el)}
-    const n=M.nw,q=(n.q||'').toLowerCase(),emps=(M.emps||[]).filter(e=>!q||e.name.toLowerCase().includes(q));
+    const n=M.nw,q=(n.q||'').toLowerCase(),list=(M.contacts||[]).filter(c=>!q||c.name.toLowerCase().includes(q)),bulk=isAdm();
     const keep=document.getElementById('mgNText');const val=keep?keep.value:(n.text||'');
     el.innerHTML=`<div class="mg-md" role="dialog" aria-label="New message"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">New message</h3><button class="mg-ib" data-act="mgNwClose" aria-label="Close">✕</button></div>
-      <div class="note">Choose one, several or all employees. Each person gets it in their own conversation and can reply privately.</div>
-      <div style="display:flex;gap:8px;margin-top:8px"><input id="mgNQ" placeholder="Search" value="${esc(n.q||'')}" style="flex:1" aria-label="Search"><button class="btn ghost sm" data-act="mgNwAll">${emps.length&&emps.every(e=>n.sel[e.id])?'Clear all':'Select all'}</button></div>
-      <div class="mg-pick">${emps.map(e=>`<label><input type="checkbox" data-act="mgNwSel" data-e="${esc(e.id)}" ${n.sel[e.id]?'checked':''}> <span>${esc(e.name)} <small class="note">${esc(e.title||'')}</small></span></label>`).join('')||'<div class="mg-empty">No employees found.</div>'}</div>
+      <div class="note">${bulk?'Choose one, several or all colleagues. Each person gets it in their own conversation and can reply privately.':'Choose who to message.'}</div>
+      <div style="display:flex;gap:8px;margin-top:8px"><input id="mgNQ" placeholder="Search" value="${esc(n.q||'')}" style="flex:1" aria-label="Search">${bulk?`<button class="btn ghost sm" data-act="mgNwAll">${list.length&&list.every(c=>n.sel[c.id])?'Clear all':'Select all'}</button>`:''}</div>
+      <div class="mg-pick">${list.map(c=>bulk?`<label><input type="checkbox" data-act="mgNwSel" data-e="${esc(c.id)}" ${n.sel[c.id]?'checked':''}> <span>${esc(c.name)}${c.admin?' (Admin)':''} <small class="note">${esc(c.title||'')}</small></span></label>`
+        :`<label><input type="radio" name="mgNwOne" data-act="mgNwSel" data-e="${esc(c.id)}" ${n.sel[c.id]?'checked':''}> <span>${esc(c.name)}${c.admin?' (Admin)':''} <small class="note">${esc(c.title||'')}</small></span></label>`).join('')||'<div class="mg-empty">No colleagues found.</div>'}</div>
       <div class="note">${Object.keys(n.sel).filter(k=>n.sel[k]).length} selected</div>
       <div id="mgNwAtt">${attStrip('nw')}</div>
       <div class="mg-in" style="margin-top:8px"><button class="mg-ib" data-act="mgEm" data-k="nw" aria-label="Emoji">😊</button><button class="mg-ib" data-act="mgPick" data-k="nw" aria-label="Attach files">📎</button>
@@ -337,24 +350,24 @@
     const ta=document.getElementById(key==='chat'?'mgText':'mgNText'),body=clean(ta?ta.value:'').trim(),files=M.att[key].slice();
     if(!body&&!files.length)return;
     let targets;
-    if(key==='chat'){const emp=isAdm()?(curThread()?curThread().employee_id:M.pendingEmp):state.user.id;if(!emp)return;targets=[emp]}
-    else{targets=Object.keys(M.nw.sel).filter(k=>M.nw.sel[k]);if(!targets.length){M.nw.err='Choose at least one employee.';return modal()}}
+    if(key==='chat'){const other=curThread()?curThread().other_id:M.pendingWith;if(!other)return;targets=[other]}
+    else{targets=Object.keys(M.nw.sel).filter(k=>M.nw.sel[k]);if(!targets.length){M.nw.err='Choose at least one person.';return modal()}}
     M.busy=true;M.nw&&(M.nw.err='');if(key==='nw')modal();else{const b=document.querySelector('[data-act=mgSend][data-k=chat]');if(b)b.disabled=true}
     let ok=0,fail='';
-    for(const emp of targets){
-      try{const tid=await sendTo(emp,body,files,key==='chat'?M.reply:null);ok++;if(key==='chat'){M.active=tid;M.pendingEmp=null}}
-      catch(e){fail=/not permitted|policy/i.test(e.message||'')?'You are not allowed to send that.':/does not exist|schema cache|ensure_thread|send_message/i.test(e.message||'')?'Messages are not set up yet (migration 0017 must be run).':'Could not send: '+(e.message||'error')}
+    for(const other of targets){
+      try{const tid=await sendTo(other,body,files,key==='chat'?M.reply:null);ok++;if(key==='chat'){M.active=tid;M.pendingWith=null}}
+      catch(e){fail=/not permitted|policy/i.test(e.message||'')?'You are not allowed to send that.':/does not exist|schema cache|dm_ensure_thread|dm_send/i.test(e.message||'')?'Messages are not set up yet (migration 0029 must be run).':'Could not send: '+(e.message||'error')}
     }
     M.busy=false;
     if(fail){if(key==='nw'){M.nw.err=fail+(ok?' ('+ok+' sent)':'');modal()}else{M.err=fail;paintAll();const b=document.querySelector('[data-act=mgSend][data-k=chat]');if(b)b.disabled=false}if(!ok)return}
     files.forEach(f=>{if(LIVE&&f.blobUrl)URL.revokeObjectURL(f.blobUrl)});
     M.att[key]=[];if(ta)ta.value='';
     if(key==='chat'){M.draft[M.active||'']='';M.reply=null;M.emoji=null;if(ta)grow(ta);M.stick=true}
-    else{M.nw=null;modal();if(ok)toast('Message sent to '+ok+' '+(ok===1?'employee':'employees'));
+    else{M.nw=null;modal();if(ok)toast('Message sent to '+ok+' '+(ok===1?'person':'people'));
       if(targets.length===1){const t=await findThread(targets[0]);if(t){M.active=t;M.mobile='chat'}}}
     M.tPoll=Date.now();await refresh();if(key==='chat')repaintComp('chat');
   }
-  async function findThread(emp){await loadThreads();const t=M.threads.find(x=>x.employee_id===emp);return t&&t.id}
+  async function findThread(other){await loadThreads();const t=M.threads.find(x=>x.other_id===other);return t&&t.id}
 
   document.addEventListener('click',async e=>{
     const lbEl=e.target.closest&&e.target.closest('.mg-lb');if(lbEl){lbEl.remove();return}
@@ -365,11 +378,11 @@
     switch(a){
       case 'mgNew':M.nw={sel:{},q:'',err:'',text:''};M.att.nw=[];return modal();
       case 'mgNwClose':M.nw=null;M.att.nw=[];M.emoji=null;return modal();
-      case 'mgNwAll':{const q=(M.nw.q||'').toLowerCase(),list=(M.emps||[]).filter(x=>!q||x.name.toLowerCase().includes(q)),all=list.every(x=>M.nw.sel[x.id]);list.forEach(x=>{if(all)delete M.nw.sel[x.id];else M.nw.sel[x.id]=true});return modal()}
-      case 'mgOpen':{const emp=b.dataset.e;M.draft[M.active||M.pendingEmp||'']=(document.getElementById('mgText')||{}).value||'';
-        const t=M.threads.find(x=>x.employee_id===emp);M.active=t?t.id:null;M.pendingEmp=t?null:emp;M.reply=null;M.menu=null;M.mobile='chat';M.stick=true;
+      case 'mgNwAll':{if(!isAdm())return;const q=(M.nw.q||'').toLowerCase(),list=(M.contacts||[]).filter(x=>!q||x.name.toLowerCase().includes(q)),all=list.every(x=>M.nw.sel[x.id]);list.forEach(x=>{if(all)delete M.nw.sel[x.id];else M.nw.sel[x.id]=true});return modal()}
+      case 'mgOpen':{const other=b.dataset.e;M.draft[M.active||M.pendingWith||'']=(document.getElementById('mgText')||{}).value||'';
+        const t=M.threads.find(x=>x.other_id===other);M.active=t?t.id:null;M.pendingWith=t?null:other;M.reply=null;M.menu=null;M.mobile='chat';M.stick=true;
         if(t&&!M.msgs[t.id])await loadMsgs(t.id);paintAll();
-        const ta=document.getElementById('mgText');if(ta){ta.value=M.draft[t?t.id:emp]||'';grow(ta)}
+        const ta=document.getElementById('mgText');if(ta){ta.value=M.draft[t?t.id:other]||'';grow(ta)}
         if(t)markRead(t.id);return}
       case 'mgBack':M.mobile='list';return paintAll();
       case 'mgMenu':M.menu=M.menu===id?null:id;return paintMsgs(false);
@@ -386,23 +399,26 @@
       case 'mgReact':{
         const tid=M.active,list=M.reacts[tid]=M.reacts[tid]||[],ex=list.find(r=>r.message_id===id&&r.user_id===state.user.id&&r.emoji===b.dataset.e);
         M.menu=null;
-        if(ex){list.splice(list.indexOf(ex),1);if(!LIVE)demo().reacts=demo().reacts.filter(r=>!(r.message_id===id&&r.user_id===state.user.id&&r.emoji===ex.emoji));else sb().from('msg_reactions').delete().eq('message_id',id).eq('user_id',state.user.id).eq('emoji',ex.emoji).then(()=>{})}
-        else{const r={message_id:id,user_id:state.user.id,emoji:b.dataset.e};list.push(r);if(!LIVE)demo().reacts.push({...r});else sb().from('msg_reactions').insert(r).then(()=>{})}
+        if(ex){list.splice(list.indexOf(ex),1);if(!LIVE)demo().reacts=demo().reacts.filter(r=>!(r.message_id===id&&r.user_id===state.user.id&&r.emoji===ex.emoji));else sb().from('dm_reactions').delete().eq('message_id',id).eq('user_id',state.user.id).eq('emoji',ex.emoji).then(()=>{})}
+        else{const r={message_id:id,user_id:state.user.id,emoji:b.dataset.e};list.push(r);if(!LIVE)demo().reacts.push({...r});else sb().from('dm_reactions').insert(r).then(()=>{})}
         return paintMsgs(false)}
       case 'mgDel':{if(!confirm('Delete this message for everyone?'))return;M.menu=null;
-        if(!LIVE){const m=demo().msgs.find(x=>x.id===id);if(m){m.deleted=true;m.body='';m.attachments=[]}}else await sb().rpc('delete_message',{p_id:id});
+        if(!LIVE){const m=demo().msgs.find(x=>x.id===id);if(m){m.deleted=true;m.body='';m.attachments=[]}}else await sb().rpc('dm_delete_message',{p_id:id});
         await loadMsgs(M.active);return paintMsgs(false)}
     }
   },true);
   document.addEventListener('change',e=>{
     const t=e.target;
-    if(t.dataset&&t.dataset.act==='mgNwSel'){e.stopImmediatePropagation();if(t.checked)M.nw.sel[t.dataset.e]=true;else delete M.nw.sel[t.dataset.e];const n=document.querySelector('#mgNw .note:nth-of-type(3)');return modal()}
+    if(t.dataset&&t.dataset.act==='mgNwSel'){e.stopImmediatePropagation();
+      if(isAdm()){if(t.checked)M.nw.sel[t.dataset.e]=true;else delete M.nw.sel[t.dataset.e]}
+      else{M.nw.sel={[t.dataset.e]:true}}
+      return modal()}
   },true);
   document.addEventListener('input',e=>{
     const t=e.target;
     if(t.id==='mgQ'){e.stopImmediatePropagation();M.q=t.value;const l=document.getElementById('mgList');if(l)l.innerHTML=rows();return}
     if(t.id==='mgNQ'){e.stopImmediatePropagation();const pos=t.selectionStart;M.nw.q=t.value;M.nw.text=(document.getElementById('mgNText')||{}).value||'';modal();const n=document.getElementById('mgNQ');n.focus();try{n.setSelectionRange(pos,pos)}catch(x){}return}
-    if(t.id==='mgText'){M.draft[M.active||M.pendingEmp||'']=t.value;grow(t)}
+    if(t.id==='mgText'){M.draft[M.active||M.pendingWith||'']=t.value;grow(t)}
   },true);
   document.addEventListener('keydown',e=>{
     const t=e.target;
@@ -427,7 +443,7 @@
   const baseDash=VIEWS.dash;
   VIEWS.dash=()=>{
     const h=baseDash(),n=unread();
-    const card=n?`<button class="banner" data-tab="messages" style="display:block;width:100%;text-align:left;cursor:pointer;margin-bottom:12px;border-left-color:var(--accent);background:var(--accent-soft);color:inherit;font:inherit"><b>💬 ${n} unread conversation${n===1?'':'s'}</b><div class="note">${isAdm()?'Employees have replied. Open Messages to read them.':'You have a new message from the office. Open Messages to read it.'}</div></button>`
+    const card=n?`<button class="banner" data-tab="messages" style="display:block;width:100%;text-align:left;cursor:pointer;margin-bottom:12px;border-left-color:var(--accent);background:var(--accent-soft);color:inherit;font:inherit"><b>💬 ${n} unread conversation${n===1?'':'s'}</b><div class="note">Open Messages to read ${n===1?'it':'them'}.</div></button>`
       :`<button class="tile link" data-tab="messages" style="margin-bottom:12px;max-width:260px"><b style="font-size:16px">💬 Messages</b><span>No unread messages</span></button>`;
     return card+h;
   };

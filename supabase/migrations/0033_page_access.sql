@@ -74,3 +74,20 @@ do $$ begin
       using (bucket_id = 'kyc-uploads' and has_perm('formbuilder'))$p$;
   end if;
 end $$;
+
+-- One-time starting grant (owner's request): Bjorn's work functions are exactly these four pages, with full access.
+-- Runs once (a marker setting stops it from re-granting after an administrator changes it). Matches an employee whose
+-- name starts with "Bjorn"; the NOTICE below says who received it. Administrators can change it any time under
+-- People > Employee dashboards.
+do $$ declare n int;
+begin
+  if not exists (select 1 from app_settings where key = 'page_access_seed') then
+    alter table profiles disable trigger profiles_guard;
+    update profiles set perms = array['formbuilder','receipts','sheets','petty']
+      where lower(name) like 'bjorn%' and role = 'emp';
+    get diagnostics n = row_count;
+    alter table profiles enable trigger profiles_guard;
+    insert into app_settings (key, value) values ('page_access_seed', to_jsonb(now()::text)) on conflict (key) do nothing;
+    raise notice 'Work functions: % employee(s) named Bjorn received Form builder, Receipts, Petty cash sheet and Reconcile.', n;
+  end if;
+end $$;

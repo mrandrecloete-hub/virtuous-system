@@ -10,7 +10,7 @@
   const isAdm=()=>state.user&&state.user.type==='admin';
   const TITLE_EDIT_ALLOWED=['ecrypted5@gmail.com'];
   const canEditTitle=()=>!!(state.user&&state.user.email&&TITLE_EDIT_ALLOWED.includes(state.user.email.toLowerCase()));
-  const VERSION='v127';
+  const VERSION='v128';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true,notif:false};
 

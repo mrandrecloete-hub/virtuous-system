@@ -179,7 +179,7 @@
     <div class="stsec" style="max-width:760px">
     <div class="panel stsec"><div class="row" style="gap:14px;align-items:center;flex-wrap:nowrap"><div aria-hidden="true" style="flex:0 0 64px;width:64px;height:64px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-size:24px;font-weight:700">${esc(init)}</div>
       <div style="min-width:0"><h3 style="margin:0">${esc(u.name)}</h3><div class="note">${esc(u.title||'')}</div><div style="margin-top:4px">${pill(isAdm()?'Administrator':'Employee')}</div></div></div>
-      <dl class="stkv"><dt>Email (your sign-in)</dt><dd>${esc(u.email)}</dd><dt>Job title</dt><dd>${canEditTitle()?'':esc(u.title||'Not set')}</dd><dt>Access</dt><dd>${isAdm()?'Administrator: sees every page':'Employee: your own dashboard, timesheet, leave and requests'}</dd>${u.lastLogin?`<dt>Last sign-in</dt><dd>${esc(fmtDT(new Date(u.lastLogin)))}</dd>`:''}</dl>
+      <dl class="stkv"><dt>Email (your sign-in)</dt><dd>${esc(u.email)}</dd><dt>Job title</dt><dd>${esc(u.title||'Not set')}</dd><dt>Access</dt><dd>${isAdm()?'Administrator: sees every page':'Employee: your own dashboard, timesheet, leave and requests'}</dd>${u.lastLogin?`<dt>Last sign-in</dt><dd>${esc(fmtDT(new Date(u.lastLogin)))}</dd>`:''}</dl>
       <p class="note" style="margin:0">To change your name or email, ask an administrator.</p></div>
     ${canEditTitle()?`<form id="pfTitle" class="panel stsec" novalidate><h3>Job title</h3>
       <div class="strow"><label class="l" for="pfTitleIn"><b>Job title</b><span>Shown on your profile and in Team.</span></label><input id="pfTitleIn" type="text" maxlength="80" value="${esc(u.title||'')}" autocomplete="off"></div>

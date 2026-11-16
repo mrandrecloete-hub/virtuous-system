@@ -397,7 +397,14 @@ const dateFor=k=>k===curMonth()?state.today:k+'-01';
 const sg=n=>n>0?'+'+n:String(n);
 function recips(staffToo){return state.users.filter(u=>u.access&&(u.type==='admin'||(staffToo&&u.type==='emp'))).map(u=>u.email)}
 function notify(kind,msg,staffToo,at){state.notes.unshift({id:uid(),kind,msg,staff:staffToo,at:at||new Date(),emails:recips(staffToo),readBy:{}})}
-const visibleNotes=()=>state.notes.filter(n=>state.user&&!(n.hidden&&n.hidden[state.user.id])&&(n.to?(state.user.id===n.to||state.user.type==='admin'):(state.user.type==='admin'||n.staff)));
+const NOTE_TAB={'Low stock':'stationery','Cash':'cash','Payroll':'payroll','Request':'kyc'};
+function noteTabVisible(kind){
+  const tab=NOTE_TAB[kind];if(!tab)return true;
+  if(tab==='kyc')return kycAllowed();
+  const role=state.role||(state.user&&state.user.type==='admin'?'adm':'emp');
+  return (NAV[role]||[]).some(([,items])=>items.some(([k])=>k===tab));
+}
+const visibleNotes=()=>state.notes.filter(n=>state.user&&!(n.hidden&&n.hidden[state.user.id])&&(n.to?(state.user.id===n.to||state.user.type==='admin'):(state.user.type==='admin'||n.staff))&&noteTabVisible(n.kind));
 function logA(action,detail){(state.audit=state.audit||[]).unshift({id:uid(),at:new Date(),by:state.user?state.user.name:'System',action,detail:detail||''})}
 function notifyTo(uidTo,kind,msg){state.notes.unshift({id:uid(),kind,msg,staff:false,to:uidTo,at:new Date(),emails:[(byId(uidTo)||{}).email].filter(Boolean),readBy:{}})}
 const unreadCount=()=>state.user?visibleNotes().filter(n=>!n.readBy[state.user.id]).length:0;

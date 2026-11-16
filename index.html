@@ -468,13 +468,16 @@ const ICON={
  alerts:'<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
  stationery:'<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/>',
  cash:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.7c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.9-2.5.9-2.5 1.9 1 1.8 2.5 1.8 2.5-.8 2.5-1.8"/>'};
+const KYC_ALLOWED=['barry@virtuoso.com.na','ecrypted5@gmail.com'];
+function kycAllowed(){const u=state.user;return !!(u&&u.email&&KYC_ALLOWED.includes(u.email.toLowerCase()));}
 const NAV={
  emp:[['Overview',[['dash','Dashboard'],['alerts','Alerts']]],['My work',[['time','Timesheet'],['requests','Requests'],['leave','Leave'],['slip','Payslips'],['stationery','Stationery list'],['cash','Petty cash']]]],
  adm:[['Overview',[['dash','Dashboard'],['reports','Reports'],['alerts','Alerts']]],['People',[['kyc','Client KYC'],['leave','Leave'],['approvals','Approvals'],['activity','Activity'],['audit','Audit log']]],['Money',[['receipts','Receipts'],['sheets','Petty cash sheet'],['petty','Reconcile'],['cash','Petty cash'],['clients','Timesheet']]],['Office',[['stationery','Stationery list']]]]};
 function pending(){return state.approvals.filter(a=>a.status==='Pending').length}
 function paintTabs(){
   const cur=state.tab[state.role];let title='Dashboard';
-  $('#tabs').innerHTML=NAV[state.role].map(([g,items])=>`<div class="ng">${g}</div>`+items.map(([k,l])=>{
+  const navAllowed=k=>k!=='kyc'||kycAllowed();
+  $('#tabs').innerHTML=NAV[state.role].map(([g,items])=>[g,items.filter(([k])=>navAllowed(k))]).filter(([,items])=>items.length).map(([g,items])=>`<div class="ng">${g}</div>`+items.map(([k,l])=>{
     if(k===cur)title=l;
     return `<button class="nv" data-tab="${k}" aria-selected="${k===cur}"><svg viewBox="0 0 24 24">${ICON[k]}</svg><span>${l}</span>${k==='approvals'&&pending()?`<span class="badge">${pending()}</span>`:''}${k==='kyc'&&kPend()?`<span class="badge">${kPend()}</span>`:''}${k==='dash'&&state.role==='emp'&&window.VIRTUOSO_DASHEDIT&&VIRTUOSO_DASHEDIT.isNew()?'<span class="badge">new</span>':''}${k==='messages'&&window.VIRTUOSO_MSG&&VIRTUOSO_MSG.unread()?`<span class="badge">${VIRTUOSO_MSG.unread()}</span>`:''}${k==='alerts'&&unreadCount()?`<span class="badge">${unreadCount()}</span>`:''}</button>`}).join('')).join('');
   $('#pageTitle').textContent=title;
@@ -799,7 +802,7 @@ function dAdm(){
   return `<div class="hello"><div><h2>Dashboard</h2><p class="sub" style="margin:0">October 2026 close, financial year 2027. ${doneN} of ${chk.length} month-end steps done.</p></div></div>
   <div class="tiles">
     <button class="tile link" data-tab="approvals"><b>${pend.length}</b><span>Waiting for approval</span><small>${pend.filter(a=>a.type==='Timesheet').length} timesheets</small></button>
-    <button class="tile link" data-tab="kyc"><b>${kPend()}</b><span>Forms awaiting review</span><small>KYC and staff requests</small></button>
+    ${kycAllowed()?`<button class="tile link" data-tab="kyc"><b>${kPend()}</b><span>Forms awaiting review</span><small>KYC and staff requests</small></button>`:''}
     <button class="tile link" data-tab="activity"><b>${act}</b><span>Active now</span><small>${state.online?'Live heartbeat':'Offline, using last sync'}</small></button>
     <button class="tile link" data-tab="stationery"><b>${(()=>{const n=window.VIRTUOSO_OFFICE?VIRTUOSO_OFFICE.buyCount():null;return n===null?'-':n})()}</b><span>Office items to buy</span><small>${window.VIRTUOSO_OFFICE&&VIRTUOSO_OFFICE.buyCount()?esc(VIRTUOSO_OFFICE.toBuy().slice(0,3).map(x=>x.split(':')[0]).join(', ')+(VIRTUOSO_OFFICE.toBuy().length>3?'…':'')):'Nothing on the To Buy list'}</small></button>
     <button class="tile link" data-tab="cash"><b>${overdueAdv().length}</b><span>Cash not reported</span><small>${NAD(state.advances.filter(a=>a.status==='Open').reduce((s,a)=>s+a.amount,0))} still with staff</small></button>
@@ -1215,6 +1218,7 @@ const KDOC_CSS='.kdoc{font-family:Arial,sans-serif;color:#111;background:#fff;ma
 /* ---- views ---- */
 function kBack(label){return `<button class="btn ghost sm" data-k="go" data-v="${label==='Submissions'&&state.user.type==='admin'?'subs':'forms'}">Back to ${label.toLowerCase()}</button>`}
 function vKyc(){
+  if(!kycAllowed())return '<div class="panel"><h3>Client KYC</h3><p class="note">You don\'t have access to this page.</p></div>';
   kInit();const K=state.kyc;
   const tabs=`<div class="seg" role="tablist" style="margin-bottom:14px"><button class="btn ghost sm" data-k="go" data-v="forms" aria-pressed="${K.view==='forms'}">Forms</button><button class="btn ghost sm" data-k="go" data-v="subs" aria-pressed="${K.view==='subs'}">Submissions (${state.subs.length})</button></div>`;
   if(K.view==='build')return kBuild();

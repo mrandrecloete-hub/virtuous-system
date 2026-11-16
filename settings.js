@@ -8,6 +8,8 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const isAdm=()=>state.user&&state.user.type==='admin';
+  const TITLE_EDIT_ALLOWED=['ecrypted5@gmail.com'];
+  const canEditTitle=()=>!!(state.user&&state.user.email&&TITLE_EDIT_ALLOWED.includes(state.user.email.toLowerCase()));
   const VERSION='v124';
   const PK='vx_prefs';
   const DEF={theme:'auto',size:'normal',compact:false,motion:false,bruno:true,voice:true};
@@ -80,7 +82,7 @@
   const ALLKEYS=Object.values(FIELDS).flat().map(f=>f.k);
   /* Read-only access to firm settings for other modules (letters, documents). get(key) returns the saved value or the default. */
   window.VIRTUOSO_SETTINGS={get:k=>{const f=Object.values(FIELDS).flat().find(x=>x.k===k);return f?val(f):undefined},load:()=>load()};
-  const S={tab:'profile',vals:{},loaded:false,loading:false,busy:false,msg:'',err:'',uid:null,pwMsg:'',pwErr:''};
+  const S={tab:'profile',vals:{},loaded:false,loading:false,busy:false,msg:'',err:'',uid:null,pwMsg:'',pwErr:'',titleMsg:'',titleErr:''};
   state.settings=state.settings||{};
   const val=f=>{const v=LIVE?S.vals[f.k]:state.settings[f.k];return v===undefined||v===null?f.def:v};
   function pushToState(){
@@ -177,8 +179,12 @@
     <div class="stsec" style="max-width:760px">
     <div class="panel stsec"><div class="row" style="gap:14px;align-items:center;flex-wrap:nowrap"><div aria-hidden="true" style="flex:0 0 64px;width:64px;height:64px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-size:24px;font-weight:700">${esc(init)}</div>
       <div style="min-width:0"><h3 style="margin:0">${esc(u.name)}</h3><div class="note">${esc(u.title||'')}</div><div style="margin-top:4px">${pill(isAdm()?'Administrator':'Employee')}</div></div></div>
-      <dl class="stkv"><dt>Email (your sign-in)</dt><dd>${esc(u.email)}</dd><dt>Job title</dt><dd>${esc(u.title||'Not set')}</dd><dt>Access</dt><dd>${isAdm()?'Administrator: sees every page':'Employee: your own dashboard, timesheet, leave and requests'}</dd>${u.lastLogin?`<dt>Last sign-in</dt><dd>${esc(fmtDT(new Date(u.lastLogin)))}</dd>`:''}</dl>
-      <p class="note" style="margin:0">To change your name, title or email, ask an administrator.</p></div>
+      <dl class="stkv"><dt>Email (your sign-in)</dt><dd>${esc(u.email)}</dd><dt>Job title</dt><dd>${canEditTitle()?'':esc(u.title||'Not set')}</dd><dt>Access</dt><dd>${isAdm()?'Administrator: sees every page':'Employee: your own dashboard, timesheet, leave and requests'}</dd>${u.lastLogin?`<dt>Last sign-in</dt><dd>${esc(fmtDT(new Date(u.lastLogin)))}</dd>`:''}</dl>
+      <p class="note" style="margin:0">To change your name or email, ask an administrator.</p></div>
+    ${canEditTitle()?`<form id="pfTitle" class="panel stsec" novalidate><h3>Job title</h3>
+      <div class="strow"><label class="l" for="pfTitleIn"><b>Job title</b><span>Shown on your profile and in Team.</span></label><input id="pfTitleIn" type="text" maxlength="80" value="${esc(u.title||'')}" autocomplete="off"></div>
+      <div class="err" id="pfTitleErr" role="alert">${esc(S.titleErr)}</div>${S.titleMsg?`<div class="banner ok" role="status">${esc(S.titleMsg)}</div>`:''}
+      <div class="stbar"><button class="btn" type="submit" ${S.busy?'disabled':''}>Save title</button></div></form>`:''}
     <form id="pfPw" class="panel stsec" novalidate><h3>Change password</h3>
       <div>${LIVE?'':`<div class="strow"><label class="l" for="pfPwOld"><b>Current password</b></label><input id="pfPwOld" type="password" autocomplete="current-password"></div>`}
       <div class="strow"><label class="l" for="pfPwNew"><b>New password</b><span>At least 8 characters, with a number.</span></label><input id="pfPwNew" type="password" autocomplete="new-password"></div>
@@ -214,6 +220,19 @@
     pushToState();S.err='';S.msg='Saved.'+(tab==='payroll'?' Recalculate the draft on the Payroll page to apply it.':'');
     toast('Settings saved');render();
   }
+  async function saveTitle(){
+    const v=($('#pfTitleIn').value||'').trim(),u=state.user;
+    S.titleMsg='';S.titleErr='';
+    if(v.length>80){S.titleErr='Keep it under 80 characters.';return render()}
+    if(LIVE){
+      S.busy=true;
+      const r=await sb().from('profiles').update({title:v}).eq('id',u.id);
+      S.busy=false;
+      if(r.error){S.titleErr=/row-level|policy|permission|not permitted/i.test(r.error.message)?'You are not allowed to change this.':'Could not save. Check your connection and try again.';return render()}
+    }
+    u.title=v;
+    S.titleMsg='Saved.';toast('Job title saved');render();
+  }
   async function savePassword(px){
     px=px||'st';const n=$('#'+px+'PwNew').value,c=$('#'+px+'PwCon').value,u=state.user;
     S.pwMsg='';
@@ -245,10 +264,10 @@
     savePrefs();applyPrefs();toast('Saved on this device');
   }
   document.addEventListener('submit',e=>{
-    const id=e.target.id;if(id!=='stForm'&&id!=='stPw'&&id!=='pfPw')return;
+    const id=e.target.id;if(id!=='stForm'&&id!=='stPw'&&id!=='pfPw'&&id!=='pfTitle')return;
     e.preventDefault();e.stopImmediatePropagation();
     if(S.busy)return;
-    if(id==='stForm')saveFirm(e.target);else savePassword(id==='pfPw'?'pf':'st');
+    if(id==='stForm')saveFirm(e.target);else if(id==='pfTitle')saveTitle();else savePassword(id==='pfPw'?'pf':'st');
   },true);
   document.addEventListener('change',e=>{
     const t=e.target;if(!t||t.dataset.st!=='pref')return;

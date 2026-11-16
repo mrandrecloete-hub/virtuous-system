@@ -176,22 +176,22 @@
   function vProfile(){
     const u=state.user||{},init=String(u.name||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
     return `<h2>My profile</h2><p class="sub">Your details, and where you change your password.</p>
-    <div class="stsec" style="max-width:760px">
-    <div class="panel stsec"><div class="row" style="gap:14px;align-items:center;flex-wrap:nowrap"><div aria-hidden="true" style="flex:0 0 64px;width:64px;height:64px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-size:24px;font-weight:700">${esc(init)}</div>
+    <div class="panel" style="max-width:760px">
+      <div class="row" style="gap:14px;align-items:center;flex-wrap:nowrap"><div aria-hidden="true" style="flex:0 0 64px;width:64px;height:64px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-size:24px;font-weight:700">${esc(init)}</div>
       <div style="min-width:0"><h3 style="margin:0">${esc(u.name)}</h3><div class="note">${esc(u.title||'')}</div><div style="margin-top:4px">${pill(isAdm()?'Administrator':'Employee')}</div></div></div>
       <dl class="stkv"><dt>Email (your sign-in)</dt><dd>${esc(u.email)}</dd><dt>Job title</dt><dd>${esc(u.title||'Not set')}</dd><dt>Access</dt><dd>${isAdm()?'Administrator: sees every page':'Employee: your own dashboard, timesheet, leave and requests'}</dd>${u.lastLogin?`<dt>Last sign-in</dt><dd>${esc(fmtDT(new Date(u.lastLogin)))}</dd>`:''}</dl>
-      <p class="note" style="margin:0">To change your name or email, ask an administrator.</p></div>
-    ${canEditTitle()?`<form id="pfTitle" class="panel stsec" novalidate><h3>Job title</h3>
+      <p class="note" style="margin:0 0 14px">To change your name or email, ask an administrator.</p>
+    ${canEditTitle()?`<hr><h3>Job title</h3><form id="pfTitle" novalidate>
       <div class="strow"><label class="l" for="pfTitleIn"><b>Job title</b><span>Shown on your profile and in Team.</span></label><input id="pfTitleIn" type="text" maxlength="80" value="${esc(u.title||'')}" autocomplete="off"></div>
       <div class="err" id="pfTitleErr" role="alert">${esc(S.titleErr)}</div>${S.titleMsg?`<div class="banner ok" role="status">${esc(S.titleMsg)}</div>`:''}
       <div class="stbar"><button class="btn" type="submit" ${S.busy?'disabled':''}>Save title</button></div></form>`:''}
-    <form id="pfPw" class="panel stsec" novalidate><h3>Change password</h3>
+    <hr><h3>Change password</h3><form id="pfPw" novalidate>
       <div>${LIVE?'':`<div class="strow"><label class="l" for="pfPwOld"><b>Current password</b></label><input id="pfPwOld" type="password" autocomplete="current-password"></div>`}
       <div class="strow"><label class="l" for="pfPwNew"><b>New password</b><span>At least 8 characters, with a number.</span></label><input id="pfPwNew" type="password" autocomplete="new-password"></div>
       <div class="strow"><label class="l" for="pfPwCon"><b>Confirm new password</b></label><input id="pfPwCon" type="password" autocomplete="new-password"></div></div>
       <div class="err" id="pfPwErr" role="alert">${esc(S.pwErr)}</div>${S.pwMsg?`<div class="banner ok" role="status">${esc(S.pwMsg)}</div>`:''}
       <div class="stbar"><button class="btn" type="submit" ${S.busy?'disabled':''}>Save password</button></div></form>
-    <div class="panel stsec"><div class="stbar"><button class="btn ghost" data-tab="settings">Appearance and more settings</button><button class="btn ghost" data-act="signout">Sign out</button></div></div></div>`;
+    <hr><div class="stbar"><button class="btn ghost" data-tab="settings">Appearance and more settings</button><button class="btn ghost" data-act="signout">Sign out</button></div></div>`;
   }
   VIEWS.profile=vProfile;
   VIEWS.settings=vSettings;

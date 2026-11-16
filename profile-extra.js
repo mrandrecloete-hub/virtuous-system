@@ -50,7 +50,7 @@
   function panel(){
     const r=X.row||{};
     const f=FIELDS.map(([k,l,n,t])=>`<div class="strow"><label class="l" for="px_${k}"><b>${l}</b></label><input id="px_${k}" name="${k}" type="${t}" maxlength="${n}" value="${esc(r[k]||'')}" autocomplete="off"></div>`).join('');
-    return `<div class="panel stsec" id="pxPanel"><h3>Photo and personal details <span class="note" style="font-weight:400">(all optional)</span></h3>
+    return `<hr><div id="pxPanel"><h3>Photo and personal details <span class="note" style="font-weight:400">(all optional)</span></h3>
       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">${avatarHTML(84)}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" type="button" data-act="pxPick">${r.avatar?'Change photo':'Upload photo'}</button>${r.avatar?'<button class="btn bad sm" type="button" data-act="pxRemove">Remove photo</button>':''}</div></div>
       <div class="note">A square photo works best. JPG, PNG or WebP, up to 8 MB; it is resized on your device.</div>
@@ -63,7 +63,7 @@
   const base=VIEWS.profile;
   VIEWS.profile=()=>{
     const h=base();if(!X.loaded&&!X.loading)load();
-    const i=h.indexOf('<form id="pfPw"');return i<0?h+panel():h.slice(0,i)+panel()+h.slice(i);
+    const i=h.indexOf('<hr><h3>Change password');return i<0?h.replace(/<\/div>\s*$/,panel()+'</div>'):h.slice(0,i)+panel()+h.slice(i);
   };
   function resize(file){
     return new Promise((ok,no)=>{

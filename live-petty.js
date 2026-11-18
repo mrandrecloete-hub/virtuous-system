@@ -21,7 +21,7 @@
   const monthsList=()=>{const out=[],end=(()=>{const t=parse(nowKey()+'-01');t.setMonth(t.getMonth()+1);const k=iso(t).slice(0,7);return k>'2027-02'?k:'2027-02'})();
     let y=2026,m=3;while((y+'-'+pad(m))<=end){out.push(y+'-'+pad(m));if(++m>12){m=1;y++}}return out};
   const defMonth=()=>{const l=monthsList(),k=nowKey();return l.includes(k)?k:l[l.length-1]};
-  const fresh=()=>({msg:'',uid:null,adv:null,loadA:false,people:null,month:null,docs:null,loadD:false,busy:false,reads:[],open:{},revs:{}});
+  const fresh=()=>({msg:'',uid:null,adv:null,loadA:false,rb:null,rbErr:'',people:null,month:null,docs:null,loadD:false,busy:false,reads:[],open:{},revs:{}});
   let S=fresh();
   if(!state.pcDocs)state.pcDocs=[];
   const month=()=>S.month||(S.month=defMonth());
@@ -147,9 +147,50 @@
     if(S.loadA||!LIVE)return;S.loadA=true;
     const a=await sb().from('cash_advances').select('*').order('taken_at',{ascending:false}).limit(500);
     const p=await sb().from('profiles').select('id,name,title,role,access_enabled');
+    const rb=await sb().from('petty_reimbursements').select('*').order('created_at',{ascending:false}).limit(500);
+    S.rb=rb.error?[]:rb.data;S.rbErr=rb.error?String(rb.error.message||'error'):'';
     S.loadA=false;S.adv=a.error?[]:a.data;S.people=p.error?[]:p.data;render();
   }
   const today=()=>iso(new Date());
+  /* ---------- Own funds paid back by petty cash ---------- */
+  const isMgr=()=>isAdm()||!!(window.VIRTUOSO_PERMS&&window.VIRTUOSO_PERMS.has&&window.VIRTUOSO_PERMS.has('petty'));
+  function reimbHTML(nm){
+    const me=state.user,mgr=isMgr(),all=S.rb||[],mine=all.filter(r=>r.user_id===me.id),owed=all.filter(r=>r.status==='Owed');
+    if(S.rbErr&&/relation|schema cache|could not find|permission/i.test(S.rbErr))return `<div class="panel"><h3>Paid with my own money</h3><div class="banner" role="alert">This needs database migration 0036. Run it in the Supabase SQL editor, then reload.</div></div>`;
+    const row=(r,who)=>{const own=r.user_id===me.id,st=r.status==='Paid'?pill('Paid out '+fd(r.paid_at),'ok'):pill('Owed to employee','warn');
+      const act=r.status==='Owed'?`${mgr?`<button class="btn sm" type="button" data-act="pfRbPay" data-id="${esc(r.id)}">Pay out</button> `:''}${own||mgr?`<button class="btn sm ghost" type="button" data-act="pfRbDel" data-id="${esc(r.id)}" style="color:var(--bad)">Delete</button>`:''}`:'';
+      return `<tr><td>${esc(fd(r.spent_on))}</td>${who?`<td>${esc(nm[r.user_id]||'Unknown')}</td>`:''}<td>${esc(r.description)}</td><td class="n">${f2(r.amount)}</td><td>${r.receipt_path?`<button class="btn ghost sm" type="button" data-act="pfRbRcpt" data-id="${esc(r.id)}">View</button>`:'-'}</td><td>${st}</td><td>${act}</td></tr>`};
+    const head=who=>`<thead><tr><th>Date</th>${who?'<th>Employee</th>':''}<th>For</th><th class="n">Amount</th><th>Receipt</th><th>Status</th><th></th></tr></thead>`;
+    const empty=S.rb===null?'Loading…':'Nothing yet.';
+    return `<div class="panel"><h3>I paid with my own money</h3><p class="note">Spent your own money on the business? Record it here. Petty cash will pay you back and mark it paid out.</p>
+      <form class="form" id="pfRbForm" novalidate>
+        <label>Amount (N$)<input id="pfRbAmt" type="number" min="0.01" step="0.01"></label>
+        <label>What it was for<input id="pfRbWhy" maxlength="200" placeholder="e.g. Printer paper, taxi to client"></label>
+        <label>Date spent<input id="pfRbDate" type="date" value="${today()}" max="${today()}"></label>
+        <label>Receipt (photo or PDF, optional)<input id="pfRbFile" type="file" accept="image/jpeg,image/png,application/pdf"></label>
+        <button class="btn" type="submit">Submit</button></form><div class="err" id="pfRbErr" role="alert"></div></div>
+      <div class="panel"><h3>My own-funds claims</h3><div class="tbl"><table style="min-width:640px">${head(false)}<tbody>${mine.map(r=>row(r,false)).join('')||`<tr><td colspan="6" class="note">${empty}</td></tr>`}</tbody></table></div></div>
+      ${mgr?`<div class="panel"><h3>Own funds to pay back${owed.length?' ('+owed.length+', '+money(owed.reduce((s,r)=>s+ +r.amount,0))+')':''}</h3><div class="tbl"><table style="min-width:720px">${head(true)}<tbody>${all.map(r=>row(r,true)).join('')||`<tr><td colspan="7" class="note">${empty}</td></tr>`}</tbody></table></div></div>`:''}`;
+  }
+  async function rbReceipt(id){
+    const r=(S.rb||[]).find(x=>x.id===id);if(!r||!r.receipt_path)return;
+    const w=window.open('','_blank');
+    const {data,error}=await sb().storage.from('documents').createSignedUrl(r.receipt_path,60);
+    if(error||!data){if(w)w.close();return toast('Could not open the receipt.')}
+    if(w){w.opener=null;w.location=data.signedUrl}else toast('Allow pop-ups to open files.');
+  }
+  async function rbAct(act,id){
+    if(S.busy)return;const r=(S.rb||[]).find(x=>x.id===id);if(!r)return;
+    if(act==='pfRbPay'){if(!confirm('Pay out '+money(r.amount)+' from petty cash for "'+r.description+'" and mark it paid?'))return;
+      S.busy=true;const x=await sb().rpc('petty_reimburse_pay',{p_id:id});S.busy=false;
+      if(x.error)return toast(/already/i.test(x.error.message)?'That was already paid out.':'Could not mark it paid. Try again.');toast('Marked paid out')}
+    else{if(!confirm('Delete this claim ('+money(r.amount)+')? This cannot be undone.'))return;
+      S.busy=true;const x=await sb().from('petty_reimbursements').delete().eq('id',id);S.busy=false;
+      if(x.error)return toast('Could not delete it. Try again.');
+      if(r.receipt_path&&r.user_id===state.user.id)sb().storage.from('documents').remove([r.receipt_path]);toast('Claim deleted')}
+    S.adv=null;render();
+  }
+
   const isOver=a=>a.status==='Open'&&today()>addD(a.taken_on,1);
   const stat=a=>a.status==='Open'?(isOver(a)?['Overdue, change not reported','bad']:['Open, change due by '+fd(addD(a.taken_on,1)),'warn']):a.status==='Settled'?['Settled','ok']:['Settled with difference','bad'];
   function vCashLive(){
@@ -184,7 +225,7 @@
       <label>What it is for<input id="pfWhy" placeholder="e.g. Courier and fuel" maxlength="200"></label>
       <button class="btn" type="submit">Record cash taken</button></form><div class="err" id="pfErr" role="alert"></div></div>
     <div class="panel"><h3>${adm?'All cash taken':'My cash taken'}</h3><div class="tbl"><table style="min-width:${adm?1120:1000}px"><thead><tr><th>When</th>${adm?'<th>Employee</th>':''}<th>For</th><th class="n">Taken</th><th class="n">Spent</th><th class="n">Change due</th><th class="n">Change back</th><th class="n">Difference</th><th>Status</th><th>Settle</th></tr></thead><tbody>
-      ${rows||`<tr><td colspan="${adm?10:9}" class="note">${S.adv===null?'Loading…':'No cash taken yet.'}</td></tr>`}</tbody></table></div></div></div>`;
+      ${rows||`<tr><td colspan="${adm?10:9}" class="note">${S.adv===null?'Loading…':'No cash taken yet.'}</td></tr>`}</tbody></table></div></div>${reimbHTML(nm)}</div>`;
   }
 
   /* ---------- Wire the views ---------- */
@@ -220,6 +261,8 @@
     if(d.act==='pfOpen')return openDoc(d.id);
     if(d.act==='pfDel')return delDoc(d.id);
     if(d.act==='pfCashDel')return delCash(d.id);
+    if(d.act==='pfRbRcpt')return rbReceipt(d.id);
+    if(d.act==='pfRbPay'||d.act==='pfRbDel')return rbAct(d.act,d.id);
   },true);
 
   if(!LIVE)return;
@@ -232,11 +275,27 @@
     else if(sp>a.amount)box.textContent='Spent is more than the amount taken.';
     else{const exp=Math.round((a.amount-sp)*100)/100;box.textContent='Change due back: '+money(exp)+(sf.elements.ret.value===''?'':Math.round((+sf.elements.ret.value-exp)*100)/100===0?'. Matches.':'. Difference: '+money(Math.round((+sf.elements.ret.value-exp)*100)/100))}
   },true);
+  async function rbSubmit(){
+    const amt=Math.round(parseFloat($('#pfRbAmt').value)*100)/100,why=$('#pfRbWhy').value.trim(),dt=$('#pfRbDate').value||today(),file=$('#pfRbFile').files[0];
+    if(!(amt>0))return err('pfRbErr','Enter the amount you spent.');if(!why)return err('pfRbErr','Say what it was for.');
+    if(dt>today())return err('pfRbErr','The date cannot be in the future.');
+    if(file&&(!OK.test(file.type)||file.size>MAX))return err('pfRbErr','The receipt must be a JPG, PNG or PDF under 10 MB.');
+    S.busy=true;err('pfRbErr','');lockAll(true);
+    let path=null;
+    if(file){path='reimb/'+state.user.id+'/'+Date.now()+'-'+file.name.replace(/[^A-Za-z0-9._-]/g,'_').slice(-60);
+      const u=await sb().storage.from('documents').upload(path,file,{contentType:file.type});
+      if(u.error){S.busy=false;lockAll(false);return err('pfRbErr','The receipt could not be uploaded. Try again.')}}
+    const r=await sb().from('petty_reimbursements').insert({amount:amt,description:why,spent_on:dt,receipt_path:path});
+    S.busy=false;lockAll(false);
+    if(r.error){if(path)sb().storage.from('documents').remove([path]);return err('pfRbErr','Could not save that. Try again.')}
+    S.adv=null;toast('Submitted. Petty cash will pay you back.');render();
+  }
   document.addEventListener('submit',async e=>{
     const f=e.target.id||'';
-    if(f!=='pfCashForm'&&!f.startsWith('pfSettle-'))return;
+    if(f!=='pfCashForm'&&f!=='pfRbForm'&&!f.startsWith('pfSettle-'))return;
     e.preventDefault();e.stopImmediatePropagation();
     if(S.busy)return;
+    if(f==='pfRbForm')return rbSubmit();
     if(f==='pfCashForm'){
       const amt=Math.round(parseFloat($('#pfAmt').value)*100)/100,why=$('#pfWhy').value.trim();
       if(!(amt>=1))return err('pfErr','Enter an amount of N$ 1 or more.');if(!why)return err('pfErr','Say what the cash is for.');

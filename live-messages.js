@@ -242,7 +242,7 @@
       if(isImg(a))h+=u?`<div class="mg-at"><img src="${esc(u)}" alt="${esc(a.name)}" data-act="mgLb" data-u="${esc(u)}"></div>`:`<div class="mg-file"><i>🖼️</i><span>${esc(a.name)}</span><small>loading…</small></div>`;
       else h+=`<a class="mg-file" ${u?`href="${esc(u)}" download="${esc(a.name)}" target="_blank" rel="noopener noreferrer"`:''}><i>${fileIcon(a)}</i><span>${esc(a.name)}</span><small>${size(a.size||0)}</small></a>`});
     if(m.body)h+=`<div>${linkify(m.body)}</div>`;
-    h+=`<div class="mg-meta"><span>${tm(m.created_at)}</span>${ticks(m,t)}</div>`;
+    h+=`<div class="mg-meta"><span>${tm(m.created_at)}</span>${ticks(m,t)}${mine?`<button class="mg-mb" data-act="mgDel" data-id="${esc(m.id)}" aria-label="Delete message for everyone" title="Delete for everyone">🗑 Delete</button>`:''}</div>`;
     return h+'</div></div>';
   }
   function curThread(){return M.threads.find(t=>t.id===M.active)}

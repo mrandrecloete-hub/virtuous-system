@@ -1126,7 +1126,7 @@ function vCash(){
     const settle=!done?`<form class="settle" id="settle-${a.id}"><div class="row"><input name="spent" type="number" min="0" max="${a.amount}" step="0.01" placeholder="Spent" aria-label="Amount spent" style="width:92px"><input name="ret" type="number" min="0" step="0.01" placeholder="Change back" aria-label="Change returned" style="width:108px"><button class="btn sm" type="submit">Settle</button></div><div class="note" id="calc-${a.id}">Enter what was spent to see the change due back.</div></form>`:'';
     return `<tr><td>${fmtD(a.date)}<div class="note">${hhmm(a.at)}</div></td>${adm?`<td>${esc(p.name)}</td>`:''}<td>${esc(a.purpose)}</td><td class="n">${f2(a.amount)}</td>
       <td class="n">${done?f2(a.spent):'-'}</td><td class="n">${done?f2(a.expected):'-'}</td><td class="n">${done?f2(a.returned):'-'}</td><td class="n">${done?(a.diff===0?'0.00':(a.diff>0?'+':'')+f2(a.diff)):'-'}</td>
-      <td>${pill(st,c)}</td><td>${settle}</td></tr>`}).join('');
+      <td>${pill(st,c)}</td><td>${settle}${adm?`<button class="btn sm ghost" type="button" data-act="cashDel" data-id="${a.id}" aria-label="Delete this cash entry" style="color:var(--bad);margin-top:${done?0:6}px">Delete</button>`:''}</td></tr>`}).join('');
   return `<h2>Petty cash</h2><p class="sub">Record every time petty cash is taken. Afterwards, record what was spent and the change brought back. The app works out the change due. If change is not reported by the end of the next day, the admin gets an alert.</p>
   <div class="stack"><div class="tiles">
     <div class="tile"><b>${NAD(month.reduce((s,a)=>s+a.amount,0))}</b><span>Taken in ${monthLabel(cur)}</span></div>
@@ -1486,6 +1486,7 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act,id=t.dataset.id;if(!a)return;
   if(a==='toggleBill'){const c=state.clients.find(x=>x.id===id);c.bill=!c.bill;toast(c.name+(c.bill?' is billable':' is not billable'))}
   if(a==='removeClient'){const c=state.clients.find(x=>x.id===id);const used=state.users.some(u=>(state.data[u.id]?.entries||[]).some(e=>e.client===c.name));if(used)return toast('Time is logged against '+c.name+'. Set it to Not billable instead.');state.clients=state.clients.filter(x=>x.id!==id);toast('Client removed')}
+  if(a==='cashDel'){const i=state.advances.findIndex(x=>x.id===id);if(i>=0&&confirm('Delete this cash entry? This cannot be undone.')){logA('Cash entry deleted',state.advances[i].purpose||'');state.advances.splice(i,1);toast('Cash entry deleted')}}
   if(a==='nextDay'){state.today=addDays(state.today,1);toast('Demo date is now '+fmtD(state.today))}
   if(a==='verifyR'){const r=M().receipts.find(x=>x.id===id);if(r.status!=='Verified'&&!(r.vendor.trim()&&r.amt>0))return toast('Add the vendor and amount first');r.status=r.status==='Verified'?'Needs review':'Verified'}
   if(a==='removeR'){const m=M(),r=m.receipts.find(x=>x.id===id);if(r&&r.url)URL.revokeObjectURL(r.url);m.receipts=m.receipts.filter(x=>x.id!==id);delete m.links[id];toast('Receipt removed')}

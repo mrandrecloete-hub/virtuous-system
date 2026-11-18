@@ -8,7 +8,8 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const KEY='office_list';
-  const isAdm=()=>state.user&&state.user.type==='admin';
+  /* Office Essentials: administrators and Alexis can edit; everyone else reads. The database enforces the same rule (migration 0035, is_office_editor). */
+  const canEdit=()=>!!state.user&&(state.user.type==='admin'||/^\s*alexis\b/i.test(state.user.name||''));
   const SECS=[['stationery','Stationery'],['cleaning','Cleaning Materials'],['kitchen','Snacks / Kitchen Supplies']];
   const MAXROWS=60,MAXLEN=60;
   const R=(item,stock,buy)=>({item,stock:stock||'',buy:buy||''});
@@ -56,7 +57,7 @@
   }
   function repaint(){const t=state.tab&&state.tab[state.role];if(t==='stationery'||t==='dash')render()}
   function save(){
-    if(!isAdm())return;
+    if(!canEdit())return;
     if(!LIVE){state.office=O.doc;O.status='Saved (sample mode, kept until you reload).';paintStatus();return}
     O.status='Saving…';paintStatus();clearTimeout(O.t);
     O.t=setTimeout(async()=>{
@@ -122,7 +123,7 @@
       ${adm?(rows.length<MAXROWS?`<button type="button" class="ofadd" data-act="ofAdd" data-s="${k}">+ Add an item</button>`:''):'<div class="ofpad"></div>'}</div>`;
   }
   function vOffice(){
-    const adm=isAdm();
+    const adm=canEdit();
     if(!ready())load();
     if(!ready()){return `<h2>Stationery list</h2><div class="panel"><p class="note">${esc(O.status||'Loading the list…')}</p></div>`}
     const m=sheet(),ks=keys();
@@ -183,7 +184,7 @@
 
   /* ---------- events ---------- */
   document.addEventListener('input',e=>{
-    const t=e.target;if(!t||!t.dataset||!t.dataset.of||!isAdm()||!ready())return;
+    const t=e.target;if(!t||!t.dataset||!t.dataset.of||!canEdit()||!ready())return;
     e.stopImmediatePropagation();O.undo=null;
     if(t.dataset.of==='title'){O.doc.titles=O.doc.titles||{};O.doc.titles[t.dataset.s]=clean(t.value);save();return}
     const m=sheet(),row=m&&m[t.dataset.s]&&m[t.dataset.s][+t.dataset.i];if(!row)return;
@@ -201,7 +202,7 @@
       const url=URL.createObjectURL(new Blob([csv()],{type:'text/csv'}));const x=document.createElement('a');x.href=url;x.download='office-essentials-'+cur()+'.csv';document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
     }
     if(a==='ofPrint'){const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}w.document.write(printHTML());w.document.close();w.focus();setTimeout(()=>w.print(),300);return}
-    if(!isAdm())return;
+    if(!canEdit())return;
     const snap=()=>{O.undo=JSON.stringify({doc:O.doc,month:O.month})};
     if(a==='ofUndo'){if(!O.undo)return;const u=JSON.parse(O.undo);O.doc=sanitize(u.doc);O.month=u.month;O.undo=null;save();return render()}
     const m=sheet();

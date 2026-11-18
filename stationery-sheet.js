@@ -13,7 +13,8 @@
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
   const KEY='stationery_sheet';
-  const isAdm=()=>state.user&&state.user.type==='admin';
+  /* everyone who is signed in can edit the stationery list (the owner's request); the database allows it for this one setting only (migration 0035) */
+  const canEdit=()=>!!state.user;
   const MAXI=200,MAXS=20,MAXO=100,L=60,NL=12;
   const clean=(s,n)=>String(s==null?'':s).replace(/[\u0000-\u001f]/g,' ').slice(0,n||L);
   const cnum=s=>{const t=clean(s,NL).trim().replace(',','.');return t===''||isFinite(+t)?t:''};
@@ -72,7 +73,7 @@
   const repaint=()=>{const t=state.tab&&state.tab[state.role];if(t==='stationery'||t==='dash')render()};
   const paintStatus=()=>{const e=$('#ssStatus');if(e)e.textContent=O.status};
   function save(){
-    if(!isAdm())return;
+    if(!canEdit())return;
     if(!LIVE){state.stationerySheet=O.doc;O.status='Saved (sample mode, kept until you reload).';paintStatus();return}
     O.status='Saving…';paintStatus();clearTimeout(O.t);
     O.t=setTimeout(async()=>{
@@ -190,7 +191,7 @@
       <div class="line"><label for="ssLow"><b>LOW STOCK when Qty Left is</b></label><input id="ssLow" data-ss="low" inputmode="numeric" value="${esc(O.doc.low)}" maxlength="4" style="max-width:80px"><span class="note">or fewer</span></div></div>`;
   }
   function vSheet(){
-    const adm=isAdm();
+    const adm=canEdit();
     if(!ready())load();
     if(!ready())return `<h2>Stationery list</h2><div class="panel"><p class="note">${esc(O.status||'Loading the list…')}</p></div>`;
     const m=sheet(),ks=keys(),sc=O.doc.staff.length;
@@ -248,6 +249,7 @@
     let names=[];
     if(!LIVE)names=state.users.filter(u=>u.access!==false).map(u=>u.name);
     else if(sb()){const r=await sb().from('profiles').select('name,access_enabled').order('name');names=(r.data||[]).filter(p=>p.access_enabled!==false).map(p=>p.name)}
+    if(LIVE&&state.user&&!names.includes(state.user.name))names.push(state.user.name);   /* staff can only read their own profile */
     O.team=names.map(n=>clean(String(n||'').trim().split(/\s+/)[0])).filter(Boolean).filter((n,i,a)=>a.indexOf(n)===i);
     render();
   }
@@ -261,7 +263,7 @@
     const d=tr.querySelector('[data-c=df]');d.textContent=c.diff===null?'':fmt(c.diff);d.classList.toggle('neg',c.diff!==null&&c.diff<0);
   }
   const onEdit=e=>{
-    const t=e.target;if(!t||!t.dataset||!isAdm()||!ready())return;
+    const t=e.target;if(!t||!t.dataset||!canEdit()||!ready())return;
     const ss=t.dataset.ss,so=t.dataset.so;if(!ss&&!so)return;
     e.stopImmediatePropagation();O.undo=null;
     if(ss==='title'){O.doc.title=clean(t.value,80);save();return}
@@ -289,7 +291,7 @@
     if(!ready())return;
     if(a==='ssCsv'){const url=URL.createObjectURL(new Blob([csv()],{type:'text/csv'}));const x=document.createElement('a');x.href=url;x.download='stationery-list-'+cur()+'.csv';document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);return}
     if(a==='ssPrint'){const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}w.document.write(printHTML());w.document.close();w.focus();setTimeout(()=>w.print(),300);return}
-    if(!isAdm())return;
+    if(!canEdit())return;
     const snap=()=>{O.undo=JSON.stringify({doc:O.doc,month:O.month})};
     if(a==='ssUndo'){if(!O.undo)return;const u=JSON.parse(O.undo);O.doc=sanitize(u.doc);O.month=u.month;O.undo=null;save();return render()}
     if(a==='ssSetup'){O.setup=!O.setup;return render()}

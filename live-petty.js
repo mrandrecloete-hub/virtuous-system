@@ -162,7 +162,7 @@
       const settle=!done?`<form class="settle" id="pfSettle-${esc(a.id)}"><div class="row"><input name="spent" type="number" min="0" max="${a.amount}" step="0.01" placeholder="Spent" aria-label="Amount spent" style="width:92px"><input name="ret" type="number" min="0" step="0.01" placeholder="Change back" aria-label="Change returned" style="width:108px"><button class="btn sm" type="submit">Settle</button></div><div class="note" id="pfCalc-${esc(a.id)}">Enter what was spent to see the change due back.</div></form>`:'';
       return `<tr><td>${esc(fd(a.taken_on))}<div class="note">${a.taken_at?esc(new Date(a.taken_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):''}</div></td>${adm?`<td>${esc(nm[a.user_id]||'Unknown')}</td>`:''}<td>${esc(a.purpose||'')}</td><td class="n">${f2(a.amount)}</td>
         <td class="n">${done?f2(a.spent):'-'}</td><td class="n">${done?f2(a.expected):'-'}</td><td class="n">${done?f2(a.returned):'-'}</td><td class="n">${done?(+a.diff===0?'0.00':(a.diff>0?'+':'')+f2(a.diff)):'-'}</td>
-        <td>${pill(st,c)}</td><td>${settle}</td></tr>`}).join('');
+        <td>${pill(st,c)}</td><td>${settle}${adm?`<button class="btn sm ghost" type="button" data-act="pfCashDel" data-id="${esc(a.id)}" aria-label="Delete this cash entry" style="color:var(--bad);margin-top:${done?0:6}px">Delete</button>`:''}</td></tr>`}).join('');
     const byPerson=adm?`<div class="panel"><h3>Who has taken cash</h3><div class="tbl"><table style="min-width:560px"><thead><tr><th>Employee</th><th class="n">Taken this month</th><th class="n">Still to settle</th><th>Status</th><th>Last taken</th></tr></thead><tbody>
       ${ppl.filter(p=>p.access_enabled&&p.role==='emp').map(p=>{const mine=adv.filter(a=>a.user_id===p.id),op=mine.filter(a=>a.status==='Open'),o=mine.filter(isOver),last=mine[0];
         return `<tr><td>${esc(p.name)}<div class="note">${esc(p.title||'')}</div></td><td class="n">${f2(mine.filter(a=>a.taken_on.slice(0,7)===cur).reduce((s,a)=>s+ +a.amount,0))}</td><td class="n">${f2(op.reduce((s,a)=>s+ +a.amount,0))}</td>
@@ -194,6 +194,16 @@
 
   setInterval(()=>{const u=state.user?state.user.id:null;if(u!==S.uid){const m=S.month;S=fresh();S.uid=u;S.month=m}},700);
 
+  async function delCash(id){
+    if(!isAdm()||S.busy)return;
+    const a=(S.adv||[]).find(x=>x.id===id);if(!a)return;
+    if(!confirm('Delete this cash entry ('+money(a.amount)+(a.purpose?' for '+a.purpose:'')+')? This cannot be undone.'))return;
+    S.busy=true;
+    const r=await sb().from('cash_advances').delete().eq('id',id);
+    S.busy=false;
+    if(r.error)return toast('Could not delete that entry. Try again.');
+    S.adv=null;toast('Cash entry deleted');render();
+  }
   /* ---------- Events (capture phase so they win over the demo handlers) ---------- */
   document.addEventListener('change',e=>{
     const t=e.target;
@@ -209,6 +219,7 @@
     if(d.act==='pfPick'){const i=document.querySelector(`[data-pfup="${d.e}|${d.k}"]`);if(i)i.click();return}
     if(d.act==='pfOpen')return openDoc(d.id);
     if(d.act==='pfDel')return delDoc(d.id);
+    if(d.act==='pfCashDel')return delCash(d.id);
   },true);
 
   if(!LIVE)return;

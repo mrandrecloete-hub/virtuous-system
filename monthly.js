@@ -116,7 +116,19 @@
   .mpwk{border-top:1px solid #111;border-left:1px solid #111;background:#f5f7fc;font-size:11px;font-style:italic;color:#555;padding:4px;display:flex;flex-direction:column;gap:2px}
   .mpwk b{font-style:normal;color:#16254a;font-size:13px}
   .mplegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}.mplegend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:-2px;border:1px solid #888}
-  @media print{.mpbar,.mptabs,.mplegend,.sbar,header,nav{display:none!important}.mpcard{border-width:1px}}`;
+  body.mpprinting,body.mpprinting main{background:#fff!important}
+  body.mpprinting .mpx{display:none!important}
+  html body.mpprinting{margin:0!important;padding:0!important;min-height:0!important;height:auto!important;background:#fff!important}
+  body.mpprinting .mpk{display:block!important;min-height:0!important;height:auto!important;max-height:none!important;padding:0!important;margin:0!important;overflow:visible!important;position:static!important;width:auto!important;background:none!important;border:0!important;box-shadow:none!important}
+  body.mpprinting .mpw{display:block;gap:0}
+  body.mpprinting .mpcard{width:100%;height:188mm;display:flex;flex-direction:column;border-width:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact;break-inside:avoid}
+  body.mpprinting .mpmon{padding:4px 0;font-size:16px;flex:none}
+  body.mpprinting .mpscroll{overflow:hidden;flex:1;min-height:0}
+  body.mpprinting .mpgrid{min-width:0;height:100%;grid-template-columns:repeat(7,1fr) 16mm;grid-template-rows:auto;grid-auto-rows:minmax(0,1fr)}
+  body.mpprinting .mpday{min-height:0;overflow:hidden}
+  body.mpprinting .mpbody{min-height:0;overflow:hidden}
+  body.mpprinting .mpnote{flex:1;min-height:0;height:100%;overflow:hidden;resize:none;font-size:9px}
+  body.mpprinting .mpchip{font-size:8.5px}`;
   document.head.appendChild(css);
 
   function vMonthly(){
@@ -152,6 +164,18 @@
     <div class="mplegend"><span><i style="background:#ffff00"></i>Highlighted day</span><span><i style="background:#dbe7ff"></i>From the timesheet</span>${M.who===mine()?'<span><i style="background:#d9f3e4"></i>Zoho task</span><span><i style="background:#ffe1e1"></i>Zoho task overdue</span>':''}<span>Month total: <b>${hfmt(total)} h</b>${M.who===mine()&&open?` · ${open} open Zoho task${open===1?'':'s'} due`:''}</span>${M.loading?'<span>Loading…</span>':''}</div></div>`;
   }
 
+  /* Print only the calendar, fitted onto ONE landscape A4 page. */
+  function printMonth(){
+    const card=document.querySelector('.mpcard');if(!card)return window.print();
+    const st=document.createElement('style');st.textContent='@page{size:A4 landscape;margin:8mm}';document.head.appendChild(st);
+    document.body.classList.add('mpprinting');
+    const hidden=[],kept=[];
+    for(let n=card;n&&n!==document.documentElement;n=n.parentNode){if(!n.parentNode)break;if(n!==card&&n!==document.body){n.classList.add('mpk');kept.push(n)}[...n.parentNode.children].forEach(c=>{if(c!==n&&!/^(STYLE|SCRIPT|LINK|META)$/.test(c.tagName)){c.classList.add('mpx');hidden.push(c)}})}
+    const done=()=>{hidden.forEach(c=>c.classList.remove('mpx'));kept.forEach(c=>c.classList.remove('mpk'));document.body.classList.remove('mpprinting');st.remove()};
+    window.addEventListener('afterprint',done,{once:true});
+    setTimeout(()=>window.print(),50);
+  }
+
   /* ---------- actions ---------- */
   const shift=n=>{const [y,m]=M.month.split('-').map(Number);M.month=ymOf(new Date(y,m-1+n,1));M.loaded='';M.status='';render()};
   document.addEventListener('click',e=>{
@@ -160,7 +184,7 @@
     if(a==='mpPrev')return shift(-1);if(a==='mpNext')return shift(1);
     if(a==='mpNow'){M.month=ymOf(new Date());M.loaded='';return render()}
     if(a==='mpRefresh'){M.loaded='';return render()}
-    if(a==='mpPrint')return window.print();
+    if(a==='mpPrint')return printMonth();
     if(a==='mpWho'){M.who=b.dataset.id;M.loaded='';M.cells={};M.rows=[];M.zoho=false;M.status='';return render()}
     if(a==='mpMark'){
       const d=b.dataset.d;if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!(isAdm()||M.who===mine()))return;

@@ -18,3 +18,6 @@ begin new.updated_at = now(); new.updated_by = auth.uid(); return new; end $$;
 drop trigger if exists monthly_tracker_touch on monthly_tracker;
 create trigger monthly_tracker_touch before insert or update on monthly_tracker for each row execute function monthly_tracker_touch();
 -- Not audited row by row: every note save would copy the whole month into the audit log.
+
+-- Signed-in users need table privileges; row level security above still limits each person to their own sheet.
+grant select, insert, update, delete on monthly_tracker to authenticated;

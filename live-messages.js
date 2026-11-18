@@ -242,11 +242,7 @@
       if(isImg(a))h+=u?`<div class="mg-at"><img src="${esc(u)}" alt="${esc(a.name)}" data-act="mgLb" data-u="${esc(u)}"></div>`:`<div class="mg-file"><i>🖼️</i><span>${esc(a.name)}</span><small>loading…</small></div>`;
       else h+=`<a class="mg-file" ${u?`href="${esc(u)}" download="${esc(a.name)}" target="_blank" rel="noopener noreferrer"`:''}><i>${fileIcon(a)}</i><span>${esc(a.name)}</span><small>${size(a.size||0)}</small></a>`});
     if(m.body)h+=`<div>${linkify(m.body)}</div>`;
-    h+=`<div class="mg-meta"><span>${tm(m.created_at)}</span>${ticks(m,t)}<button class="mg-mb" data-act="mgMenu" data-id="${esc(m.id)}" aria-label="Message options">▾</button></div>`;
-    const mine2={};(rx||[]).filter(r=>r.message_id===m.id).forEach(r=>{(mine2[r.emoji]=mine2[r.emoji]||[]).push(r.user_id)});
-    const keys=Object.keys(mine2);
-    if(keys.length)h+=`<div class="mg-rx">${keys.map(e=>`<button class="${mine2[e].includes(state.user.id)?'on':''}" data-act="mgReact" data-id="${esc(m.id)}" data-e="${e}">${e} ${mine2[e].length}</button>`).join('')}</div>`;
-    if(M.menu===m.id)h+=`<div class="mg-menu"><div class="qr">${QUICK.map(e=>`<button data-act="mgReact" data-id="${esc(m.id)}" data-e="${e}">${e}</button>`).join('')}</div><button data-act="mgReply" data-id="${esc(m.id)}">↩ Reply</button>${mine?`<button data-act="mgDel" data-id="${esc(m.id)}" style="color:var(--bad)">🗑 Delete</button>`:''}</div>`;
+    h+=`<div class="mg-meta"><span>${tm(m.created_at)}</span>${ticks(m,t)}</div>`;
     return h+'</div></div>';
   }
   function curThread(){return M.threads.find(t=>t.id===M.active)}
@@ -259,11 +255,9 @@
     return `<div class="mg-em"><nav>${Object.keys(EMO).map(c=>`<button class="${c===M.emojiCat?'on':''}" data-act="mgEmCat" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</nav><div class="mg-eg">${EMO[M.emojiCat].map(e=>`<button data-act="mgEmoji" data-k="${key}" data-e="${e}">${e}</button>`).join('')}</div></div>`;
   }
   function composer(key,idp){
-    return `${key==='chat'?'<div id="mgReply">'+replyBar()+'</div>':''}<div id="${idp}Att">${attStrip(key)}</div>
-      <div class="mg-in"><button class="mg-ib" data-act="mgEm" data-k="${key}" aria-label="Emoji" title="Emoji">😊</button>
-      <button class="mg-ib" data-act="mgPick" data-k="${key}" aria-label="Attach files" title="Attach files" style="font-size:24px;font-weight:300;line-height:1">+</button>
+    return `<div class="mg-in">
       <textarea id="${idp}Text" data-k="${key}" rows="1" maxlength="${MAXT}" placeholder="Type a message" aria-label="Message"></textarea>
-      <button class="mg-ib mg-send" data-act="mgSend" data-k="${key}" aria-label="Send" ${M.busy?'disabled':''}>➤</button></div><div id="${idp}Em">${emojiPanel(key)}</div>`;
+      <button class="mg-ib mg-send" data-act="mgSend" data-k="${key}" aria-label="Send" ${M.busy?'disabled':''}>➤</button></div>`;
   }
   const replyBar=()=>{const m=M.reply&&(M.msgs[M.active]||[]).find(x=>x.id===M.reply);return m?`<div class="mg-rp"><span><b>${esc(m.sender_id===state.user.id?'You':m.sender_name)}</b>: ${esc((m.body||'Attachment').slice(0,80))}</span><button class="mg-mb" data-act="mgNoReply" aria-label="Cancel reply">✕</button></div>`:''};
 
@@ -282,7 +276,7 @@
     const box=document.getElementById('mgMsgs');if(!box)return;
     const near=box.scrollHeight-box.scrollTop-box.clientHeight<80;
     const t=curThread(),list=M.msgs[M.active]||[],rx=M.reacts[M.active]||[];
-    if(!M.active&&!M.pendingWith){box.innerHTML='<div class="mg-empty">Choose a colleague on the left to read or start a conversation.</div>';return}
+    if(!M.active&&!M.pendingWith){box.innerHTML='<div class="mg-empty">Choose who to message on the left, then type and send.</div>';return}
     if(!list.length){box.innerHTML='<div class="mg-empty">No messages yet. Say hello. 👋</div>';return}
     let last='',h='';
     list.forEach(m=>{const d=dayLbl(m.created_at);if(d!==last){h+=`<div class="mg-day">${d}</div>`;last=d}h+=bubble(m,t||{other_read:0,other_id:M.pendingWith},list,rx)});
@@ -302,7 +296,7 @@
     if(!M.loaded)refresh();
     const h=`<div class="note" id="mgErr" role="alert" style="color:var(--bad);margin-bottom:6px">${esc(M.err)}</div>
       <div class="mg" id="mgRoot" data-m="${M.mobile}">
-      <aside class="mg-l"><div class="mg-lh"><input id="mgQ" placeholder="Search colleagues" value="${esc(M.q)}" aria-label="Search colleagues"><button class="btn sm" data-act="mgNew">New message</button></div><div class="mg-ll" id="mgList">${rows()}</div></aside>
+      <aside class="mg-l"><div class="mg-lh"><b>Send a message to</b>${isAdm()?'<button class="btn sm" data-act="mgNew">Several people</button>':''}</div><div class="mg-ll" id="mgList">${rows()}</div></aside>
       <section class="mg-c" id="mgChat"><div class="mg-ch" id="mgHead">${head()}</div><div class="mg-ms" id="mgMsgs" aria-live="polite"></div><div class="mg-comp" id="mgComp">${composer('chat','mg')}</div></section></div>`;
     setTimeout(()=>{paintAll();const ta=document.getElementById('mgText');if(ta){ta.value=M.draft[M.active||M.pendingWith||'']||'';grow(ta)}
       if(M.active&&isOpen())markRead(M.active);const b=document.getElementById('mgMsgs');if(b)b.scrollTop=b.scrollHeight},0);
@@ -323,10 +317,8 @@
       <div class="mg-pick">${list.map(c=>bulk?`<label><input type="checkbox" data-act="mgNwSel" data-e="${esc(c.id)}" ${n.sel[c.id]?'checked':''}> <span>${esc(c.name)}${c.admin?' (Admin)':''} <small class="note">${esc(c.title||'')}</small></span></label>`
         :`<label><input type="radio" name="mgNwOne" data-act="mgNwSel" data-e="${esc(c.id)}" ${n.sel[c.id]?'checked':''}> <span>${esc(c.name)}${c.admin?' (Admin)':''} <small class="note">${esc(c.title||'')}</small></span></label>`).join('')||'<div class="mg-empty">No colleagues found.</div>'}</div>
       <div class="note">${Object.keys(n.sel).filter(k=>n.sel[k]).length} selected</div>
-      <div id="mgNwAtt">${attStrip('nw')}</div>
-      <div class="mg-in" style="margin-top:8px"><button class="mg-ib" data-act="mgEm" data-k="nw" aria-label="Emoji">😊</button><button class="mg-ib" data-act="mgPick" data-k="nw" aria-label="Attach files">📎</button>
+      <div class="mg-in" style="margin-top:8px">
       <textarea id="mgNText" data-k="nw" rows="3" maxlength="${MAXT}" placeholder="Type your message" aria-label="Message" style="border-radius:12px">${esc(val)}</textarea></div>
-      <div style="position:relative"><div id="mgNwEm">${emojiPanel('nw')}</div></div>
       <div class="err" role="alert" id="mgNwErr">${esc(n.err||'')}</div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn ghost" data-act="mgNwClose">Cancel</button><button class="btn" data-act="mgSend" data-k="nw" ${M.busy?'disabled':''}>${M.busy?'Sending…':'Send'}</button></div></div>`;
   }

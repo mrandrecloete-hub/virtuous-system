@@ -1,4 +1,4 @@
--- Monthly processing: one fillable month calendar per person per month (notes and highlighted days).
+-- Monthly to do list: one fillable month calendar per person per month (notes and highlighted days).
 -- A person reads and writes only their own sheet; administrators read and write everyone's. Safe to run more than once.
 create table if not exists monthly_tracker (
   user_id uuid not null references profiles(id) on delete cascade,

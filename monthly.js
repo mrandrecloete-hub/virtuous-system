@@ -1,11 +1,11 @@
-/* MONTHLY PROCESSING: a fillable month calendar per person (like the office "Sep 2026 Calendar" sheets), one tab per employee.
+/* MONTHLY TO DO LIST: a fillable month calendar per person (like the office "Sep 2026 Calendar" sheets), one tab per employee.
    Mon-Sun grid, week rows with a weekly hours total, weekends shaded, days outside the month greyed, today ringed.
    Each day: click the day number to highlight it yellow (a due date / processing day), and type notes in the box.
    AUTOMATIC: the person's own timesheet entries for that day (task, customer, hours) and, on their own tab,
    the tasks due that day in Zoho (if they connected Zoho) are pulled in and refresh by themselves. These are read-only chips.
    Starts on the current month; the arrows move between months.
    Saved per person and month in `monthly_tracker` (migration 0034: a person reads/writes only their own sheet, admins everyone's).
-   ?demo keeps it in state.monthly. Menu: Overview > Monthly processing (admins and employees). Action prefix `mp`. */
+   ?demo keeps it in state.monthly. Menu: Overview > Monthly to do list (admins and employees). Action prefix `mp`. */
 (function(){
   'use strict';
   const cfg=window.VIRTUOSO||{};
@@ -57,7 +57,7 @@
         sb().from('monthly_tracker').select('cells').eq('user_id',who).eq('month',M.month),
         sb().from('time_entries').select('work_date,task,hours,client_id,status').eq('user_id',who).gte('work_date',a).lte('work_date',b).order('work_date'),
         sb().from('clients').select('id,name')]);
-      if(c.error)M.err=/monthly_tracker|schema cache|relation/i.test(c.error.message||'')?'Monthly processing needs database migration 0034. Run it in the Supabase SQL editor, then reload.':'Could not load: '+c.error.message;
+      if(c.error)M.err=/monthly_tracker|schema cache|relation/i.test(c.error.message||'')?'Monthly to do list needs database migration 0034. Run it in the Supabase SQL editor, then reload.':'Could not load: '+c.error.message;
       else cells=(c.data&&c.data[0]&&c.data[0].cells)||{};
       (cl.data||[]).forEach(x=>{M.names[x.id]=x.name});
       rows=(t.data||[]).map(e=>({date:e.work_date,task:e.task||'',customer:M.names[e.client_id]||'',hours:+e.hours||0}));
@@ -143,7 +143,7 @@
     }
     const total=M.rows.reduce((s,r)=>s+r.hours,0),open=zt.filter(z=>!z.closed&&z.due.startsWith(M.month)).length;
     const tabs=(M.people||[]).map(p=>`<button type="button" class="mptab" role="tab" aria-selected="${p.id===M.who}" data-act="mpWho" data-id="${esc(p.id)}">${esc(p.name)}${p.id===mine()?' (me)':''}</button>`).join('');
-    return `<div class="mpw"><div><h2 style="margin:0">Monthly processing</h2><p class="sub" style="margin:2px 0 0">One calendar per person. Type notes in any day and click a day number to highlight it. Timesheet entries${M.who===mine()?' and your Zoho tasks':''} appear by themselves.</p></div>
+    return `<div class="mpw"><div><h2 style="margin:0">Monthly to do list</h2><p class="sub" style="margin:2px 0 0">One calendar per person. Type notes in any day and click a day number to highlight it. Timesheet entries${M.who===mine()?' and your Zoho tasks':''} appear by themselves.</p></div>
     ${(M.people||[]).length>1?`<div class="mptabs" role="tablist">${tabs}</div>`:''}
     <div class="mpbar"><button class="btn ghost sm" type="button" data-act="mpPrev" aria-label="Previous month">‹</button><b>${MN[m-1]} ${y}</b><button class="btn ghost sm" type="button" data-act="mpNext" aria-label="Next month">›</button><button class="btn ghost sm" type="button" data-act="mpNow">This month</button><button class="btn ghost sm" type="button" data-act="mpRefresh">Refresh</button><button class="btn ghost sm" type="button" data-act="mpPrint">Print</button><span class="grow"></span><span id="mpStatus" role="status">${esc(M.status)}</span></div>
     ${M.err?`<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">${esc(M.err)}</div>`:''}
@@ -179,6 +179,6 @@
 
   VIEWS.monthly=vMonthly;
   ICON.monthly='<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 13h2M12 13h2M16 13h2M8 17h2M12 17h2"/>';
-  [NAV.adm,NAV.emp].forEach(nav=>{const g=nav.find(x=>x[0]==='Overview');if(g&&!g[1].some(x=>x[0]==='monthly'))g[1].splice(1,0,['monthly','Monthly processing'])});
+  [NAV.adm,NAV.emp].forEach(nav=>{const g=nav.find(x=>x[0]==='Overview');if(g&&!g[1].some(x=>x[0]==='monthly'))g[1].splice(1,0,['monthly','Monthly to do list'])});
   window.VIRTUOSO_MONTHLY={state:()=>M};
 })();

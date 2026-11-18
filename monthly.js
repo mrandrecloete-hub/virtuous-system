@@ -118,10 +118,11 @@
   .mplegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}.mplegend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:-2px;border:1px solid #888}
   body.mpprinting,body.mpprinting main{background:#fff!important}
   body.mpprinting .mpx{display:none!important}
-  html body.mpprinting{margin:0!important;padding:0!important;min-height:0!important;height:auto!important;background:#fff!important}
+  html:has(body.mpprinting){height:100vh!important;overflow:hidden!important}
+  html body.mpprinting{height:100vh!important;overflow:hidden!important;margin:0!important;padding:0!important;background:#fff!important}
   body.mpprinting .mpk{display:block!important;min-height:0!important;height:auto!important;max-height:none!important;padding:0!important;margin:0!important;overflow:visible!important;position:static!important;width:auto!important;background:none!important;border:0!important;box-shadow:none!important}
   body.mpprinting .mpw{display:block;gap:0}
-  body.mpprinting .mpcard{width:100%;height:188mm;display:flex;flex-direction:column;border-width:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact;break-inside:avoid}
+  body.mpprinting .mpcard{width:100%;height:calc(100vh - 3px);max-height:calc(100vh - 3px);box-sizing:border-box;display:flex;flex-direction:column;border-width:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact;break-inside:avoid}
   body.mpprinting .mpmon{padding:4px 0;font-size:16px;flex:none}
   body.mpprinting .mpscroll{overflow:hidden;flex:1;min-height:0}
   body.mpprinting .mpgrid{min-width:0;height:100%;grid-template-columns:repeat(7,1fr) 16mm;grid-template-rows:auto;grid-auto-rows:minmax(0,1fr)}
@@ -167,7 +168,7 @@
   /* Print only the calendar, fitted onto ONE landscape A4 page. */
   function printMonth(){
     const card=document.querySelector('.mpcard');if(!card)return window.print();
-    const st=document.createElement('style');st.textContent='@page{size:A4 landscape;margin:8mm}';document.head.appendChild(st);
+    const st=document.createElement('style');st.textContent='@page{size:A4 landscape;margin:6mm}';document.head.appendChild(st);
     document.body.classList.add('mpprinting');
     const hidden=[],kept=[];
     for(let n=card;n&&n!==document.documentElement;n=n.parentNode){if(!n.parentNode)break;if(n!==card&&n!==document.body){n.classList.add('mpk');kept.push(n)}[...n.parentNode.children].forEach(c=>{if(c!==n&&!/^(STYLE|SCRIPT|LINK|META)$/.test(c.tagName)){c.classList.add('mpx');hidden.push(c)}})}

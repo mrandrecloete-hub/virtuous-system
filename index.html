@@ -1726,4 +1726,24 @@ render();
 <script src="mobile-nav.js"></script>
 <script>/* Employees and Payroll pages are removed from the app (backend tables and functions are untouched). */delete VIEWS.employees;delete VIEWS.payroll;</script>
 <script src="assistant.js"></script>
-<script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script></body></html>
+<script>
+/* Keeps an installed or long-open app current: check for a new version on start, when the app comes back to the front and every 15 minutes;
+   when a new version takes over, show a bar with Reload (never reloads by itself, so nothing typed is lost). */
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>{
+  const had=!!navigator.serviceWorker.controller;let shown=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!had||shown)return;shown=true;
+    const b=document.createElement('div');b.setAttribute('role','status');
+    b.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:99999;background:#0b1f4d;color:#fff;border:1px solid #d4a63a;border-radius:12px;padding:10px 14px;box-shadow:0 6px 24px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font:14px system-ui,sans-serif;max-width:92vw';
+    b.innerHTML='<span>A new version of Virtuoso System is ready.</span>';
+    const r=document.createElement('button');r.textContent='Reload now';r.style.cssText='background:#d4a63a;color:#0b1f4d;border:0;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer';r.onclick=()=>location.reload();
+    const x=document.createElement('button');x.textContent='Later';x.style.cssText='background:none;color:#fff;border:0;text-decoration:underline;cursor:pointer';x.onclick=()=>b.remove();
+    b.append(r,x);document.body.appendChild(b);
+  });
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    const chk=()=>reg.update().catch(()=>{});
+    setInterval(chk,15*60*1000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk()});
+  }).catch(()=>{});
+});
+</script></body></html>

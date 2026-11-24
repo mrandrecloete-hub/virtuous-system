@@ -55,11 +55,11 @@
   /* ---------- the calculation ---------- */
   function ledger(){
     const ev=[];
-    (F.fills||[]).forEach(x=>ev.push({t:new Date(x.date+'T00:00:00'),k:'fill',id:x.id,date:x.date,desc:(x.kind==='open'?'Opening balance':'Fill-up')+(x.by?' by '+x.by:'')+(x.note?' – '+x.note:''),inn:x.amount,out:0}));
+    (F.fills||[]).forEach(x=>ev.push({t:new Date(x.date+'T00:00:00'),k:'fill',id:x.id,fk:x.kind,who:x.by||'Barry',text:x.note||'',date:x.date,desc:(x.kind==='open'?'Opening balance':'Fill-up')+(x.by?' by '+x.by:'')+(x.note?' – '+x.note:''),inn:x.amount,out:0}));
     (F.adv||[]).forEach(a=>{
       const who=F.people[a.uid]||'Employee';
-      ev.push({t:a.at,k:'take',date:isoD(a.at),desc:'Cash taken – '+who+(a.purpose?' – '+a.purpose:''),inn:0,out:a.amount});
-      if(a.status!=='Open'&&a.returned>0)ev.push({t:a.settledAt||new Date(a.at.getTime()+1),k:'ret',date:isoD(a.settledAt||a.at),desc:'Change returned – '+who+(a.purpose?' – '+a.purpose:''),inn:a.returned,out:0});
+      ev.push({t:a.at,k:'take',who:who,text:a.purpose||'',date:isoD(a.at),desc:'Cash taken – '+who+(a.purpose?' – '+a.purpose:''),inn:0,out:a.amount});
+      if(a.status!=='Open'&&a.returned>0)ev.push({t:a.settledAt||new Date(a.at.getTime()+1),k:'ret',who:who,text:a.purpose||'',date:isoD(a.settledAt||a.at),desc:'Change returned – '+who+(a.purpose?' – '+a.purpose:''),inn:a.returned,out:0});
     });
     ev.sort((x,y)=>x.t-y.t||(x.k==='fill'?-1:1));
     let bal=0;ev.forEach(e=>{bal=r2(bal+e.inn-e.out);e.bal=bal});
@@ -113,6 +113,91 @@
   .plw .plbar label{display:flex!important;flex-direction:row!important;align-items:center;gap:6px;margin:0}
   @media print{.plw .plf,.plw .plbar,[data-act^=pl]{display:none!important}}`;
   document.head.appendChild(css);
+
+
+  /* ---------- the printable Petty Cash Register (same layout as the firm's paper sheet) ---------- */
+  const SHEET_KEY='vx_pcsheet';
+  const sheetPrefs=()=>{try{return JSON.parse(localStorage.getItem(SHEET_KEY)||'{}')||{}}catch(e){return {}}};
+  const saveSheetPrefs=o=>{try{localStorage.setItem(SHEET_KEY,JSON.stringify(o))}catch(e){}};
+  const fm2=n=>r2(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dDot=d=>d.slice(8,10)+'.'+d.slice(5,7)+'.'+d.slice(0,4);
+  function registerRows(month){
+    const ev=ledger(),start=month+'-01';
+    const before=(ev.filter(e=>e.date<start).slice(-1)[0]||{bal:0}).bal;
+    const inM=ev.filter(e=>e.date.slice(0,7)===month);
+    let opening=before;const rows=[];
+    inM.forEach(e=>{if(e.k==='fill'&&e.fk==='open'&&rows.length===0)opening=r2(opening+e.inn);else rows.push(e)});
+    let bal=opening;const out=rows.map(e=>{
+      if(e.k==='take'){bal=r2(bal-e.out);return {date:e.date,payee:e.who,desc:e.text,disb:e.out,dep:0,bal,docs:''}}
+      bal=r2(bal+e.inn);
+      return {date:e.date,payee:e.who,desc:e.k==='fill'?(e.text||'Funds deposit'):('Change returned'+(e.text?' – '+e.text:'')),disb:0,dep:e.inn,bal,docs:'N/A'};
+    });
+    return {opening,rows:out,closing:bal,disbursed:r2(opening-bal)};
+  }
+  function registerHTML(month,o){
+    const R=registerRows(month),[y,m]=month.split('-').map(Number),fy=m>=3?y+1:y,mm=String(m).padStart(2,'0');
+    const total=Math.max(34,R.rows.length);let tr='';
+    for(let i=0;i<total;i++){
+      const r=R.rows[i];
+      if(r)tr+=`<tr><td class="no">${i+2}</td><td class="c">${dDot(r.date)}</td><td class="c">PC/${fy}/${mm}/${String(i+1).padStart(3,'0')}</td><td>${esc(r.payee)}</td><td>${esc(r.desc)}</td><td class="n ${r.dep?'red':'blue'}">${r.dep?'('+fm2(r.dep)+')':fm2(r.disb)}</td><td class="n bold">${fm2(r.bal)}</td><td class="c blue">${esc(r.docs)}</td><td class="nt"></td></tr>`;
+      else tr+=`<tr class="empty"><td class="no">${i+2}</td><td></td><td></td><td></td><td></td><td></td><td class="n bold">${fm2(R.closing)}</td><td></td><td></td></tr>`;
+    }
+    const first=R.rows.length?month+'-01':month+'-01';
+    return `<!doctype html><html><head><meta charset="utf-8"><title>Petty Cash Register ${esc(MN[m-1])} ${y}</title><style>
+      @page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}body{margin:0;font:11px Arial,Helvetica,sans-serif;color:#000;background:#fff}
+      .sheet{width:100%;max-width:190mm;margin:0 auto}
+      .top{background:#161d33;color:#fff;padding:8px 10px 3px;font-size:17px;font-weight:700;letter-spacing:.3px}
+      .sub{background:#161d33;color:#cfd6e6;padding:2px 10px 7px;font-size:9px;font-style:italic}
+      .info{display:grid;grid-template-columns:1fr 1fr 1.3fr 1.1fr;gap:0;border:1px solid #d6dbe8;border-top:0;font-size:10.5px}
+      .info div{padding:6px 8px}.info b{font-weight:700}.info .v{color:#1f4fa3;font-weight:700}
+      .info .fl{text-align:center;border-left:1px solid #d6dbe8}.info .fl .big{display:block;color:#1f4fa3;font-weight:700;font-size:12px;margin-top:2px}
+      .open{display:grid;grid-template-columns:2fr 1.1fr;font-size:9px;font-style:italic;border:1px solid #d6dbe8;border-top:0}
+      .open div{padding:4px 8px}.open .ob{text-align:center;font-style:normal;font-weight:700;color:#1f4fa3;font-size:12px;border-left:1px solid #d6dbe8;background:#eef2fb}
+      table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:4px}
+      th{background:#161d33;color:#fff;font-size:9.5px;font-weight:600;padding:5px 3px;text-align:center;line-height:1.2}
+      td{border-bottom:1px solid #e1e5ef;padding:3px 4px;height:17px;vertical-align:middle;font-size:10px;overflow:hidden}
+      td.no{color:#c9cedb;text-align:center;font-size:9px}td.c{text-align:center}td.n{text-align:right;padding-right:8px;font-variant-numeric:tabular-nums}
+      td.blue,.blue{color:#1f4fa3}td.red,.red{color:#c0262d}td.bold,.bold{font-weight:700}td.nt{font-style:italic;font-size:8.5px}
+      tr.empty td{color:#000;background:#fafbfd}tr.empty td.n{font-weight:700}
+      tfoot td{background:#161d33;color:#fff;font-weight:700;height:19px;border:0;font-size:10.5px}
+      .gl{width:24px}
+    </style></head><body><div class="sheet">
+      <div class="top">${esc(o.title)}</div><div class="sub">${esc(o.subtitle)}</div>
+      <div class="info"><div><b>Month:</b> <span class="v">${esc(MN[m-1])}</span></div><div><b>Year:</b> <span class="v">${fy}</span></div><div style="text-align:right"><b>Custodian:</b> <span class="v">${esc(o.custodian)}</span></div>
+        <div class="fl"><b>Float Amount (N$):</b><span class="big">${fm2(o.float)}</span></div></div>
+      <div class="open"><div>Opening Balance (N$) — enter the physical cash count at the start of this month:</div><div class="ob">${fm2(R.opening)}</div></div>
+      <table><colgroup><col style="width:5%"><col style="width:11%"><col style="width:15%"><col style="width:15%"><col style="width:22%"><col style="width:10%"><col style="width:10%"><col style="width:6%"><col style="width:12%"></colgroup>
+      <thead><tr><th>#</th><th>Date</th><th>Slip #</th><th>Payee / Vendor</th><th>Description</th><th>Disbursed (N$)</th><th>Running Balance (N$)</th><th>Docs?</th><th>Notes</th></tr></thead>
+      <tbody><tr><td class="no">1</td><td class="c">${dDot(first)}</td><td></td><td class="bold">opening balance</td><td></td><td></td><td class="n bold">${fm2(R.opening)}</td><td></td><td></td></tr>${tr}</tbody>
+      <tfoot><tr><td colspan="5"></td><td class="n">${fm2(R.disbursed)}</td><td class="n">${fm2(R.closing)}</td><td colspan="2"></td></tr></tfoot></table></div></body></html>`;
+  }
+  function openSheetDialog(){
+    const months=[...new Set(ledger().map(e=>e.date.slice(0,7)))].sort().reverse();
+    if(!months.length)return toast('Add a fill-up first. There is nothing to print yet.');
+    const pr=sheetPrefs(),sel=F.month!=='all'&&months.includes(F.month)?F.month:months[0];
+    const fl=r2(+pr.float||(F.fills||[]).filter(x=>x.kind==='open').reduce((t,x)=>t+x.amount,0)||(F.fills||[]).reduce((t,x)=>Math.max(t,x.amount),0));
+    const old=document.getElementById('plSheetDlg');if(old)old.remove();
+    const w=document.createElement('div');w.id='plSheetDlg';w.setAttribute('role','dialog');w.setAttribute('aria-modal','true');w.setAttribute('aria-labelledby','plSdT');
+    w.style.cssText='position:fixed;inset:0;z-index:99997;background:rgba(10,20,50,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    w.innerHTML=`<div style="background:#fff;color:#16254a;border-radius:14px;max-width:520px;width:100%;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4);font:14px system-ui,sans-serif">
+      <h3 id="plSdT" style="margin:0 0 4px;font-size:18px">Print the Petty Cash Register</h3><p style="margin:0 0 10px;color:#5a6685">Builds the full monthly sheet (35 numbered lines, running balance, totals) from the ledger, laid out like the paper register.</p>
+      <div style="display:grid;gap:8px"><label>Month<select id="plSdM" style="width:100%">${months.map(m=>`<option value="${m}"${m===sel?' selected':''}>${esc(monLabel(m))}</option>`).join('')}</select></label>
+      <label>Heading<input id="plSdT1" maxlength="60" style="width:100%" value="${esc(pr.title||'VIRTUOSO AUTOMATION')}"></label>
+      <label>Sub heading<input id="plSdT2" maxlength="100" style="width:100%" value="${esc(pr.subtitle||'Petty Cash Register — Appendix A | VA-FIN-SOP-PC-001 | Internal Use Only')}"></label>
+      <label>Custodian<input id="plSdC" maxlength="60" style="width:100%" value="${esc(pr.custodian||'Barry Losper')}"></label>
+      <label>Float amount (N$)<input id="plSdF" type="number" min="0" step="0.01" style="width:100%" value="${fl||''}"></label></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button type="button" class="btn ghost" id="plSdNo">Cancel</button><button type="button" class="btn" id="plSdGo">Preview the sheet</button></div></div>`;
+    document.body.appendChild(w);
+    const close=()=>{w.remove();document.removeEventListener('keydown',k)},k=e=>{if(e.key==='Escape')close()};document.addEventListener('keydown',k);
+    w.querySelector('#plSdNo').onclick=close;w.addEventListener('mousedown',e=>{if(e.target===w)close()});
+    w.querySelector('#plSdGo').onclick=async()=>{
+      const o={title:clip(w.querySelector('#plSdT1').value,60).trim()||'PETTY CASH REGISTER',subtitle:clip(w.querySelector('#plSdT2').value,100).trim(),custodian:clip(w.querySelector('#plSdC').value,60).trim(),float:r2(parseFloat(w.querySelector('#plSdF').value)||0)},month=w.querySelector('#plSdM').value;
+      saveSheetPrefs({title:o.title,subtitle:o.subtitle,custodian:o.custodian,float:o.float});close();
+      if(!window.VIRTUOSO_DOCS||!VIRTUOSO_DOCS.overlay)return toast('The print preview is not available.');
+      await VIRTUOSO_DOCS.overlay(registerHTML(month,o),{title:'Petty Cash Register '+monLabel(month),name:'Petty-Cash-Register-'+month});
+    };
+    w.querySelector('#plSdGo').focus();
+  }
 
   /* one calm layout: tiles, one entry card (fill-up or drawer count), one statement card (balance sheet / ledger / counts) */
   function latestCount(){const cs=(F.counts||[]).slice().sort((x,y)=>x.date.localeCompare(y.date));return cs[cs.length-1]||null}
@@ -186,7 +271,7 @@
     const vt=(k,l)=>`<button type="button" role="tab" aria-selected="${view===k}" data-act="plView" data-v="${k}">${l}</button>`;
     const stmt=`<div class="plcard"><div class="plbar"><div class="plseg" role="tablist" aria-label="Statement">${vt('sheet','Balance sheet')}${vt('ledger','Ledger')}${vt('counts','Drawer counts')}</div><span class="grow"></span>
       ${view==='counts'?'':`<label style="display:flex;gap:6px;align-items:center">Period <select id="plMonth" aria-label="Period"><option value="all"${F.month==='all'?' selected':''}>All time</option>${months.map(m=>`<option value="${m}"${F.month===m?' selected':''}>${esc(monLabel(m))}</option>`).join('')}</select></label>
-      <button class="btn ghost sm" type="button" data-act="plCsv">Download CSV</button>`}<button class="btn ghost sm" type="button" data-act="plPrint">Print</button></div>${content}</div>`;
+      <button class="btn ghost sm" type="button" data-act="plCsv">Download CSV</button>`}<button class="btn sm" type="button" data-act="plSheet">Print petty cash sheet</button><button class="btn ghost sm" type="button" data-act="plPrint">Print this page</button></div>${content}</div>`;
     return `<div class="panel plw" id="plPanel"><div class="ph"><h3>Petty cash float and balance sheet</h3></div>${tiles}${entryCard}${stmt}</div>`;
   }
 
@@ -210,10 +295,11 @@
   }
   document.addEventListener('click',async e=>{
     const b=e.target.closest&&e.target.closest('[data-act^="pl"]');if(!b||!isAdm())return;
-    const a=b.dataset.act;if(!['plCsv','plPrint','plDel','plCDel','plEntry','plView'].includes(a))return;
+    const a=b.dataset.act;if(!['plCsv','plPrint','plDel','plCDel','plEntry','plView','plSheet'].includes(a))return;
     e.stopImmediatePropagation();
     if(a==='plEntry'){F.entry=b.dataset.v==='count'?'count':'fill';F.msg='';F.err='';F.cErr='';return render()}
     if(a==='plView'){F.view=b.dataset.v;return render()}
+    if(a==='plSheet')return openSheetDialog();
     if(a==='plCsv')return csv();
     if(a==='plPrint')return window.print();
     if(a==='plCDel'){
@@ -266,5 +352,5 @@
     F.busy=false;F.err='';F.msg=(kind==='open'?'Opening balance':'Fill-up')+' of '+money(amt)+' recorded.';F.at=0;F.fills=null;render();
   },true);
 
-  window.VIRTUOSO_FLOAT={ledger,sheet,state:()=>F};
+  window.VIRTUOSO_FLOAT={ledger,sheet,registerRows,registerHTML,state:()=>F};
 })();

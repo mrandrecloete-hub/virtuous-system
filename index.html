@@ -766,8 +766,21 @@ function pcResults(){
       <td>${r?`${esc(r.vendor)}<div class="note mono">${esc(r.ref)} · ${fmtD(r.date)} · ${r.amt.toFixed(2)}${manual?' · linked by hand':''}</div>`:'<span class="note">None</span>'}</td>
       <td>${pill(label,c)}${ov?`<div class="note">${ov.kind==='flag'?'Follow-up flagged':'Approved: '+esc(ov.note)}</div>`:''}</td><td>${act}</td></tr>`}).join('');
   const orows=orphans.map(r=>`<tr><td>${fmtD(r.date)}</td><td>${esc(r.vendor)}<div class="note mono">${esc(r.ref)}</div></td><td class="n">${r.amt.toFixed(2)}</td><td>${pill('Orphan receipt','bad')}</td>
-    <td><div class="row"><select id="lnk-${r.id}" aria-label="Line to link" style="max-width:170px">${out.filter(x=>x.status==='Missing').map(x=>`<option value="${x.l.id}">${esc(x.l.desc)}</option>`).join('')||'<option value="">No open lines</option>'}</select><button class="btn sm" data-act="link" data-id="${r.id}" ${dis||!missing.length?'disabled':''}>Link</button></div></td></tr>`).join('');
-  return `<div class="tiles" style="margin:14px 0">
+    <td><div class="row"><select id="lnk-${r.id}" aria-label="Line to link" style="max-width:170px">${out.filter(x=>x.status==='Missing').map(x=>`<option value="${x.l.id}">${esc(x.l.desc)}</option>`).join('')||'<option value="">No open lines</option>'}</select><button class="btn sm" data-act="link" data-id="${r.id}" ${dis||!missing.length?'disabled':''}>Link</button><button class="btn sm" data-act="addOrph" data-id="${r.id}" ${dis||!(r.amt>0)?'disabled':''} title="${r.amt>0?'Add this receipt to the cash sheet as a new line':'No amount read yet: enter it on the Receipts page first'}">Add to sheet</button></div></td></tr>`).join('');
+  const rcAll=RECEIPTS,rcTot=rcAll.reduce((s,r)=>s+(r.amt||0),0),noAmt=rcAll.filter(r=>!(r.amt>0)).length;
+  const orphAmt=orphans.reduce((s,r)=>s+(r.amt||0),0),orphOk=orphans.filter(r=>r.amt>0),missAmt=missing.reduce((s,x)=>s+x.l.amt,0);
+  const c2=n=>Math.round(n*100)/100;
+  const cmpPanel=`<div class="panel" style="margin-top:14px"><div class="ph"><h3>Receipts compared with the amounts entered</h3>${orphOk.length?`<button class="btn sm" data-act="addAllOrph" ${dis}>Add all ${orphOk.length} unrecorded receipt${orphOk.length>1?'s':''} to the sheet</button>`:''}</div>
+    <div class="tbl"><table style="min-width:520px"><tbody>
+      <tr><td>Amounts entered on the cash sheet (${SHEET.length} line${SHEET.length===1?'':'s'})</td><td class="n">${NAD(sheetTotal)}</td></tr>
+      <tr><td>Amounts read from receipts (${rcAll.length} receipt${rcAll.length===1?'':'s'})</td><td class="n">${NAD(rcTot)}</td></tr>
+      <tr><td>Receipts not on the sheet (${orphans.length})</td><td class="n">${NAD(orphAmt)}</td></tr>
+      <tr><td>Sheet lines with no receipt (${missing.length})</td><td class="n">${NAD(missAmt)}</td></tr>
+      <tr style="font-weight:700"><td>Sheet total if the unrecorded receipts are added</td><td class="n">${NAD(c2(sheetTotal+orphAmt))}</td></tr>
+      <tr><td>Difference between receipts and sheet${orphans.length?' after adding':''}</td><td class="n">${NAD(c2(rcTot-(sheetTotal+orphAmt)))}</td></tr></tbody></table></div>
+    ${noAmt?`<p class="note" style="margin:8px 0 0;color:var(--bad)">${noAmt} receipt${noAmt>1?'s have':' has'} no amount read yet. Open the Receipts page and enter or correct it, then come back.</p>`:''}
+    <p class="note" style="margin:8px 0 0">Adding a receipt creates a sheet line with the receipt's date, vendor and amount and links the two, so it shows as reconciled. Check each amount first.</p></div>`;
+  return `${cmpPanel}<div class="tiles" style="margin:14px 0">
     <div class="tile"><b style="color:var(--ok)">${cnt('Reconciled')}</b><span>Reconciled</span></div>
     <div class="tile"><b style="color:var(--bad)">${cnt('Disputed')}</b><span>Disputed</span></div>
     <div class="tile"><b style="color:var(--warn)">${cnt('Missing')}</b><span>Missing receipt</span></div>
@@ -1541,6 +1554,14 @@ document.addEventListener('click',async e=>{
   if(a==='mail')toast(staff().length+' payslips queued for email');
   if(a==='approveDis'){const n=$('#note-'+id).value.trim();if(!n)return toast('Add a note to approve');state.overrides[id]={kind:'approve',note:n};$('#pcResults').innerHTML=pcResults();return toast('Approved with note')}
   if(a==='flag'){state.overrides[id]={kind:'flag'};$('#pcResults').innerHTML=pcResults();return toast('Flagged for follow-up')}
+  if(a==='addOrph'||a==='addAllOrph'){
+    if(state.locked)return toast('This month is locked');
+    const m=M(),orph=runMatch().orphans.filter(r=>r.amt>0&&(a==='addAllOrph'||r.id===id));
+    if(!orph.length)return toast('Nothing to add. Receipts need an amount first.');
+    orph.forEach(r=>{const l={id:uid(),date:r.date,amt:r.amt,desc:r.vendor||'Receipt',vendor:r.vendor||'Receipt'};m.sheet.push(l);state.links[r.id]=l.id});
+    m.sheet.sort((x,y)=>x.date.localeCompare(y.date));logA('Receipts added to petty cash sheet',orph.length+' line'+(orph.length>1?'s':'')+' for '+monthLabel(state.month));
+    $('#pcResults').innerHTML=pcResults();return toast(orph.length+' receipt'+(orph.length>1?'s':'')+' added to the sheet and reconciled');
+  }
   if(a==='link'){const v=$('#lnk-'+id).value;if(!v)return;state.links[id]=v;$('#pcResults').innerHTML=pcResults();return toast('Linked. Amounts differ, so a note is needed.')}
   if(a==='lock'){state.locked=true;toast('October 2026 locked')}
   if(a==='unlock'){state.locked=false;toast('Month unlocked and logged')}

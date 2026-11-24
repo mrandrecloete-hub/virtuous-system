@@ -242,10 +242,9 @@
     if(!window.VIRTUOSO_MSG||!VIRTUOSO_MSG.send)return toast('Messages are not available.');
     const lines=list.map(a=>'- '+fd(a.taken_on)+': '+money(a.amount)+(a.purpose?' for '+a.purpose:'')+(isOver(a)?' (change not reported, overdue)':''));
     const body='Reminder from '+state.user.name+': the petty cash below has not been settled yet. Please open Petty cash, enter what you spent and the change you brought back, and press Settle.\n'+lines.join('\n');
-    S.busy=true;
-    try{await VIRTUOSO_MSG.send(uid,body);toast('Reminder sent to '+who)}
-    catch(e){toast(/migration 0029|does not exist|schema cache/i.test((e&&e.message)||'')?'Messages are not set up yet (migration 0029).':'Could not send the reminder. Try again.')}
-    S.busy=false;
+    if(typeof remindDialog!=='function')return;
+    remindDialog({name:who,how:'It is sent as a message and shows as an unread message and pop-up. You can change the wording first.',text:body,
+      send:async t=>{await VIRTUOSO_MSG.send(uid,t);toast('Reminder sent to '+who)}});
   }
   async function delCash(id){
     if(!isAdm()||S.busy)return;

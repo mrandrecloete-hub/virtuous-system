@@ -407,6 +407,24 @@ function noteTabVisible(kind){
   return (NAV[role]||[]).some(([,items])=>items.some(([k])=>k===tab));
 }
 const visibleNotes=()=>state.notes.filter(n=>state.user&&!(n.hidden&&n.hidden[state.user.id])&&(n.to?(state.user.id===n.to||state.user.type==='admin'):(state.user.type==='admin'||n.staff))&&noteTabVisible(n.kind));
+/* Review-and-edit box shown before a reminder is sent: o={name, text, how, send:async text=>{}} */
+function remindDialog(o){
+  const old=document.getElementById('rmdBox');if(old)old.remove();
+  const w=document.createElement('div');w.id='rmdBox';w.setAttribute('role','dialog');w.setAttribute('aria-modal','true');w.setAttribute('aria-labelledby','rmdT');
+  w.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(10,20,50,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  w.innerHTML='<div style="background:#fff;color:#16254a;border-radius:14px;max-width:560px;width:100%;padding:18px 18px 14px;box-shadow:0 12px 40px rgba(0,0,0,.4);font:14px system-ui,sans-serif"><h3 id="rmdT" style="margin:0 0 4px;font-size:18px">Review reminder</h3><div style="color:#5a6685;margin-bottom:8px">To: <b id="rmdTo"></b><br><span id="rmdHow"></span></div><textarea id="rmdTx" maxlength="1500" rows="9" aria-label="Reminder text" style="width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid #b9c2d9;border-radius:8px;resize:vertical"></textarea><div id="rmdErr" role="alert" style="color:#b3261e;min-height:18px;margin-top:4px"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button type="button" class="btn ghost" id="rmdNo">Cancel</button><button type="button" class="btn" id="rmdYes">Send reminder</button></div></div>';
+  document.body.appendChild(w);
+  w.querySelector('#rmdTo').textContent=o.name||'';w.querySelector('#rmdHow').textContent=o.how||'';
+  const tx=w.querySelector('#rmdTx');tx.value=o.text||'';tx.focus();
+  const close=()=>{w.remove();document.removeEventListener('keydown',esc_)};
+  const esc_=e=>{if(e.key==='Escape')close()};document.addEventListener('keydown',esc_);
+  w.querySelector('#rmdNo').onclick=close;w.addEventListener('mousedown',e=>{if(e.target===w)close()});
+  w.querySelector('#rmdYes').onclick=async()=>{
+    const t=tx.value.trim();if(!t){w.querySelector('#rmdErr').textContent='The reminder is empty.';return}
+    const b=w.querySelector('#rmdYes');b.disabled=true;b.textContent='Sending…';
+    try{await o.send(t);close()}catch(e){b.disabled=false;b.textContent='Send reminder';w.querySelector('#rmdErr').textContent=(e&&e.message&&/0029|does not exist|schema cache/i.test(e.message))?'Messages are not set up yet (migration 0029).':'Could not send. Try again.'}
+  };
+}
 function logA(action,detail){(state.audit=state.audit||[]).unshift({id:uid(),at:new Date(),by:state.user?state.user.name:'System',action,detail:detail||''})}
 function notifyTo(uidTo,kind,msg){state.notes.unshift({id:uid(),kind,msg,staff:false,to:uidTo,at:new Date(),emails:[(byId(uidTo)||{}).email].filter(Boolean),readBy:{}})}
 const unreadCount=()=>state.user?visibleNotes().filter(n=>!n.readBy[state.user.id]).length:0;
@@ -1486,7 +1504,8 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act,id=t.dataset.id;if(!a)return;
   if(a==='toggleBill'){const c=state.clients.find(x=>x.id===id);c.bill=!c.bill;toast(c.name+(c.bill?' is billable':' is not billable'))}
   if(a==='removeClient'){const c=state.clients.find(x=>x.id===id);const used=state.users.some(u=>(state.data[u.id]?.entries||[]).some(e=>e.client===c.name));if(used)return toast('Time is logged against '+c.name+'. Set it to Not billable instead.');state.clients=state.clients.filter(x=>x.id!==id);toast('Client removed')}
-  if(a==='cashRemind'){const x=state.advances.find(v=>v.id===id);if(x){const p=byId(x.uid);notifyTo(x.uid,'Cash','Reminder from '+state.user.name+': you took '+NAD(x.amount)+(x.purpose?' for '+x.purpose:'')+' on '+fmtD(x.date)+' and the change has not been reported. Please settle it on the Petty cash page.');logA('Cash reminder sent',(p?p.name:'')+', '+NAD(x.amount));toast('Reminder sent to '+(p?p.name:'the employee')+' (it shows in their Alerts)')}}
+  if(a==='cashRemind'){const x=state.advances.find(v=>v.id===id);if(x){const p=byId(x.uid),nm=p?p.name:'the employee',txt='Reminder from '+state.user.name+': you took '+NAD(x.amount)+(x.purpose?' for '+x.purpose:'')+' on '+fmtD(x.date)+' and the change has not been reported. Please settle it on the Petty cash page.';
+    remindDialog({name:nm,how:'It will appear in their Alerts. You can change the wording first.',text:txt,send:async t=>{notifyTo(x.uid,'Cash',t);logA('Cash reminder sent',nm+', '+NAD(x.amount));toast('Reminder sent to '+nm+' (it shows in their Alerts)');render()}})}}
   if(a==='cashDel'){const i=state.advances.findIndex(x=>x.id===id);if(i>=0&&confirm('Delete this cash entry? This cannot be undone.')){logA('Cash entry deleted',state.advances[i].purpose||'');state.advances.splice(i,1);toast('Cash entry deleted')}}
   if(a==='nextDay'){state.today=addDays(state.today,1);toast('Demo date is now '+fmtD(state.today))}
   if(a==='verifyR'){const r=M().receipts.find(x=>x.id===id);if(r.status!=='Verified'&&!(r.vendor.trim()&&r.amt>0))return toast('Add the vendor and amount first');r.status=r.status==='Verified'?'Needs review':'Verified'}

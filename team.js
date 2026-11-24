@@ -108,9 +108,8 @@
     TM.busy=false;lock(false);if(ok){TM.msg='';reload();render()}
   }
   function printSlip(c){
-    const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Sign-in details</title><style>body{font-family:Arial,sans-serif;margin:40px;max-width:520px}h1{font-size:20px}pre{background:#f3f4f8;padding:14px;border-radius:6px;font-size:15px;white-space:pre-wrap}p{color:#444;font-size:13px}</style></head><body><h1>Virtuoso System sign-in</h1><p>Virtuous Accounting Solutions CC</p><pre>${esc(credText(c))}</pre><p>Keep this private. Destroy this slip after you have signed in and chosen your own password.</p></body></html>`);
-    w.document.close();w.focus();setTimeout(()=>w.print(),300);
+    const doc=`<!doctype html><html><head><meta charset="utf-8"><title>Sign-in details</title><style>body{font-family:Arial,sans-serif;margin:40px;max-width:520px}h1{font-size:20px}pre{background:#f3f4f8;padding:14px;border-radius:6px;font-size:15px;white-space:pre-wrap}p{color:#444;font-size:13px}</style></head><body><h1>Virtuoso System sign-in</h1><p>Virtuous Accounting Solutions CC</p><pre>${esc(credText(c))}</pre><p>Keep this private. Destroy this slip after you have signed in and chosen your own password.</p></body></html>`;
+    if(window.VIRTUOSO_DOCS&&VIRTUOSO_DOCS.overlay)VIRTUOSO_DOCS.overlay(doc,{title:'Sign-in details',name:'Sign-in-details'});else toast('The print preview is not available.');
   }
   document.addEventListener('submit',e=>{
     if(e.target.id==='tmEditForm'){

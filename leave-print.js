@@ -120,7 +120,9 @@ ${sigRow("Approved by (name and signature)","Date")}
     const fr=document.createElement('iframe');
     fr.title=o.title||'Form';fr.style.cssText='flex:1;border:0;width:100%;background:#e9ecf3';fr.srcdoc=html;
     wrap.append(bar,fr);document.body.appendChild(wrap);
-    const printIt=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){toast('Printing is not available here. Use Download instead.')}};
+    const printIt=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){
+      try{const u=URL.createObjectURL(new Blob([html],{type:'text/html'}));const w=window.open(u,'_blank');if(w){toast('Opened in a new tab. Use Print there.');setTimeout(()=>URL.revokeObjectURL(u),60000);return}}catch(z){}
+      toast('Printing is not available here. Use Download instead.')}};
     bar.querySelector('#lpPrint').onclick=printIt;
     bar.querySelector('#lpPdf').onclick=()=>{toast('In the print window, choose "Save as PDF" as the destination.');printIt()};
     bar.querySelector('#lpDl').onclick=()=>{

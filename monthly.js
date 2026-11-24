@@ -165,16 +165,19 @@
     <div class="mplegend"><span><i style="background:#ffff00"></i>Highlighted day</span><span><i style="background:#dbe7ff"></i>From the timesheet</span>${M.who===mine()?'<span><i style="background:#d9f3e4"></i>Zoho task</span><span><i style="background:#ffe1e1"></i>Zoho task overdue</span>':''}<span>Month total: <b>${hfmt(total)} h</b>${M.who===mine()&&open?` · ${open} open Zoho task${open===1?'':'s'} due`:''}</span>${M.loading?'<span>Loading…</span>':''}</div></div>`;
   }
 
-  /* Print only the calendar, fitted onto ONE landscape A4 page. */
+  /* Print preview: the calendar alone, fitted onto ONE landscape A4 page, shown in the shared preview window (Print / Save as PDF / Download). */
   function printMonth(){
-    const card=document.querySelector('.mpcard');if(!card)return window.print();
-    const st=document.createElement('style');st.textContent='@page{size:A4 landscape;margin:6mm}';document.head.appendChild(st);
-    document.body.classList.add('mpprinting');
-    const hidden=[],kept=[];
-    for(let n=card;n&&n!==document.documentElement;n=n.parentNode){if(!n.parentNode)break;if(n!==card&&n!==document.body){n.classList.add('mpk');kept.push(n)}[...n.parentNode.children].forEach(c=>{if(c!==n&&!/^(STYLE|SCRIPT|LINK|META)$/.test(c.tagName)){c.classList.add('mpx');hidden.push(c)}})}
-    const done=()=>{hidden.forEach(c=>c.classList.remove('mpx'));kept.forEach(c=>c.classList.remove('mpk'));document.body.classList.remove('mpprinting');st.remove()};
-    window.addEventListener('afterprint',done,{once:true});
-    setTimeout(()=>window.print(),50);
+    const card=document.querySelector('.mpcard');if(!card)return toast('Open the calendar first.');
+    const c=card.cloneNode(true);
+    c.querySelectorAll('textarea').forEach(t=>{const d=document.createElement('div');d.className='mpnote';d.textContent=t.value||'';t.replaceWith(d)});
+    c.querySelectorAll('button').forEach(b=>{const sp=document.createElement('span');sp.textContent=b.textContent;b.replaceWith(sp)});
+    const title=(c.querySelector('.mpmon')||{}).textContent||'Monthly to do list';
+    const html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+css.textContent+
+      '@page{size:A4 landscape;margin:6mm}*{box-sizing:border-box}html,body{margin:0;background:#fff;font:12px Arial,Helvetica,sans-serif}.mpcard{border:2px solid #111;width:100%}'+
+      '.mpscroll{overflow:visible}.mpgrid{min-width:0;grid-template-columns:repeat(7,1fr) 60px}.mpday{min-height:0;height:26mm}.mpnote{white-space:pre-wrap;overflow:hidden;font-size:9px;padding:2px;flex:1}.mpchip{font-size:8.5px}'+
+      '</style></head><body>'+c.outerHTML+'</body></html>';
+    if(window.VIRTUOSO_DOCS&&VIRTUOSO_DOCS.overlay)return VIRTUOSO_DOCS.overlay(html,{title:title,name:'Monthly-to-do-list-'+M.month});
+    toast('The print preview is not available.');
   }
 
   /* ---------- actions ---------- */

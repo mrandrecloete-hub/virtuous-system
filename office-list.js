@@ -201,7 +201,7 @@
     if(a==='ofCsv'){
       const url=URL.createObjectURL(new Blob([csv()],{type:'text/csv'}));const x=document.createElement('a');x.href=url;x.download='office-essentials-'+cur()+'.csv';document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
     }
-    if(a==='ofPrint'){const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print');return}w.document.write(printHTML());w.document.close();w.focus();setTimeout(()=>w.print(),300);return}
+    if(a==='ofPrint'){if(window.VIRTUOSO_DOCS&&VIRTUOSO_DOCS.overlay){VIRTUOSO_DOCS.overlay(printHTML(),{title:'Office Essentials',name:'Office-Essentials'});return}toast('The print preview is not available.');return}
     if(!canEdit())return;
     const snap=()=>{O.undo=JSON.stringify({doc:O.doc,month:O.month})};
     if(a==='ofUndo'){if(!O.undo)return;const u=JSON.parse(O.undo);O.doc=sanitize(u.doc);O.month=u.month;O.undo=null;save();return render()}

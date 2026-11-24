@@ -115,6 +115,16 @@
   document.head.appendChild(css);
 
 
+  /* Preview of the statement as shown (balance sheet, ledger or drawer counts) before anything is printed */
+  function previewView(){
+    const cards=document.querySelectorAll('#plPanel .plcard'),card=cards[cards.length-1];if(!card)return toast('Nothing to print yet.');
+    const c=card.cloneNode(true);c.querySelectorAll('.plbar,button,form').forEach(x=>x.remove());
+    const v=F.view==='ledger'?'Ledger':F.view==='counts'?'Drawer counts':'Balance sheet',per=F.view==='counts'?'':(F.month==='all'?'all time':monLabel(F.month));
+    const title='Petty cash – '+v+(per?' – '+per:'');
+    const html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+css.textContent+'@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}body{margin:0;font:12px Arial,Helvetica,sans-serif;color:#16254a;background:#fff;padding:0}h1{font-size:17px;margin:0 0 2px}p.s{margin:0 0 10px;color:#5a6685;font-size:11px}.plt{width:100%;border-collapse:collapse}.plt th{background:#0a2a7a!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{break-inside:avoid}.plcard{border:0;box-shadow:none;padding:0}</style></head><body><h1>'+esc(title)+'</h1><p class="s">Printed '+esc(new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}))+'</p>'+c.outerHTML+'</body></html>';
+    if(window.VIRTUOSO_DOCS&&VIRTUOSO_DOCS.overlay)return VIRTUOSO_DOCS.overlay(html,{title:title,name:title.replace(/[^A-Za-z0-9]+/g,'-')});
+    toast('The print preview is not available.');
+  }
   /* ---------- the printable Petty Cash Register (same layout as the firm's paper sheet) ---------- */
   const SHEET_KEY='vx_pcsheet';
   const sheetPrefs=()=>{try{return JSON.parse(localStorage.getItem(SHEET_KEY)||'{}')||{}}catch(e){return {}}};
@@ -271,7 +281,7 @@
     const vt=(k,l)=>`<button type="button" role="tab" aria-selected="${view===k}" data-act="plView" data-v="${k}">${l}</button>`;
     const stmt=`<div class="plcard"><div class="plbar"><div class="plseg" role="tablist" aria-label="Statement">${vt('sheet','Balance sheet')}${vt('ledger','Ledger')}${vt('counts','Drawer counts')}</div><span class="grow"></span>
       ${view==='counts'?'':`<label style="display:flex;gap:6px;align-items:center">Period <select id="plMonth" aria-label="Period"><option value="all"${F.month==='all'?' selected':''}>All time</option>${months.map(m=>`<option value="${m}"${F.month===m?' selected':''}>${esc(monLabel(m))}</option>`).join('')}</select></label>
-      <button class="btn ghost sm" type="button" data-act="plCsv">Download CSV</button>`}<button class="btn sm" type="button" data-act="plSheet">Print petty cash sheet</button><button class="btn ghost sm" type="button" data-act="plPrint">Print this page</button></div>${content}</div>`;
+      <button class="btn ghost sm" type="button" data-act="plCsv">Download CSV</button>`}<button class="btn sm" type="button" data-act="plSheet">Print petty cash sheet</button><button class="btn ghost sm" type="button" data-act="plPrint">Preview and print this view</button></div>${content}</div>`;
     return `<div class="panel plw" id="plPanel"><div class="ph"><h3>Petty cash float and balance sheet</h3></div>${tiles}${entryCard}${stmt}</div>`;
   }
 
@@ -301,7 +311,7 @@
     if(a==='plView'){F.view=b.dataset.v;return render()}
     if(a==='plSheet')return openSheetDialog();
     if(a==='plCsv')return csv();
-    if(a==='plPrint')return window.print();
+    if(a==='plPrint')return previewView();
     if(a==='plCDel'){
       const cid=b.dataset.id,c=(F.counts||[]).find(v=>v.id===cid);if(!c||F.busy)return;
       if(!confirm('Delete the count of '+money(c.amount)+' on '+dLabel(c.date)+'? This cannot be undone.'))return;

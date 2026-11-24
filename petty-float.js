@@ -145,7 +145,7 @@
     return {opening,rows:out,closing:bal,disbursed:r2(opening-bal)};
   }
   function registerHTML(month,o){
-    const R=registerRows(month),[y,m]=month.split('-').map(Number),fy=m>=3?y+1:y,mm=String(m).padStart(2,'0');
+    const R=registerRows(month),[y,m]=month.split('-').map(Number),fy=m>=3?y+1:y,mm=String(m).padStart(2,'0'),LS=o.orient!=='portrait';
     const total=Math.max(34,R.rows.length);let tr='';
     for(let i=0;i<total;i++){
       const r=R.rows[i];
@@ -154,8 +154,8 @@
     }
     const first=R.rows.length?month+'-01':month+'-01';
     return `<!doctype html><html><head><meta charset="utf-8"><title>Petty Cash Register ${esc(MN[m-1])} ${y}</title><style>
-      @page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}body{margin:0;font:11px Arial,Helvetica,sans-serif;color:#000;background:#fff}
-      .sheet{width:100%;max-width:190mm;margin:0 auto}
+      @page{size:A4 ${LS?'landscape':'portrait'};margin:${LS?'7mm 8mm':'10mm'}}*{box-sizing:border-box}body{margin:0;font:11px Arial,Helvetica,sans-serif;color:#000;background:#fff}
+      .sheet{width:100%;max-width:${LS?'281mm':'190mm'};margin:0 auto}
       .top{background:#161d33;color:#fff;padding:8px 10px 3px;font-size:17px;font-weight:700;letter-spacing:.3px}
       .sub{background:#161d33;color:#cfd6e6;padding:2px 10px 7px;font-size:9px;font-style:italic}
       .info{display:grid;grid-template-columns:1fr 1fr 1.3fr 1.1fr;gap:0;border:1px solid #d6dbe8;border-top:0;font-size:10.5px}
@@ -165,11 +165,11 @@
       .open div{padding:4px 8px}.open .ob{text-align:center;font-style:normal;font-weight:700;color:#1f4fa3;font-size:12px;border-left:1px solid #d6dbe8;background:#eef2fb}
       table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:4px}
       th{background:#161d33;color:#fff;font-size:9.5px;font-weight:600;padding:5px 3px;text-align:center;line-height:1.2}
-      td{border-bottom:1px solid #e1e5ef;padding:3px 4px;height:17px;vertical-align:middle;font-size:10px;overflow:hidden}
+      td{border-bottom:1px solid #e1e5ef;padding:${LS?'1px 4px':'3px 4px'};height:${LS?'13px':'17px'};vertical-align:middle;font-size:10px;overflow:hidden}
       td.no{color:#c9cedb;text-align:center;font-size:9px}td.c{text-align:center}td.n{text-align:right;padding-right:8px;font-variant-numeric:tabular-nums}
       td.blue,.blue{color:#1f4fa3}td.red,.red{color:#c0262d}td.bold,.bold{font-weight:700}td.nt{font-style:italic;font-size:8.5px}
       tr.empty td{color:#000;background:#fafbfd}tr.empty td.n{font-weight:700}
-      tfoot td{background:#161d33;color:#fff;font-weight:700;height:19px;border:0;font-size:10.5px}
+      tfoot td{background:#161d33;color:#fff;font-weight:700;height:${LS?'16px':'19px'};border:0;font-size:10.5px}
       .gl{width:24px}
     </style></head><body><div class="sheet">
       <div class="top">${esc(o.title)}</div><div class="sub">${esc(o.subtitle)}</div>
@@ -195,14 +195,15 @@
       <label>Heading<input id="plSdT1" maxlength="60" style="width:100%" value="${esc(pr.title||'VIRTUOSO AUTOMATION')}"></label>
       <label>Sub heading<input id="plSdT2" maxlength="100" style="width:100%" value="${esc(pr.subtitle||'Petty Cash Register — Appendix A | VA-FIN-SOP-PC-001 | Internal Use Only')}"></label>
       <label>Custodian<input id="plSdC" maxlength="60" style="width:100%" value="${esc(pr.custodian||'Barry Losper')}"></label>
+      <label>Page<select id="plSdO" style="width:100%"><option value="landscape"${pr.orient!=='portrait'?' selected':''}>Landscape (A4)</option><option value="portrait"${pr.orient==='portrait'?' selected':''}>Portrait (A4)</option></select></label>
       <label>Float amount (N$)<input id="plSdF" type="number" min="0" step="0.01" style="width:100%" value="${fl||''}"></label></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button type="button" class="btn ghost" id="plSdNo">Cancel</button><button type="button" class="btn" id="plSdGo">Preview the sheet</button></div></div>`;
     document.body.appendChild(w);
     const close=()=>{w.remove();document.removeEventListener('keydown',k)},k=e=>{if(e.key==='Escape')close()};document.addEventListener('keydown',k);
     w.querySelector('#plSdNo').onclick=close;w.addEventListener('mousedown',e=>{if(e.target===w)close()});
     w.querySelector('#plSdGo').onclick=async()=>{
-      const o={title:clip(w.querySelector('#plSdT1').value,60).trim()||'PETTY CASH REGISTER',subtitle:clip(w.querySelector('#plSdT2').value,100).trim(),custodian:clip(w.querySelector('#plSdC').value,60).trim(),float:r2(parseFloat(w.querySelector('#plSdF').value)||0)},month=w.querySelector('#plSdM').value;
-      saveSheetPrefs({title:o.title,subtitle:o.subtitle,custodian:o.custodian,float:o.float});close();
+      const o={title:clip(w.querySelector('#plSdT1').value,60).trim()||'PETTY CASH REGISTER',subtitle:clip(w.querySelector('#plSdT2').value,100).trim(),orient:w.querySelector('#plSdO').value==='portrait'?'portrait':'landscape',custodian:clip(w.querySelector('#plSdC').value,60).trim(),float:r2(parseFloat(w.querySelector('#plSdF').value)||0)},month=w.querySelector('#plSdM').value;
+      saveSheetPrefs({title:o.title,subtitle:o.subtitle,custodian:o.custodian,float:o.float,orient:o.orient});close();
       if(!window.VIRTUOSO_DOCS||!VIRTUOSO_DOCS.overlay)return toast('The print preview is not available.');
       await VIRTUOSO_DOCS.overlay(registerHTML(month,o),{title:'Petty Cash Register '+monLabel(month),name:'Petty-Cash-Register-'+month});
     };

@@ -1170,6 +1170,7 @@ function vCash(){
   <div class="panel"><h3>Record cash taken</h3><form class="form" id="cashForm" novalidate>
     ${!adm?`<label>Your name<input id="cWhoName" value="${esc(me.name)}" readonly aria-readonly="true"></label>`:''}${adm?`<label>Taken by<select id="cWho">${staff().filter(u=>u.access).map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label>`:''}
     <label>Amount (N$)<input id="cAmt" type="number" min="1" step="0.01"></label>
+    ${adm?`<label>Date taken<input id="cDate" type="date" value="${state.today}" max="${state.today}"></label>`:''}
     <label>What it is for<input id="cWhy" placeholder="e.g. Courier and fuel"></label>
     <button class="btn" type="submit">Record cash taken</button></form><div class="err" id="cErr" role="alert"></div></div>
   <div class="panel"><h3>${adm?'All cash taken':'My cash taken'}</h3><div class="tbl"><table style="min-width:${adm?1120:1000}px"><thead><tr><th>When</th>${adm?'<th>Employee</th>':''}<th>For</th><th class="n">Taken</th><th class="n">Spent</th><th class="n">Change due</th><th class="n">Change back</th><th class="n">Difference</th><th>Status</th><th>Settle</th></tr></thead><tbody>
@@ -1618,8 +1619,10 @@ document.addEventListener('submit',e=>{
     if(!(amt>0))return err.textContent='Enter the amount taken.';
     if(why.length<2)return err.textContent='Say what the cash is for.';
     const who=state.role==='adm'?$('#cWho').value:state.user.id;
-    state.advances.push({id:uid(),uid:who,date:state.today,at:new Date(),amount:amt,purpose:why,status:'Open'});
-    queue();toast(NAD(amt)+' recorded for '+byId(who).name.split(' ')[0]+'. Change is due back by '+fmtD(addDays(state.today,1))+'.');render();return;
+    let dt=state.today;if(state.role==='adm'&&$('#cDate')&&$('#cDate').value){dt=$('#cDate').value;if(dt>state.today)return err.textContent='The date cannot be in the future.'}
+    const nowT=new Date(),at=dt===state.today?nowT:new Date(dt+'T'+String(nowT.getHours()).padStart(2,'0')+':'+String(nowT.getMinutes()).padStart(2,'0')+':00');
+    state.advances.push({id:uid(),uid:who,date:dt,at,amount:amt,purpose:why,status:'Open'});
+    queue();toast(NAD(amt)+' recorded for '+byId(who).name.split(' ')[0]+'. Change is due back by '+fmtD(addDays(dt,1))+'.');render();return;
   }
   if(f.startsWith('settle-')){
     const a=state.advances.find(x=>x.id===f.slice(7)),fm=e.target;

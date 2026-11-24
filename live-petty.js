@@ -222,6 +222,7 @@
       ${adm?`<label>Taken by<select id="pfWho">${ppl.filter(p=>p.access_enabled).map(p=>`<option value="${esc(p.id)}" ${p.id===me.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`
         :`<label>Your name<input value="${esc(me.name)}" readonly aria-readonly="true"></label>`}
       <label>Amount (N$)<input id="pfAmt" type="number" min="1" step="0.01"></label>
+      ${adm?`<label>Date taken<input id="pfDate" type="date" value="${esc(today())}" max="${esc(today())}"></label>`:''}
       <label>What it is for<input id="pfWhy" placeholder="e.g. Courier and fuel" maxlength="200"></label>
       <button class="btn" type="submit">Record cash taken</button></form><div class="err" id="pfErr" role="alert"></div></div>
     <div class="panel"><h3>${adm?'All cash taken':'My cash taken'}</h3><div class="tbl"><table style="min-width:${adm?1120:1000}px"><thead><tr><th>When</th>${adm?'<th>Employee</th>':''}<th>For</th><th class="n">Taken</th><th class="n">Spent</th><th class="n">Change due</th><th class="n">Change back</th><th class="n">Difference</th><th>Status</th><th>Settle</th></tr></thead><tbody>
@@ -313,6 +314,10 @@
       const amt=Math.round(parseFloat($('#pfAmt').value)*100)/100,why=$('#pfWhy').value.trim();
       if(!(amt>=1))return err('pfErr','Enter an amount of N$ 1 or more.');if(!why)return err('pfErr','Say what the cash is for.');
       const row={amount:amt,purpose:why,taken_on:today()};if(isAdm()&&$('#pfWho'))row.user_id=$('#pfWho').value;
+      if(isAdm()&&$('#pfDate')){const d=$('#pfDate').value;
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return err('pfErr','Choose the date the cash was taken.');
+        if(d>today())return err('pfErr','The date cannot be in the future.');
+        row.taken_on=d;if(d!==today()){const n=new Date();row.taken_at=new Date(d+'T'+String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':00').toISOString()}}
       S.busy=true;err('pfErr','');lockAll(true);
       const r=await sb().from('cash_advances').insert(row);
       S.busy=false;lockAll(false);

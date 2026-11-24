@@ -203,11 +203,11 @@
       const settle=!done?`<form class="settle" id="pfSettle-${esc(a.id)}"><div class="row"><input name="spent" type="number" min="0" max="${a.amount}" step="0.01" placeholder="Spent" aria-label="Amount spent" style="width:92px"><input name="ret" type="number" min="0" step="0.01" placeholder="Change back" aria-label="Change returned" style="width:108px"><button class="btn sm" type="submit">Settle</button></div><div class="note" id="pfCalc-${esc(a.id)}">Enter what was spent to see the change due back.</div></form>`:'';
       return `<tr><td>${esc(fd(a.taken_on))}<div class="note">${a.taken_at?esc(new Date(a.taken_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):''}</div></td>${adm?`<td>${esc(nm[a.user_id]||'Unknown')}</td>`:''}<td>${esc(a.purpose||'')}</td><td class="n">${f2(a.amount)}</td>
         <td class="n">${done?f2(a.spent):'-'}</td><td class="n">${done?f2(a.expected):'-'}</td><td class="n">${done?f2(a.returned):'-'}</td><td class="n">${done?(+a.diff===0?'0.00':(a.diff>0?'+':'')+f2(a.diff)):'-'}</td>
-        <td>${pill(st,c)}</td><td>${settle}${adm?`<button class="btn sm ghost" type="button" data-act="pfCashDel" data-id="${esc(a.id)}" aria-label="Delete this cash entry" style="color:var(--bad);margin-top:${done?0:6}px">Delete</button>`:''}</td></tr>`}).join('');
+        <td>${pill(st,c)}</td><td>${settle}${adm&&!done?`<button class="btn sm" type="button" data-act="pfRemind" data-id="${esc(a.id)}" aria-label="Send a reminder to ${esc(nm[a.user_id]||'this person')}" style="margin:6px 6px 0 0">Send reminder</button>`:''}${adm?`<button class="btn sm ghost" type="button" data-act="pfCashDel" data-id="${esc(a.id)}" aria-label="Delete this cash entry" style="color:var(--bad);margin-top:${done?0:6}px">Delete</button>`:''}</td></tr>`}).join('');
     const byPerson=adm?`<div class="panel"><h3>Who has taken cash</h3><div class="tbl"><table style="min-width:560px"><thead><tr><th>Employee</th><th class="n">Taken this month</th><th class="n">Still to settle</th><th>Status</th><th>Last taken</th></tr></thead><tbody>
       ${ppl.filter(p=>p.access_enabled&&p.role==='emp').map(p=>{const mine=adv.filter(a=>a.user_id===p.id),op=mine.filter(a=>a.status==='Open'),o=mine.filter(isOver),last=mine[0];
         return `<tr><td>${esc(p.name)}<div class="note">${esc(p.title||'')}</div></td><td class="n">${f2(mine.filter(a=>a.taken_on.slice(0,7)===cur).reduce((s,a)=>s+ +a.amount,0))}</td><td class="n">${f2(op.reduce((s,a)=>s+ +a.amount,0))}</td>
-        <td>${o.length?pill(o.length+' not reported','bad'):op.length?pill('Open','warn'):pill('Clear','ok')}</td><td class="note">${last?esc(fd(last.taken_on))+', '+money(last.amount):'Never'}</td></tr>`}).join('')||'<tr><td colspan="5" class="note">No employees yet.</td></tr>'}
+        <td>${o.length?pill(o.length+' not reported','bad'):op.length?pill('Open','warn'):pill('Clear','ok')}${op.length?` <button class="btn sm" type="button" data-act="pfRemindP" data-id="${esc(p.id)}" style="margin-left:6px">Send reminder</button>`:''}</td><td class="note">${last?esc(fd(last.taken_on))+', '+money(last.amount):'Never'}</td></tr>`}).join('')||'<tr><td colspan="5" class="note">No employees yet.</td></tr>'}
       </tbody></table></div></div>`:'';
     return `<h2>Petty cash</h2><p class="sub">Record every time petty cash is taken. Afterwards, record what was spent and the change brought back. The app works out the change due. If change is not reported by the end of the next day, it shows as overdue.</p>
     <div class="stack"><div class="tiles">
@@ -235,6 +235,18 @@
 
   setInterval(()=>{const u=state.user?state.user.id:null;if(u!==S.uid){const m=S.month;S=fresh();S.uid=u;S.month=m}},700);
 
+  /* Reminder to an employee about cash that is not yet settled: sent as a direct message (unread badge, pop-up, desktop notification). */
+  async function remind(uid,list){
+    if(!isAdm()||S.busy||!uid||!list.length)return;
+    const who=((S.people||[]).find(p=>p.id===uid)||{}).name||'this person';
+    if(!window.VIRTUOSO_MSG||!VIRTUOSO_MSG.send)return toast('Messages are not available.');
+    const lines=list.map(a=>'- '+fd(a.taken_on)+': '+money(a.amount)+(a.purpose?' for '+a.purpose:'')+(isOver(a)?' (change not reported, overdue)':''));
+    const body='Reminder from '+state.user.name+': the petty cash below has not been settled yet. Please open Petty cash, enter what you spent and the change you brought back, and press Settle.\n'+lines.join('\n');
+    S.busy=true;
+    try{await VIRTUOSO_MSG.send(uid,body);toast('Reminder sent to '+who)}
+    catch(e){toast(/migration 0029|does not exist|schema cache/i.test((e&&e.message)||'')?'Messages are not set up yet (migration 0029).':'Could not send the reminder. Try again.')}
+    S.busy=false;
+  }
   async function delCash(id){
     if(!isAdm()||S.busy)return;
     const a=(S.adv||[]).find(x=>x.id===id);if(!a)return;
@@ -261,6 +273,8 @@
     if(d.act==='pfOpen')return openDoc(d.id);
     if(d.act==='pfDel')return delDoc(d.id);
     if(d.act==='pfCashDel')return delCash(d.id);
+    if(d.act==='pfRemind'){const a=(S.adv||[]).find(x=>x.id===d.id);return a&&remind(a.user_id,[a])}
+    if(d.act==='pfRemindP')return remind(d.id,(S.adv||[]).filter(x=>x.user_id===d.id&&x.status==='Open'));
     if(d.act==='pfRbRcpt')return rbReceipt(d.id);
     if(d.act==='pfRbPay'||d.act==='pfRbDel')return rbAct(d.act,d.id);
   },true);

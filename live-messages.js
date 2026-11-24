@@ -448,5 +448,5 @@
       :`<button class="tile link" data-tab="messages" style="margin-bottom:12px;max-width:260px"><b style="font-size:16px">💬 Messages</b><span>No unread messages</span></button>`;
     return card+h;
   };
-  window.VIRTUOSO_MSG={unread,refresh};
+  window.VIRTUOSO_MSG={unread,refresh,send:(otherId,body)=>sendTo(otherId,String(body||'').slice(0,4000),[],null)};
 })();

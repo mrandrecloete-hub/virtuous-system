@@ -22,7 +22,7 @@
   const monLabel=k=>{const [y,m]=k.split('-');return MN[+m-1]+' '+y};
   const dLabel=s=>{const d=new Date(String(s).slice(0,10)+'T00:00:00');return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})};
   const clip=(s,n)=>String(s==null?'':s).replace(/[\u0000-\u001f]/g,' ').slice(0,n);
-  const F={fills:null,adv:null,err:'',loading:false,at:0,month:'all',msg:'',busy:false,uid:null,people:{}};
+  const F={fills:null,counts:[],cErr:'',adv:null,err:'',loading:false,at:0,month:'all',msg:'',busy:false,uid:null,people:{}};
 
   setInterval(()=>{const u=state.user?state.user.id:null;if(u!==F.uid){F.uid=u;F.fills=null;F.adv=null;F.err='';F.at=0;F.msg=''}},700);
 
@@ -35,13 +35,15 @@
     if(F.loading)return;
     if(!LIVE){
       state.pettyFills=state.pettyFills||[];
-      F.fills=state.pettyFills.map(x=>Object.assign({},x));F.adv=(state.advances||[]).map(normAdv);
+      state.pettyCounts=state.pettyCounts||[];F.counts=state.pettyCounts.map(x=>Object.assign({},x));F.fills=state.pettyFills.map(x=>Object.assign({},x));F.adv=(state.advances||[]).map(normAdv);
       (state.users||[]).forEach(u=>{F.people[u.id]=u.name});F.at=Date.now();return;
     }
     if(!sb())return;
     F.loading=true;
-    const [f,a,p]=await Promise.all([sb().from('petty_fills').select('*').order('filled_on').order('created_at'),
-      sb().from('cash_advances').select('*').order('taken_at').limit(2000),sb().from('profiles').select('id,name')]);
+    const [f,a,p,c]=await Promise.all([sb().from('petty_fills').select('*').order('filled_on').order('created_at'),
+      sb().from('cash_advances').select('*').order('taken_at').limit(2000),sb().from('profiles').select('id,name'),sb().from('petty_counts').select('*').order('counted_on').order('created_at')]);
+    F.cErr=c.error?(/petty_counts|schema cache|relation/i.test(c.error.message||'')?'Recording the cash in the drawer needs database migration 0037. Run it in the Supabase SQL editor, then reload.':'Could not load the drawer counts: '+c.error.message):'';
+    F.counts=c.error?[]:c.data.map(x=>({id:x.id,date:String(x.counted_on).slice(0,10),amount:r2(x.amount),by:x.counted_by||'',note:x.note||''}));
     F.loading=false;F.at=Date.now();
     if(f.error)F.err=/petty_fills|schema cache|relation/i.test(f.error.message||'')?'The float needs database migration 0036. Run it in the Supabase SQL editor, then reload.':'Could not load the float: '+f.error.message;
     else F.err='';
@@ -79,6 +81,17 @@
       ok:Math.abs(closing-last)<0.005&&Math.abs(takenSet-(spent+returned-diff))<0.005};
   }
 
+  /* cash counted in the drawer, compared with what the ledger says should be there on that date */
+  function countCalc(c){
+    const ev=ledger(),d=c.date,at=ev.filter(e=>e.date<=d).slice(-1)[0],exp=at?at.bal:0,counted=r2(c.amount),over=r2(counted-exp);
+    const fillsTo=r2((F.fills||[]).filter(x=>x.date<=d).reduce((t,x)=>t+x.amount,0));
+    const tk=(F.adv||[]).filter(a=>isoD(a.at)<=d),by=a=>a.status!=='Open'&&isoD(a.settledAt||a.at)<=d;
+    const set=tk.filter(by),open=tk.filter(a=>!by(a));
+    const spent=r2(set.reduce((t,a)=>t+(a.spent||0),0)),diff=r2(set.reduce((t,a)=>t+(a.diff||0),0)),out=r2(open.reduce((t,a)=>t+a.amount,0));
+    const total=r2(out-diff-over),direct=r2(fillsTo-counted-spent);
+    return {exp,counted,over,out,shortSet:r2(-diff),shortDrawer:r2(-over),total,direct,nOpen:open.length,ok:Math.abs(total-direct)<0.005};
+  }
+
   /* ---------- page ---------- */
   const css=document.createElement('style');
   css.textContent=`.plw{display:grid;gap:12px;margin-bottom:16px}
@@ -94,6 +107,28 @@
   @media print{.plw .plf,.plw .plbar,[data-act^=pl]{display:none!important}}`;
   document.head.appendChild(css);
 
+  function drawerHTML(){
+    const cs=(F.counts||[]).slice().sort((a,b)=>a.date.localeCompare(b.date)),last=cs[cs.length-1],K=last&&F.fills?countCalc(last):null;
+    const hist=cs.slice().reverse().slice(0,12).map(c=>{const k=countCalc(c);return `<tr><td>${esc(dLabel(c.date))}</td><td>${esc(c.by||'')}${c.note?' – '+esc(c.note):''}</td><td class="n">${num(c.amount)}</td><td class="n">${num(k.exp)}</td><td class="n ${k.over<0?'neg':''}">${num(k.over)}</td><td class="n ${k.total>0?'neg':''}">${num(k.total)}</td><td><button type="button" class="btn sm ghost" data-act="plCDel" data-id="${esc(c.id)}" aria-label="Delete this count" style="color:var(--bad)">Delete</button></td></tr>`}).join('');
+    return `<div class="plsub"><h4 style="margin:6px 0 4px;color:#0a2a7a">Cash in the drawer and what is outstanding</h4>
+      <p class="note" style="margin:0 0 8px">Count the cash in the drawer and record it. The app compares it with what the balance says should be there, then works out what is still outstanding.</p>
+      ${F.cErr?`<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">${esc(F.cErr)}</div>`:''}
+      <form class="plf" id="plCountForm" novalidate><label>Date counted<input type="date" id="pcDate" value="${esc(todayISO())}"></label>
+        <label>Cash in drawer (N$)<input type="number" id="pcAmt" min="0" step="0.01" inputmode="decimal"></label>
+        <label>Counted by<input type="text" id="pcBy" value="${esc(state.user?state.user.name:'')}" maxlength="60"></label>
+        <label>Note (optional)<input type="text" id="pcNote" maxlength="120"></label>
+        <button class="btn" type="submit" ${F.busy?'disabled':''}>Record cash in drawer</button></form><div class="err" id="pcErr" role="alert"></div>
+      ${K?`<div class="plscroll"><table class="plt" aria-label="Outstanding calculation"><thead><tr><th>Outstanding as at ${esc(dLabel(last.date))}</th><th class="n">N$</th></tr></thead><tbody>
+        <tr><td>Cash counted in the drawer</td><td class="n">${num(K.counted)}</td></tr>
+        <tr><td>Cash that should be in the drawer (balance on that date)</td><td class="n">${num(K.exp)}</td></tr>
+        <tr class="sub"><td>Drawer over (+) / short (−)</td><td class="n ${K.over<0?'neg':''}">${num(K.over)}</td></tr>
+        <tr><td>Still out with staff, not yet reported (${K.nOpen})</td><td class="n">${num(K.out)}</td></tr>
+        <tr><td>Short (+) / over (−) on settled entries: change returned less than due</td><td class="n">${num(K.shortSet)}</td></tr>
+        <tr><td>Short (+) / over (−) in the drawer count</td><td class="n">${num(K.shortDrawer)}</td></tr>
+        <tr class="tot"><td>Total outstanding to be accounted for</td><td class="n ${K.total>0?'neg':''}">${num(K.total)}</td></tr>
+        <tr><td>Check: money put in less cash counted less cash spent = ${num(K.direct)}</td><td class="n">${K.ok?'<span class="okp">Balanced ✓</span>':'<span class="badp">Does not agree ✗</span>'}</td></tr></tbody></table></div>`:'<p class="note">No count recorded yet.</p>'}
+      ${hist?`<div class="plscroll"><table class="plt" aria-label="Drawer counts"><thead><tr><th>Date</th><th>Counted by</th><th class="n">Counted</th><th class="n">Should be</th><th class="n">Over / short</th><th class="n">Outstanding</th><th></th></tr></thead><tbody>${hist}</tbody></table></div>`:''}</div>`;
+  }
   function panel(){
     if(!LIVE||!F.fills||Date.now()-F.at>8000)load();
     const ev=F.fills?ledger():[],months=[...new Set(ev.map(e=>e.date.slice(0,7)))].sort().reverse();
@@ -133,6 +168,7 @@
         <label>Note (optional)<input type="text" id="plNote" maxlength="120" placeholder="e.g. Cash from bank"></label>
         <button class="btn" type="submit" ${F.busy?'disabled':''}>Add fill-up</button></form>
       <div class="err" id="plErr" role="alert"></div>
+      ${drawerHTML()}
       <div class="plbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label style="display:flex;gap:6px;align-items:center">Show <select id="plMonth" aria-label="Period"><option value="all"${F.month==='all'?' selected':''}>All time</option>${months.map(m=>`<option value="${m}"${F.month===m?' selected':''}>${esc(monLabel(m))}</option>`).join('')}</select></label>
         <button class="btn ghost sm" type="button" data-act="plCsv">Download CSV</button><button class="btn ghost sm" type="button" data-act="plPrint">Print</button></div>
       ${sheetHTML}
@@ -161,10 +197,18 @@
   }
   document.addEventListener('click',async e=>{
     const b=e.target.closest&&e.target.closest('[data-act^="pl"]');if(!b||!isAdm())return;
-    const a=b.dataset.act;if(!['plCsv','plPrint','plDel'].includes(a))return;
+    const a=b.dataset.act;if(!['plCsv','plPrint','plDel','plCDel'].includes(a))return;
     e.stopImmediatePropagation();
     if(a==='plCsv')return csv();
     if(a==='plPrint')return window.print();
+    if(a==='plCDel'){
+      const cid=b.dataset.id,c=(F.counts||[]).find(v=>v.id===cid);if(!c||F.busy)return;
+      if(!confirm('Delete the count of '+money(c.amount)+' on '+dLabel(c.date)+'? This cannot be undone.'))return;
+      F.busy=true;
+      if(!LIVE)state.pettyCounts=(state.pettyCounts||[]).filter(v=>v.id!==cid);
+      else{const r=await sb().from('petty_counts').delete().eq('id',cid);if(r.error){F.busy=false;F.err='Could not delete: '+r.error.message;return render()}}
+      F.busy=false;F.msg='Count deleted.';F.at=0;F.fills=null;return render();
+    }
     const id=b.dataset.id,x=(F.fills||[]).find(v=>v.id===id);if(!x||F.busy)return;
     if(!confirm('Delete this '+(x.kind==='open'?'opening balance':'fill-up')+' of '+money(x.amount)+' ('+dLabel(x.date)+')? The balance will change. This cannot be undone.'))return;
     F.busy=true;
@@ -173,6 +217,22 @@
     F.busy=false;F.msg='Fill-up deleted.';F.at=0;F.fills=null;render();
   },true);
   document.addEventListener('change',e=>{if(e.target&&e.target.id==='plMonth'){e.stopImmediatePropagation();F.month=e.target.value;F.msg='';render()}},true);
+  document.addEventListener('submit',async e=>{
+    if(!e.target||e.target.id!=='plCountForm')return;
+    e.preventDefault();e.stopImmediatePropagation();
+    if(!isAdm()||F.busy)return;
+    const date=document.getElementById('pcDate').value,amt=r2(parseFloat(document.getElementById('pcAmt').value)),by=clip(document.getElementById('pcBy').value,60).trim(),note=clip(document.getElementById('pcNote').value,120).trim(),err=m=>{document.getElementById('pcErr').textContent=m};
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return err('Choose the date.');
+    if(!(amt>=0)||document.getElementById('pcAmt').value==='')return err('Enter the cash counted (0 or more).');
+    if(amt>10000000)return err('That amount is too large.');
+    F.busy=true;err('');
+    if(!LIVE){(state.pettyCounts=state.pettyCounts||[]).push({id:'pc'+Math.random().toString(36).slice(2,9),date,amount:amt,by,note});if(typeof logA==='function')logA('Petty cash drawer counted',money(amt))}
+    else{
+      const r=await sb().from('petty_counts').insert({counted_on:date,amount:amt,counted_by:by||null,note:note||null});
+      if(r.error){F.busy=false;F.cErr=/petty_counts|schema cache|relation/i.test(r.error.message||'')?'Recording the cash in the drawer needs database migration 0037. Run it in the Supabase SQL editor, then reload.':'Could not save: '+r.error.message;return render()}
+    }
+    F.busy=false;F.cErr='';F.msg='Cash in drawer of '+money(amt)+' recorded.';F.at=0;F.fills=null;render();
+  },true);
   document.addEventListener('submit',async e=>{
     if(!e.target||e.target.id!=='plForm')return;
     e.preventDefault();e.stopImmediatePropagation();

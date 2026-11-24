@@ -5,7 +5,7 @@
    where the cash taken went (spent, change returned, short/over, still out) and a check that the figures agree.
    Choose All time or one month (a month starts from the balance brought forward). CSV and Print.
    Stored in `petty_fills` (migration 0036, admin only, audited) or `state.pettyFills` (?demo).
-   Cash taken / returned come from the existing Petty cash records (nothing is entered twice). Action prefix `pl`. */
+   Cash taken / returned come from the existing Petty cash records (nothing is entered twice). Action prefix `bs` (not `pl`: live-payroll.js owns `pl`). */
 (function(){
   'use strict';
   const cfg=window.VIRTUOSO||{};
@@ -111,7 +111,7 @@
   .plw .plbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.plw .plbar .grow{flex:1}
   .plw .plcard .banner{margin:0 0 8px}
   .plw .plbar label{display:flex!important;flex-direction:row!important;align-items:center;gap:6px;margin:0}
-  @media print{.plw .plf,.plw .plbar,[data-act^=pl]{display:none!important}}`;
+  @media print{.plw .plf,.plw .plbar,[data-act^=bs]{display:none!important}}`;
   document.head.appendChild(css);
 
 
@@ -226,7 +226,7 @@
     const cs=(F.counts||[]).slice().sort((x,y)=>y.date.localeCompare(x.date)).slice(0,24);
     if(!cs.length)return '<p class="note">No drawer counts recorded yet. Use “Count the drawer” above.</p>';
     return `<div class="plscroll"><table class="plt" aria-label="Drawer counts"><thead><tr><th>Date</th><th>Counted by</th><th class="n">Counted</th><th class="n">Should be</th><th class="n">Over / short</th><th class="n">Outstanding</th><th></th></tr></thead><tbody>${cs.map(c=>{const k=countCalc(c);
-      return `<tr><td>${esc(dLabel(c.date))}</td><td>${esc(c.by||'')}${c.note?' – '+esc(c.note):''}</td><td class="n">${num(c.amount)}</td><td class="n">${num(k.exp)}</td><td class="n ${k.over<0?'neg':''}">${num(k.over)}</td><td class="n ${k.total>0?'neg':''}">${num(k.total)}</td><td><button type="button" class="btn sm ghost" data-act="plCDel" data-id="${esc(c.id)}" aria-label="Delete this count" style="color:var(--bad)">Delete</button></td></tr>`}).join('')}</tbody></table></div>`;
+      return `<tr><td>${esc(dLabel(c.date))}</td><td>${esc(c.by||'')}${c.note?' – '+esc(c.note):''}</td><td class="n">${num(c.amount)}</td><td class="n">${num(k.exp)}</td><td class="n ${k.over<0?'neg':''}">${num(k.over)}</td><td class="n ${k.total>0?'neg':''}">${num(k.total)}</td><td><button type="button" class="btn sm ghost" data-act="bsCDel" data-id="${esc(c.id)}" aria-label="Delete this count" style="color:var(--bad)">Delete</button></td></tr>`}).join('')}</tbody></table></div>`;
   }
   function panel(){
     if(!LIVE||!F.fills||Date.now()-F.at>8000)load();
@@ -235,14 +235,14 @@
     const S=F.fills?sheet(ev,F.month):null,last=latestCount(),K=last&&F.fills?countCalc(last):null;
     const per=F.month==='all'?'all time':monLabel(F.month);
     const bf=S&&F.month!=='all'?`<tr class="bf"><td></td><td>Balance brought forward</td><td class="n"></td><td class="n"></td><td class="n"></td><td class="n">${num(S.before)}</td></tr>`:'';
-    const body=S?S.rows.map(e=>`<tr><td>${esc(dLabel(e.date))}</td><td>${esc(e.desc)}${e.k==='fill'?` <button type="button" class="btn sm ghost" data-act="plDel" data-id="${esc(e.id)}" aria-label="Delete this fill-up" style="color:var(--bad)">Delete</button>`:''}</td>
+    const body=S?S.rows.map(e=>`<tr><td>${esc(dLabel(e.date))}</td><td>${esc(e.desc)}${e.k==='fill'?` <button type="button" class="btn sm ghost" data-act="bsDel" data-id="${esc(e.id)}" aria-label="Delete this fill-up" style="color:var(--bad)">Delete</button>`:''}</td>
       <td class="n">${e.inn&&e.k==='fill'?num(e.inn):''}</td><td class="n">${e.out?num(e.out):''}</td><td class="n">${e.inn&&e.k==='ret'?num(e.inn):''}</td><td class="n ${e.bal<0?'neg':''}">${num(e.bal)}</td></tr>`).join(''):'';
     const tile=(v,l,cls)=>`<div class="plk ${cls||''}"><b>${v}</b><span>${l}</span></div>`;
     const tiles=S?`<div class="plgrid">${tile(money(S.closing),'Should be in the box'+(F.month==='all'?' now':' at month end'),'big'+(S.closing<0?' neg':''))}
       ${tile(money(S.fills+(F.month==='all'?0:S.before)),F.month==='all'?'Put in (incl. opening)':'Brought forward + put in')}${tile(money(S.taken),'Cash taken')}${K?'':tile(money(S.ret),'Change returned')}${tile(money(S.out),'Still out, not reported ('+S.nOpen+')')}
       ${K?tile(money(K.counted),'Counted in drawer ('+esc(dLabel(last.date))+')')+tile(money(K.total),'Total outstanding',K.total>0?'neg':''):''}</div>`:'<p class="note">Loading…</p>';
     const entry=F.entry==='count'?'count':'fill';
-    const entryCard=`<div class="plcard"><div class="plseg" role="tablist" aria-label="What do you want to record?"><button type="button" role="tab" aria-selected="${entry==='fill'}" data-act="plEntry" data-v="fill">Add a fill-up</button><button type="button" role="tab" aria-selected="${entry==='count'}" data-act="plEntry" data-v="count">Count the drawer</button></div>
+    const entryCard=`<div class="plcard"><div class="plseg" role="tablist" aria-label="What do you want to record?"><button type="button" role="tab" aria-selected="${entry==='fill'}" data-act="bsEntry" data-v="fill">Add a fill-up</button><button type="button" role="tab" aria-selected="${entry==='count'}" data-act="bsEntry" data-v="count">Count the drawer</button></div>
       <p class="note" style="margin:8px 0">${entry==='fill'?'Record what Barry puts into the petty cash box. The first one can be the opening balance.':'Count the cash in the drawer. The app compares it with what the balance says should be there and works out what is outstanding.'}</p>
       ${F.err?`<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">${esc(F.err)}</div>`:''}${entry==='count'&&F.cErr?`<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">${esc(F.cErr)}</div>`:''}${F.msg?`<div class="banner ok" role="status">${esc(F.msg)}</div>`:''}
       ${entry==='fill'?`<form class="plf" id="plForm" novalidate><label>Date<input type="date" id="plDate" value="${esc(todayISO())}"></label>
@@ -278,10 +278,10 @@
       ${bf}${body||`<tr><td colspan="6" class="note">No entries yet. Add the first fill-up above.</td></tr>`}
       ${S.rows.length?`<tr class="tot"><td></td><td>Totals${F.month==='all'?'':' for the month'}</td><td class="n">${num(S.fills)}</td><td class="n">${num(S.taken)}</td><td class="n">${num(S.ret)}</td><td class="n">${num(S.closing)}</td></tr>`:''}</tbody></table></div>`;
     else content=countsTable();
-    const vt=(k,l)=>`<button type="button" role="tab" aria-selected="${view===k}" data-act="plView" data-v="${k}">${l}</button>`;
+    const vt=(k,l)=>`<button type="button" role="tab" aria-selected="${view===k}" data-act="bsView" data-v="${k}">${l}</button>`;
     const stmt=`<div class="plcard"><div class="plbar"><div class="plseg" role="tablist" aria-label="Statement">${vt('sheet','Balance sheet')}${vt('ledger','Ledger')}${vt('counts','Drawer counts')}</div><span class="grow"></span>
       ${view==='counts'?'':`<label style="display:flex;gap:6px;align-items:center">Period <select id="plMonth" aria-label="Period"><option value="all"${F.month==='all'?' selected':''}>All time</option>${months.map(m=>`<option value="${m}"${F.month===m?' selected':''}>${esc(monLabel(m))}</option>`).join('')}</select></label>
-      <button class="btn ghost sm" type="button" data-act="plCsv">Download CSV</button>`}<button class="btn sm" type="button" data-act="plSheet">Print petty cash sheet</button><button class="btn ghost sm" type="button" data-act="plPrint">Preview and print this view</button></div>${content}</div>`;
+      <button class="btn ghost sm" type="button" data-act="bsCsv">Download CSV</button>`}<button class="btn sm" type="button" data-act="bsSheet">Print petty cash sheet</button><button class="btn ghost sm" type="button" data-act="bsPrint">Preview and print this view</button></div>${content}</div>`;
     return `<div class="panel plw" id="plPanel"><div class="ph"><h3>Petty cash float and balance sheet</h3></div>${tiles}${entryCard}${stmt}</div>`;
   }
 
@@ -304,15 +304,15 @@
     a.href=URL.createObjectURL(blob);a.download='petty-cash-balance-sheet-'+(F.month==='all'?'all':F.month)+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
   }
   document.addEventListener('click',async e=>{
-    const b=e.target.closest&&e.target.closest('[data-act^="pl"]');if(!b||!isAdm())return;
-    const a=b.dataset.act;if(!['plCsv','plPrint','plDel','plCDel','plEntry','plView','plSheet'].includes(a))return;
+    const b=e.target.closest&&e.target.closest('[data-act^="bs"]');if(!b||!isAdm())return;
+    const a=b.dataset.act;if(!['bsCsv','bsPrint','bsDel','bsCDel','bsEntry','bsView','bsSheet'].includes(a))return;
     e.stopImmediatePropagation();
-    if(a==='plEntry'){F.entry=b.dataset.v==='count'?'count':'fill';F.msg='';F.err='';F.cErr='';return render()}
-    if(a==='plView'){F.view=b.dataset.v;return render()}
-    if(a==='plSheet')return openSheetDialog();
-    if(a==='plCsv')return csv();
-    if(a==='plPrint')return previewView();
-    if(a==='plCDel'){
+    if(a==='bsEntry'){F.entry=b.dataset.v==='count'?'count':'fill';F.msg='';F.err='';F.cErr='';return render()}
+    if(a==='bsView'){F.view=b.dataset.v;return render()}
+    if(a==='bsSheet')return openSheetDialog();
+    if(a==='bsCsv')return csv();
+    if(a==='bsPrint')return previewView();
+    if(a==='bsCDel'){
       const cid=b.dataset.id,c=(F.counts||[]).find(v=>v.id===cid);if(!c||F.busy)return;
       if(!confirm('Delete the count of '+money(c.amount)+' on '+dLabel(c.date)+'? This cannot be undone.'))return;
       F.busy=true;

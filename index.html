@@ -345,7 +345,8 @@ const state={
     mk('u1','emp','Selma Nghipandulwa','Senior Accountant','selma@firm.example','Welcome#1',{base:28500,allow:1800,ot:6,lastSeen:new Date('2026-10-24T08:55:00'),lastLogin:new Date('2026-10-24T08:55:00')}),
     mk('u2','emp','Johannes Amupolo','Audit Clerk','johannes@firm.example','Welcome#2',{base:16200,allow:900,ded:250,lastSeen:new Date('2026-10-24T08:12:00'),lastLogin:new Date('2026-10-24T08:12:00'),beat:Date.now()-40000}),
     mk('u3','emp','Maria van Wyk','Payroll Officer','maria@firm.example','Welcome#3',{base:21000,allow:1200,ot:3,lastSeen:new Date('2026-10-23T17:40:00'),lastLogin:new Date('2026-10-23T08:03:00')}),
-    mk('u4','emp','Tobias Haufiku','Junior Accountant','tobias@firm.example','Welcome#4',{base:14800,allow:600,ot:10,ded:120,mustChange:true})
+    mk('u4','emp','Tobias Haufiku','Junior Accountant','tobias@firm.example','Welcome#4',{base:14800,allow:600,ot:10,ded:120,mustChange:true}),
+    mk('u5','emp','Mara','Staff (no dashboard)','','',{access:false,noLogin:true})
   ],
   data:{},
   logins:[],failed:{},newCred:null,
@@ -1140,7 +1141,7 @@ function cashBanner(){
 }
 function cashByPerson(){
   const cur=curMonth(),f2=n=>(Math.round(n*100)/100).toFixed(2);
-  const rows=staff().filter(u=>u.access).map(u=>{
+  const rows=staff().filter(u=>u.access||u.noLogin).map(u=>{
     const mine=state.advances.filter(a=>a.uid===u.id),open=mine.filter(a=>a.status==='Open'),od=mine.filter(isOverdue);
     const last=mine.length?mine[mine.length-1]:null;
     return `<tr><td>${esc(u.name)}<div class="note">${esc(u.title)}</div></td><td class="n">${f2(mine.filter(a=>a.date.slice(0,7)===cur).reduce((s,a)=>s+a.amount,0))}</td><td class="n">${f2(open.reduce((s,a)=>s+a.amount,0))}</td>
@@ -1157,7 +1158,7 @@ function vCash(){
     const settle=!done?`<form class="settle" id="settle-${a.id}"><div class="row"><input name="spent" type="number" min="0" max="${a.amount}" step="0.01" placeholder="Spent" aria-label="Amount spent" style="width:92px"><input name="ret" type="number" min="0" step="0.01" placeholder="Change back" aria-label="Change returned" style="width:108px"><button class="btn sm" type="submit">Settle</button></div><div class="note" id="calc-${a.id}">Enter what was spent to see the change due back.</div></form>`:'';
     return `<tr><td>${fmtD(a.date)}<div class="note">${hhmm(a.at)}</div></td>${adm?`<td>${esc(p.name)}</td>`:''}<td>${esc(a.purpose)}</td><td class="n">${f2(a.amount)}</td>
       <td class="n">${done?f2(a.spent):'-'}</td><td class="n">${done?f2(a.expected):'-'}</td><td class="n">${done?f2(a.returned):'-'}</td><td class="n">${done?(a.diff===0?'0.00':(a.diff>0?'+':'')+f2(a.diff)):'-'}</td>
-      <td>${pill(st,c)}</td><td>${settle}${adm&&!done?`<button class="btn sm" type="button" data-act="cashRemind" data-id="${a.id}" style="margin:6px 6px 0 0">Send reminder</button>`:''}${adm?`<button class="btn sm ghost" type="button" data-act="cashDel" data-id="${a.id}" aria-label="Delete this cash entry" style="color:var(--bad);margin-top:${done?0:6}px">Delete</button>`:''}</td></tr>`}).join('');
+      <td>${pill(st,c)}</td><td>${settle}${adm&&!done&&!(p&&p.noLogin)?`<button class="btn sm" type="button" data-act="cashRemind" data-id="${a.id}" style="margin:6px 6px 0 0">Send reminder</button>`:''}${adm?`<button class="btn sm ghost" type="button" data-act="cashDel" data-id="${a.id}" aria-label="Delete this cash entry" style="color:var(--bad);margin-top:${done?0:6}px">Delete</button>`:''}</td></tr>`}).join('');
   return `<h2>Petty cash</h2><p class="sub">Record every time petty cash is taken. Afterwards, record what was spent and the change brought back. The app works out the change due. If change is not reported by the end of the next day, the admin gets an alert.</p>
   <div class="stack"><div class="tiles">
     <div class="tile"><b>${NAD(month.reduce((s,a)=>s+a.amount,0))}</b><span>Taken in ${monthLabel(cur)}</span></div>
@@ -1168,7 +1169,7 @@ function vCash(){
     <div class="tile"><b style="color:${all.some(a=>a.status==='Settled with difference')?'var(--bad)':'inherit'}">${all.filter(a=>a.status==='Settled with difference').length}</b><span>Settled with a difference</span></div></div>
   ${adm?cashByPerson():''}
   <div class="panel"><h3>Record cash taken</h3><form class="form" id="cashForm" novalidate>
-    ${!adm?`<label>Your name<input id="cWhoName" value="${esc(me.name)}" readonly aria-readonly="true"></label>`:''}${adm?`<label>Taken by<select id="cWho">${staff().filter(u=>u.access).map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label>`:''}
+    ${!adm?`<label>Your name<input id="cWhoName" value="${esc(me.name)}" readonly aria-readonly="true"></label>`:''}${adm?`<label>Taken by<select id="cWho">${staff().filter(u=>u.access||u.noLogin).map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label>`:''}
     <label>Amount (N$)<input id="cAmt" type="number" min="1" step="0.01"></label>
     ${adm?`<label>Date taken<input id="cDate" type="date" value="${state.today}" max="${state.today}"></label>`:''}
     <label>What it is for<input id="cWhy" placeholder="e.g. Courier and fuel"></label>

@@ -147,6 +147,8 @@
     if(S.loadA||!LIVE)return;S.loadA=true;
     const a=await sb().from('cash_advances').select('*').order('taken_at',{ascending:false}).limit(500);
     const p=await sb().from('profiles').select('id,name,title,role,access_enabled');
+    const pp=await sb().from('petty_people').select('id,name,title').order('name');
+    S.pp=pp.error?[]:pp.data;S.ppErr=pp.error?String(pp.error.message||'error'):'';
     const rb=await sb().from('petty_reimbursements').select('*').order('created_at',{ascending:false}).limit(500);
     S.rb=rb.error?[]:rb.data;S.rbErr=rb.error?String(rb.error.message||'error'):'';
     S.loadA=false;S.adv=a.error?[]:a.data;S.people=p.error?[]:p.data;render();
@@ -195,19 +197,22 @@
   const stat=a=>a.status==='Open'?(isOver(a)?['Overdue, change not reported','bad']:['Open, change due by '+fd(addD(a.taken_on,1)),'warn']):a.status==='Settled'?['Settled','ok']:['Settled with difference','bad'];
   function vCashLive(){
     if(S.adv===null)loadAdv();
-    const adm=isAdm(),me=state.user,adv=S.adv||[],ppl=S.people||[],nm=Object.fromEntries(ppl.map(p=>[p.id,p.name]));
-    nm[me.id]=nm[me.id]||me.name;
+    const adm=isAdm(),me=state.user,adv=S.adv||[],ppl=S.people||[],pep=S.pp||[],nm=Object.fromEntries(ppl.concat(pep).map(p=>[p.id,p.name]));
+    nm[me.id]=nm[me.id]||me.name;const who_=a=>a.person_id||a.user_id;
     const cur=today().slice(0,7),month_=adv.filter(a=>a.taken_on.slice(0,7)===cur),settled=month_.filter(a=>a.status!=='Open');
     const open=adv.filter(a=>a.status==='Open'),od=adv.filter(isOver),diffs=adv.filter(a=>a.status==='Settled with difference');
     const rows=adv.map(a=>{const [st,c]=stat(a),done=a.status!=='Open';
       const settle=!done?`<form class="settle" id="pfSettle-${esc(a.id)}"><div class="row"><input name="spent" type="number" min="0" max="${a.amount}" step="0.01" placeholder="Spent" aria-label="Amount spent" style="width:92px"><input name="ret" type="number" min="0" step="0.01" placeholder="Change back" aria-label="Change returned" style="width:108px"><button class="btn sm" type="submit">Settle</button></div><div class="note" id="pfCalc-${esc(a.id)}">Enter what was spent to see the change due back.</div></form>`:'';
-      return `<tr><td>${esc(fd(a.taken_on))}<div class="note">${a.taken_at?esc(new Date(a.taken_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):''}</div></td>${adm?`<td>${esc(nm[a.user_id]||'Unknown')}</td>`:''}<td>${esc(a.purpose||'')}</td><td class="n">${f2(a.amount)}</td>
+      return `<tr><td>${esc(fd(a.taken_on))}<div class="note">${a.taken_at?esc(new Date(a.taken_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):''}</div></td>${adm?`<td>${esc(nm[who_(a)]||'Unknown')}${a.person_id?'<div class="note">No dashboard</div>':''}</td>`:''}<td>${esc(a.purpose||'')}</td><td class="n">${f2(a.amount)}</td>
         <td class="n">${done?f2(a.spent):'-'}</td><td class="n">${done?f2(a.expected):'-'}</td><td class="n">${done?f2(a.returned):'-'}</td><td class="n">${done?(+a.diff===0?'0.00':(a.diff>0?'+':'')+f2(a.diff)):'-'}</td>
-        <td>${pill(st,c)}</td><td>${settle}${adm&&!done?`<button class="btn sm" type="button" data-act="pfRemind" data-id="${esc(a.id)}" aria-label="Send a reminder to ${esc(nm[a.user_id]||'this person')}" style="margin:6px 6px 0 0">Send reminder</button>`:''}${adm?`<button class="btn sm ghost" type="button" data-act="pfCashDel" data-id="${esc(a.id)}" aria-label="Delete this cash entry" style="color:var(--bad);margin-top:${done?0:6}px">Delete</button>`:''}</td></tr>`}).join('');
+        <td>${pill(st,c)}</td><td>${settle}${adm&&!done&&!a.person_id?`<button class="btn sm" type="button" data-act="pfRemind" data-id="${esc(a.id)}" aria-label="Send a reminder to ${esc(nm[a.user_id]||'this person')}" style="margin:6px 6px 0 0">Send reminder</button>`:''}${adm?`<button class="btn sm ghost" type="button" data-act="pfCashDel" data-id="${esc(a.id)}" aria-label="Delete this cash entry" style="color:var(--bad);margin-top:${done?0:6}px">Delete</button>`:''}</td></tr>`}).join('');
     const byPerson=adm?`<div class="panel"><h3>Who has taken cash</h3><div class="tbl"><table style="min-width:560px"><thead><tr><th>Employee</th><th class="n">Taken this month</th><th class="n">Still to settle</th><th>Status</th><th>Last taken</th></tr></thead><tbody>
       ${ppl.filter(p=>p.access_enabled&&p.role==='emp').map(p=>{const mine=adv.filter(a=>a.user_id===p.id),op=mine.filter(a=>a.status==='Open'),o=mine.filter(isOver),last=mine[0];
         return `<tr><td>${esc(p.name)}<div class="note">${esc(p.title||'')}</div></td><td class="n">${f2(mine.filter(a=>a.taken_on.slice(0,7)===cur).reduce((s,a)=>s+ +a.amount,0))}</td><td class="n">${f2(op.reduce((s,a)=>s+ +a.amount,0))}</td>
         <td>${o.length?pill(o.length+' not reported','bad'):op.length?pill('Open','warn'):pill('Clear','ok')}${op.length?` <button class="btn sm" type="button" data-act="pfRemindP" data-id="${esc(p.id)}" style="margin-left:6px">Send reminder</button>`:''}</td><td class="note">${last?esc(fd(last.taken_on))+', '+money(last.amount):'Never'}</td></tr>`}).join('')||'<tr><td colspan="5" class="note">No employees yet.</td></tr>'}
+      ${pep.map(p=>{const mine=adv.filter(a=>a.person_id===p.id),op=mine.filter(a=>a.status==='Open'),o=mine.filter(isOver),last=mine[0];
+        return `<tr><td>${esc(p.name)}<div class="note">${esc(p.title||'No dashboard')}</div></td><td class="n">${f2(mine.filter(a=>a.taken_on.slice(0,7)===cur).reduce((s,a)=>s+ +a.amount,0))}</td><td class="n">${f2(op.reduce((s,a)=>s+ +a.amount,0))}</td>
+        <td>${o.length?pill(o.length+' not reported','bad'):op.length?pill('Open','warn'):pill('Clear','ok')}</td><td class="note">${last?esc(fd(last.taken_on))+', '+money(last.amount):'Never'}</td></tr>`}).join('')}
       </tbody></table></div></div>`:'';
     return `<h2>Petty cash</h2><p class="sub">Record every time petty cash is taken. Afterwards, record what was spent and the change brought back. The app works out the change due. If change is not reported by the end of the next day, it shows as overdue.</p>
     <div class="stack"><div class="tiles">
@@ -219,12 +224,16 @@
       <div class="tile"><b style="color:${diffs.length?'var(--bad)':'inherit'}">${diffs.length}</b><span>Settled with a difference</span></div></div>
     ${adm?foldersHTML():''}${byPerson}
     <div class="panel"><h3>Record cash taken</h3><form class="form" id="pfCashForm" novalidate>
-      ${adm?`<label>Taken by<select id="pfWho">${ppl.filter(p=>p.access_enabled).map(p=>`<option value="${esc(p.id)}" ${p.id===me.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`
+      ${adm?`<label>Taken by<select id="pfWho">${ppl.filter(p=>p.access_enabled).map(p=>`<option value="${esc(p.id)}" ${p.id===me.id?'selected':''}>${esc(p.name)}</option>`).join('')}${pep.map(p=>`<option value="pp:${esc(p.id)}">${esc(p.name)} (no dashboard)</option>`).join('')}</select></label>`
         :`<label>Your name<input value="${esc(me.name)}" readonly aria-readonly="true"></label>`}
       <label>Amount (N$)<input id="pfAmt" type="number" min="1" step="0.01"></label>
       ${adm?`<label>Date taken<input id="pfDate" type="date" value="${esc(today())}" max="${esc(today())}"></label>`:''}
       <label>What it is for<input id="pfWhy" placeholder="e.g. Courier and fuel" maxlength="200"></label>
-      <button class="btn" type="submit">Record cash taken</button></form><div class="err" id="pfErr" role="alert"></div></div>
+      <button class="btn" type="submit">Record cash taken</button></form><div class="err" id="pfErr" role="alert"></div>${adm?`<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">Staff without a dashboard (${pep.length})</summary>
+      <p class="note" style="margin:6px 0">People who work here but do not sign in can still have petty cash booked for them. They appear in the list above as "(no dashboard)".</p>
+      ${S.ppErr?`<div class="banner" role="alert" style="border-left-color:var(--bad);background:var(--bad-soft)">${/petty_people|schema cache|relation/i.test(S.ppErr)?'This needs database migration 0038. Run it in the Supabase SQL editor, then reload.':esc(S.ppErr)}</div>`:''}
+      ${pep.map(p=>`<span class="pill" style="margin:2px 6px 2px 0">${esc(p.name)} <button type="button" class="btn sm ghost" data-act="pfPpDel" data-id="${esc(p.id)}" aria-label="Remove ${esc(p.name)}" style="padding:0 6px;min-height:22px;color:var(--bad)">×</button></span>`).join('')||'<span class="note">None yet.</span>'}
+      <div class="row" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><input id="pfPpName" placeholder="Name, e.g. Mara" maxlength="60" aria-label="Name of the person" style="max-width:240px"><button class="btn sm" type="button" data-act="pfPpAdd">Add person</button></div></details>`:''}</div>
     <div class="panel"><h3>${adm?'All cash taken':'My cash taken'}</h3><div class="tbl"><table style="min-width:${adm?1120:1000}px"><thead><tr><th>When</th>${adm?'<th>Employee</th>':''}<th>For</th><th class="n">Taken</th><th class="n">Spent</th><th class="n">Change due</th><th class="n">Change back</th><th class="n">Difference</th><th>Status</th><th>Settle</th></tr></thead><tbody>
       ${rows||`<tr><td colspan="${adm?10:9}" class="note">${S.adv===null?'Loading…':'No cash taken yet.'}</td></tr>`}</tbody></table></div></div>${reimbHTML(nm)}</div>`;
   }
@@ -246,6 +255,22 @@
     if(typeof remindDialog!=='function')return;
     remindDialog({name:who,how:'It is sent as a message and shows as an unread message and pop-up. You can change the wording first.',text:body,
       send:async t=>{await VIRTUOSO_MSG.send(uid,t);toast('Reminder sent to '+who)}});
+  }
+  async function addPerson(){
+    if(!isAdm())return;const el=$('#pfPpName'),name=(el&&el.value||'').replace(/[\u0000-\u001f]/g,' ').trim().slice(0,60);
+    if(!name)return toast('Type the person’s name first.');
+    if((S.pp||[]).some(p=>p.name.toLowerCase()===name.toLowerCase())||(S.people||[]).some(p=>p.name.toLowerCase()===name.toLowerCase()))return toast(name+' is already in the list.');
+    const r=await sb().from('petty_people').insert({name,title:'Staff'});
+    if(r.error)return toast(/petty_people|schema cache|relation/i.test(r.error.message||'')?'This needs database migration 0038.':'Could not add: '+r.error.message);
+    S.adv=null;toast(name+' added');render();
+  }
+  async function delPerson(id){
+    if(!isAdm())return;const p=(S.pp||[]).find(x=>x.id===id);if(!p)return;
+    if((S.adv||[]).some(a=>a.person_id===id))return toast(p.name+' has petty cash entries, so cannot be removed. Delete those entries first.');
+    if(!confirm('Remove '+p.name+' from the petty cash list?'))return;
+    const r=await sb().from('petty_people').delete().eq('id',id);
+    if(r.error)return toast('Could not remove: '+r.error.message);
+    S.adv=null;toast(p.name+' removed');render();
   }
   async function delCash(id){
     if(!isAdm()||S.busy)return;
@@ -273,6 +298,8 @@
     if(d.act==='pfOpen')return openDoc(d.id);
     if(d.act==='pfDel')return delDoc(d.id);
     if(d.act==='pfCashDel')return delCash(d.id);
+    if(d.act==='pfPpAdd')return addPerson();
+    if(d.act==='pfPpDel')return delPerson(d.id);
     if(d.act==='pfRemind'){const a=(S.adv||[]).find(x=>x.id===d.id);return a&&remind(a.user_id,[a])}
     if(d.act==='pfRemindP')return remind(d.id,(S.adv||[]).filter(x=>x.user_id===d.id&&x.status==='Open'));
     if(d.act==='pfRbRcpt')return rbReceipt(d.id);
@@ -313,7 +340,7 @@
     if(f==='pfCashForm'){
       const amt=Math.round(parseFloat($('#pfAmt').value)*100)/100,why=$('#pfWhy').value.trim();
       if(!(amt>=1))return err('pfErr','Enter an amount of N$ 1 or more.');if(!why)return err('pfErr','Say what the cash is for.');
-      const row={amount:amt,purpose:why,taken_on:today()};if(isAdm()&&$('#pfWho'))row.user_id=$('#pfWho').value;
+      const row={amount:amt,purpose:why,taken_on:today()};if(isAdm()&&$('#pfWho')){const w=$('#pfWho').value;if(w.startsWith('pp:')){row.user_id=null;row.person_id=w.slice(3)}else row.user_id=w}
       if(isAdm()&&$('#pfDate')){const d=$('#pfDate').value;
         if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return err('pfErr','Choose the date the cash was taken.');
         if(d>today())return err('pfErr','The date cannot be in the future.');

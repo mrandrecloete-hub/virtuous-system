@@ -27,7 +27,7 @@
   setInterval(()=>{const u=state.user?state.user.id:null;if(u!==F.uid){F.uid=u;F.fills=null;F.adv=null;F.err='';F.at=0;F.msg=''}},700);
 
   /* ---------- data ---------- */
-  const normAdv=a=>({id:a.id,uid:a.user_id||a.uid,date:String(a.taken_on||a.date).slice(0,10),
+  const normAdv=a=>({id:a.id,uid:a.person_id||a.user_id||a.uid,date:String(a.taken_on||a.date).slice(0,10),
     at:new Date(a.taken_at||a.at||((a.taken_on||a.date)+'T00:00:00')),amount:r2(a.amount),purpose:a.purpose||'',status:a.status,
     spent:a.spent==null?null:r2(a.spent),returned:a.returned==null?null:r2(a.returned),expected:a.expected==null?null:r2(a.expected),diff:a.diff==null?null:r2(a.diff),
     settledAt:a.settled_at||a.settledAt?new Date(a.settled_at||a.settledAt):null});
@@ -40,15 +40,15 @@
     }
     if(!sb())return;
     F.loading=true;
-    const [f,a,p,c]=await Promise.all([sb().from('petty_fills').select('*').order('filled_on').order('created_at'),
-      sb().from('cash_advances').select('*').order('taken_at').limit(2000),sb().from('profiles').select('id,name'),sb().from('petty_counts').select('*').order('counted_on').order('created_at')]);
+    const [f,a,p,c,pp]=await Promise.all([sb().from('petty_fills').select('*').order('filled_on').order('created_at'),
+      sb().from('cash_advances').select('*').order('taken_at').limit(2000),sb().from('profiles').select('id,name'),sb().from('petty_counts').select('*').order('counted_on').order('created_at'),sb().from('petty_people').select('id,name')]);
     F.cErr=c.error?(/petty_counts|schema cache|relation/i.test(c.error.message||'')?'Recording the cash in the drawer needs database migration 0037. Run it in the Supabase SQL editor, then reload.':'Could not load the drawer counts: '+c.error.message):'';
     F.counts=c.error?[]:c.data.map(x=>({id:x.id,date:String(x.counted_on).slice(0,10),amount:r2(x.amount),by:x.counted_by||'',note:x.note||''}));
     F.loading=false;F.at=Date.now();
     if(f.error)F.err=/petty_fills|schema cache|relation/i.test(f.error.message||'')?'The float needs database migration 0036. Run it in the Supabase SQL editor, then reload.':'Could not load the float: '+f.error.message;
     else F.err='';
     F.fills=f.error?[]:f.data.map(x=>({id:x.id,date:String(x.filled_on).slice(0,10),amount:r2(x.amount),by:x.filled_by||'',kind:x.kind,note:x.note||''}));
-    F.adv=(a.data||[]).map(normAdv);(p.data||[]).forEach(u=>{F.people[u.id]=u.name});
+    F.adv=(a.data||[]).map(normAdv);(p.data||[]).forEach(u=>{F.people[u.id]=u.name});((pp&&pp.data)||[]).forEach(u=>{F.people[u.id]=u.name});
     if(state.tab&&state.tab[state.role]==='cash')render();
   }
 

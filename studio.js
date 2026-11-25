@@ -9,7 +9,7 @@
   const cfg=window.VIRTUOSO||{};
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
-  const isAdm=()=>state.user&&state.user.type==='admin';
+  const isAdm=()=>state.user&&(state.user.type==='admin'||!!(window.VIRTUOSO_PERMS&&VIRTUOSO_PERMS.has('studio')));
   const roleKey=()=>state.role;
   const isUuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v));
   const clip=(s,n)=>String(s==null?'':s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').slice(0,n);

@@ -8,7 +8,7 @@
   const cfg=window.VIRTUOSO||{};
   const LIVE=!!(cfg.supabaseUrl&&cfg.anonKey)&&!/[?&]demo\b/.test(location.search);
   const sb=()=>window.VIRTUOSO&&window.VIRTUOSO.client;
-  const isAdm=()=>state.user&&state.user.type==='admin';
+  const isAdm=()=>state.user&&(state.user.type==='admin'||!!(window.VIRTUOSO_PERMS&&VIRTUOSO_PERMS.has('dashedit')));
   const rid=()=>Math.random().toString(36).slice(2,10);
   const clone=o=>JSON.parse(JSON.stringify(o));
   const empty=()=>({blocks:[],pages:[]});
@@ -137,7 +137,7 @@
     <div class="panel"><label class="note" for="dxEmp">Employee</label><select id="dxEmp" style="font:inherit;padding:6px 8px;width:100%;max-width:380px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)"><option value="">Choose an employee...</option>${emps.map(u=>`<option value="${esc(u.id)}" ${u.id===A.sel?'selected':''}>${esc(u.name)}${u.title?' - '+esc(u.title):''}</option>`).join('')}</select>
       <div class="note" style="margin-top:6px">${esc(status)}</div>${A.msg?`<div class="note" role="status" style="color:var(--bad)">${esc(A.msg)}</div>`:''}</div>
     ${!A.sel?'':A.loading?'<p class="note">Loading...</p>':`
-    <div class="dxtabs"><button class="btn sm ghost" aria-pressed="${!A.page}" data-act="dxPage" data-id="">Dashboard</button>${pg.map(p=>`<button class="btn sm ghost" aria-pressed="${A.page===p.id}" data-act="dxPage" data-id="${esc(p.id)}">${esc(p.title||'Page')}</button>`).join('')}<button class="btn sm" data-act="dxNewPage">+ New page</button></div>
+    <div class="dxtabs"><button class="btn sm ghost" aria-pressed="${!A.page}" data-act="dxPage" data-id="">Dashboard</button>${pg.map(p=>`<button class="btn sm ghost" aria-pressed="${A.page===p.id}" data-act="dxPage" data-id="${esc(p.id)}">${esc(p.title||'Page')}</button>`).join('')}</div>
     ${A.page?`<div class="dxe"><div class="row"><input type="text" data-dxp="title" value="${esc((pg.find(p=>p.id===A.page)||{}).title||'')}" placeholder="Page name" maxlength="60" style="flex:1"><button class="btn sm bad" data-act="dxDelPage">Delete page</button></div><div class="note" style="margin-top:6px">This page appears in the employee's menu under "${GROUP}".</div></div>`:''}
     ${L.length?L.map((b,i)=>editorBlock(b,i,L.length)).join(''):'<p class="note">Nothing here yet. Add something below.</p>'}
     <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">${Object.keys(TYPES).filter(t=>true).map(t=>`<button class="btn sm ghost" data-act="dxAdd" data-t="${t}">+ ${TYPES[t]}</button>`).join('')}</div>

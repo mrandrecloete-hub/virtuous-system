@@ -457,7 +457,7 @@
   }
   function view(){
     setTimeout(paintCrops,0);
-    if(!state.user||state.user.type!=='admin')return '<div class="panel"><p class="note">Only an administrator can convert statements.</p></div>';
+    if(!state.user||(state.user.type!=='admin'&&!(window.VIRTUOSO_PERMS&&VIRTUOSO_PERMS.has('stmt'))))return '<div class="panel"><p class="note">Only an administrator can convert statements.</p></div>';
     const U=window.VIRTUOSO_UI;
     const hero=U?U.hero({title:'Statement conversion',sub:'Turn PDF and scanned bank statements into an Excel file in the Zoho Books layout.',icon:'form',gold:10}):'<h2>Statement conversion</h2>';
     return `${hero}<div class="stack">

@@ -189,9 +189,7 @@
     {id:'bo1',code:'BO 1',name:'Beneficial Ownership Declaration Form',category:'Beneficial Ownership – Companies and Close Corporations',pages:'Form + notes',build:buildBO1,extra:'owners',font:'sans'},
     {id:'bo2',code:'BO 2',name:'Annual Confirmatory Beneficial Ownership Declaration Form',category:'Beneficial Ownership – Annual confirmation',pages:'1 page',build:buildBO2,font:'sans'}];
   const tpl=id=>TEMPLATES.find(t=>t.id===id);
-  const HKEY='vx_bipa_hidden';
-  const hidden=()=>{try{const a=JSON.parse(localStorage.getItem(HKEY)||'[]');return Array.isArray(a)?a.filter(x=>TEMPLATES.some(t=>t.id===x)):[]}catch(e){return []}};
-  const setHidden=a=>{try{localStorage.setItem(HKEY,JSON.stringify(a))}catch(e){}};
+  try{localStorage.removeItem('vx_bipa_hidden')}catch(e){}   /* earlier versions let a template be hidden; templates are never hidden now */
 
   /* ---------- styles (shared by the screen form and the printed document) ---------- */
   const CSS=`.bp *{box-sizing:border-box}.bp{font:11.5px 'Times New Roman',Times,serif;color:#000}.bp.sans{font-family:Arial,Helvetica,sans-serif;font-size:10.5px}
@@ -228,7 +226,8 @@
     try{const s=JSON.parse(localStorage.getItem(KEY(id))||'null');if(s&&typeof s==='object'){if(s.V&&typeof s.V==='object')Object.keys(s.V).slice(0,1500).forEach(k=>{if(/^[A-Za-z0-9_]+$/.test(k)){const v=s.V[k];B.V[k]=v===true?true:clip(v,800)}});
       if(s.X){B.X.pages=Math.max(1,Math.min(4,+s.X.pages||1));B.X.owners=Math.max(1,Math.min(6,+s.X.owners||1));B.X.notes=s.X.notes!==false}}}catch(e){}
   }
-  function save(quiet){try{localStorage.setItem(KEY(B.id),JSON.stringify({V:B.V,X:B.X,at:Date.now()}));if(!quiet){B.msg='Draft saved on this device.'}return true}catch(e){B.msg='Could not save the draft (browser storage is not available).';return false}}
+  const filled=()=>Object.keys(B.V).some(k=>B.V[k]!==''&&B.V[k]!==false&&B.V[k]!=null)||B.X.pages>1||B.X.owners>1;
+  function save(quiet){try{if(!filled()){localStorage.removeItem(KEY(B.id));if(!quiet)B.msg='Nothing is filled in, so no draft was kept.';return true}localStorage.setItem(KEY(B.id),JSON.stringify({V:B.V,X:B.X,at:Date.now()}));if(!quiet){B.msg='Draft saved on this device.'}return true}catch(e){B.msg='Could not save the draft (browser storage is not available).';return false}}
   const hasDraft=id=>{try{return !!localStorage.getItem(KEY(id))}catch(e){return false}};
   function docHTML(t){
     MODE='print';let body='';try{body=t.build()}finally{MODE='edit'}
@@ -251,18 +250,17 @@
 
   function view(){
     if(B.id&&tpl(B.id))return editor();
-    const hid=hidden();
-    const rows=TEMPLATES.filter(t=>!hid.includes(t.id)&&(B.cat==='all'||t.category.startsWith(B.cat))).map(t=>`<tr><td><span class="bpcode">${esc(t.code)}</span></td><td><b>${esc(t.name)}</b><div class="note">${esc(t.pages)}</div></td><td><span class="bpcat">${esc(t.category)}</span></td>
-      <td>${hasDraft(t.id)?'<span class="pill warn">Draft saved</span>':''}</td><td style="white-space:nowrap"><button class="btn sm" data-act="srOpen" data-id="${t.id}">Fill in</button> <button class="btn sm ghost" data-act="srBlank" data-id="${t.id}">Blank copy</button> <button class="btn sm ghost" data-act="srDel" data-id="${t.id}" aria-label="Delete ${esc(t.code)}" style="color:var(--bad)">Delete</button></td></tr>`).join('');
+    const rows=TEMPLATES.filter(t=>B.cat==='all'||t.category.startsWith(B.cat)).map(t=>`<tr><td><span class="bpcode">${esc(t.code)}</span></td><td><b>${esc(t.name)}</b><div class="note">${esc(t.pages)}</div></td><td><span class="bpcat">${esc(t.category)}</span></td>
+      <td>${hasDraft(t.id)?'<span class="pill warn">Draft saved</span>':''}</td><td style="white-space:nowrap"><button class="btn sm" data-act="srOpen" data-id="${t.id}">Fill in</button> <button class="btn sm ghost" data-act="srBlank" data-id="${t.id}">Blank copy</button> <button class="btn sm ghost" data-act="srDel" data-id="${t.id}" aria-label="Delete what is filled in on ${esc(t.code)}" title="${hasDraft(t.id)?'Delete the filled-in form and make it blank again':'Nothing is filled in'}" style="color:var(--bad)"${hasDraft(t.id)?'':' disabled'}>Delete</button></td></tr>`).join('');
     return `<div class="panel bpl"><div class="ph"><h3>BIPA forms</h3></div><p class="note" style="margin:0 0 10px">Business and Intellectual Property Authority templates. Open one to fill it in on screen, then preview, print or download it. Drafts stay on this device.</p>
-      <div class="bpbar"><label>Category <select id="srCat" aria-label="Category"><option value="all">All</option><option value="Close Corporations"${B.cat==='Close Corporations'?' selected':''}>Close Corporations</option><option value="Beneficial Ownership"${B.cat==='Beneficial Ownership'?' selected':''}>Beneficial Ownership</option></select></label>${hid.length?`<span class="grow"></span><button class="btn sm ghost" data-act="srRestore">Restore deleted templates (${hid.length})</button>`:''}</div>
+      <div class="bpbar"><label>Category <select id="srCat" aria-label="Category"><option value="all">All</option><option value="Close Corporations"${B.cat==='Close Corporations'?' selected':''}>Close Corporations</option><option value="Beneficial Ownership"${B.cat==='Beneficial Ownership'?' selected':''}>Beneficial Ownership</option></select></label></div>
       <div class="tbl"><table class="bpt"><thead><tr><th></th><th>Name</th><th>Category</th><th></th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="note">No templates in this category.</td></tr>'}</tbody></table></div></div>`;
   }
   function editor(){
     const t=tpl(B.id);MODE='edit';let body='';try{body=t.build()}catch(e){console.error(e);body='<p>This form could not be shown.</p>'}
     return `<div class="panel bpl"><div class="ph"><h3>${esc(t.code)} – ${esc(t.name)}</h3><span class="pill">${esc(t.category)}</span></div>
       <div class="bpbar"><button class="btn ghost sm" data-act="srBack">‹ All BIPA forms</button><span class="grow"></span>
-        <button class="btn sm" data-act="srPreview">Preview and print</button><button class="btn sm ghost" data-act="srWord">Download Word (.doc)</button><button class="btn sm ghost" data-act="srSave">Save draft</button><button class="btn sm ghost" data-act="srClear" style="color:var(--bad)">Clear form</button></div>
+        <button class="btn sm" data-act="srPreview">Preview and print</button><button class="btn sm ghost" data-act="srWord">Download Word (.doc)</button><button class="btn sm ghost" data-act="srSave">Save draft</button><button class="btn sm ghost" data-act="srClear" style="color:var(--bad)">Delete filled form</button></div>
       <div class="bpmsg" id="srMsg" role="status">${esc(B.msg)}</div>
       <div class="bpx">${t.extra==='pages'?`<span>Members pages (Part C): <b>${B.X.pages}</b></span><button class="btn sm ghost" data-act="srAddP" ${B.X.pages>=4?'disabled':''}>Add a members page</button><button class="btn sm ghost" data-act="srRemP" ${B.X.pages<=1?'disabled':''}>Remove the last one</button>`:''}
         ${t.extra==='owners'?`<span>Beneficial owners (Part B): <b>${B.X.owners}</b></span><button class="btn sm ghost" data-act="srAddO" ${B.X.owners>=6?'disabled':''}>Add a beneficial owner</button><button class="btn sm ghost" data-act="srRemO" ${B.X.owners<=1?'disabled':''}>Remove the last one</button>`:''}
@@ -279,14 +277,14 @@
     const a=b.dataset.act;e.stopImmediatePropagation();
     if(a==='srOpen'){load(b.dataset.id);return rerender()}
     if(a==='srBlank'){load(b.dataset.id);B.V={};const t=tpl(b.dataset.id);B.id=b.dataset.id;preview();B.id=null;return}
-    if(a==='srDel'){const t=tpl(b.dataset.id);if(!t)return;if(!confirm('Delete '+t.code+' ('+t.name+') from this list? Any saved draft of it is deleted too. You can bring deleted templates back with "Restore deleted templates".'))return;
-      try{localStorage.removeItem(KEY(t.id))}catch(x){}const h=hidden();if(!h.includes(t.id))h.push(t.id);setHidden(h);toast(t.code+' deleted from the list');return rerender()}
-    if(a==='srRestore'){setHidden([]);toast('Deleted templates restored');return rerender()}
+    if(a==='srDel'){const t=tpl(b.dataset.id);if(!t)return;
+      if(!confirm('Delete what is filled in on '+t.code+' ('+t.name+')? The form stays in the list and becomes blank again. Nothing is kept as a draft.'))return;
+      try{localStorage.removeItem(KEY(t.id))}catch(x){}if(B.id===t.id){B.V={};B.X={pages:1,owners:1,notes:true}}clearTimeout(tm);toast(t.code+' is blank again');return rerender()}
     if(a==='srBack'){if(B.id)save(true);B.id=null;return rerender()}
     if(a==='srPreview'){save(true);return preview()}
     if(a==='srWord'){save(true);return dlWord()}
     if(a==='srSave'){save();B.msg=B.msg;const m=document.getElementById('srMsg');if(m)m.textContent=B.msg;return toast('Draft saved on this device')}
-    if(a==='srClear'){if(!confirm('Clear everything typed into this form? The saved draft is removed too.'))return;B.V={};B.X={pages:1,owners:1,notes:true};try{localStorage.removeItem(KEY(B.id))}catch(x){}B.msg='Form cleared.';return rerender()}
+    if(a==='srClear'){if(!confirm('Delete everything filled in on this form and make it blank again? Nothing is kept as a draft.'))return;clearTimeout(tm);B.V={};B.X={pages:1,owners:1,notes:true};try{localStorage.removeItem(KEY(B.id))}catch(x){}B.msg='Form is blank again.';return rerender()}
     if(a==='srAddP'){B.X.pages=Math.min(4,B.X.pages+1);save(true);return rerender()}
     if(a==='srRemP'){if(B.X.pages>1&&confirm('Remove the last members page and what is typed on it?')){const p=B.X.pages;Object.keys(B.V).filter(k=>k.startsWith('m'+p+'_')||k.startsWith('c'+p+'_')||k.startsWith('w'+p+'_')).forEach(k=>delete B.V[k]);B.X.pages--;save(true);rerender()}return}
     if(a==='srAddO'){B.X.owners=Math.min(6,B.X.owners+1);save(true);return rerender()}

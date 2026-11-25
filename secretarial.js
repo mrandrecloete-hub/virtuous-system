@@ -6,10 +6,10 @@
   'use strict';
   const UI=()=>window.VIRTUOSO_UI;
   function view(){
-    const sub='Company secretarial work for the firm and its clients. The tools for this page are being set up.';
+    const sub='Company secretarial work for the firm and its clients. BIPA form templates are here; more tools will follow.';
     const hero=UI()&&UI().hero?UI().hero({title:'Secretarial',sub,icon:'folder',gold:5}):`<h2>Secretarial</h2><p class="sub">${esc(sub)}</p>`;
-    return hero+`<div class="stack"><div class="panel"><h3>Secretarial</h3>
-      <p class="note" style="margin:0">This page is ready. Tell me which functions you want here and I will add them.</p></div></div>`;
+    const bipa=window.VIRTUOSO_BIPA?window.VIRTUOSO_BIPA.view():'';
+    return hero+`<div class="stack">${bipa}</div>`;
   }
   VIEWS.secretarial=view;
   if(typeof ICON!=='undefined')ICON.secretarial='<path d="M5 3h11l3 3v15H5z"/><path d="M8 8h8M8 12h8M8 16h5"/><circle cx="16.500" cy="17.500" r="2.500"/>';

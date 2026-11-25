@@ -114,6 +114,12 @@
   .tsb:hover{filter:brightness(1.08)}.tsb.run{background:#d6432f}
   .tssplit{display:inline-flex;gap:1px}.tssplit .tsb:first-child{border-radius:4px 0 0 4px}.tssplit .tsb.caret{border-radius:0 4px 4px 0;padding:0 10px}
   .tsmore{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:4px;min-height:36px;width:40px;cursor:pointer;font-size:18px;line-height:1}
+  .tswm{font-size:12px}.tswm b.tslow,.tssum tr.tslow b{color:#d32f2f}.tswm b.tsok,.tssum tr.tsok b{color:#2e7d32}
+  .tsgap{height:180px;display:flex;align-items:center;justify-content:center}.tsgap img{height:70px;width:auto;opacity:.9}
+  .tssum{margin:0 0 24px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+  .tssumrow{display:flex;gap:28px;flex-wrap:wrap}.tssumcol{flex:1;min-width:280px}.tssumcol h3{margin:0 0 6px;font-size:15px}
+  .tssumcol table{width:100%;border-collapse:collapse;font-size:13px}.tssumcol td{padding:4px 8px;border-bottom:1px solid var(--line)}.tssumcol td.n{text-align:right}
+  .tssumcol tr.tslow{background:rgba(211,47,47,.08)}.tssumtot{margin-top:10px;font-weight:700;text-align:right}.tslowt{color:#d32f2f}.tsokt{color:#2e7d32}
   .tsmenu{position:absolute;right:0;top:42px;z-index:20;min-width:200px;background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px}
   .tsmenu button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--fg);font:inherit;font-size:13px;padding:9px 12px;border-radius:4px;cursor:pointer;min-height:36px}
   .tsmenu button:hover{background:var(--accent-soft)}
@@ -204,6 +210,41 @@
       &&(T.preset==='all'||(T.preset==='pending'&&r.status==='Pending')||(T.preset==='unbilled'&&r.status==='Approved'&&!r.billed)||(T.preset==='billed'&&r.billed)));
   }
   const opts=(list,cur,first)=>(first?`<option value="">${first}</option>`:'')+list.map(([v,l])=>`<option value="${esc(v)}" ${cur===v?'selected':''}>${esc(l)}</option>`).join('');
+
+  /* ---------- hours per week / per month (targets: 40 h a week, 160 h a month = 40 x 4) ---------- */
+  const WEEK_T=40,MONTH_T=160;
+  const wkStart=ds=>{const d=parse(ds),k=(d.getDay()+6)%7;d.setDate(d.getDate()-k);return iso(d)};
+  const wkLabel=ws=>{const a=parse(ws),b=parse(ws);b.setDate(b.getDate()+6);const f=(d,y)=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}+(y?{year:'numeric'}:{}));return f(a)+' - '+f(b,1)};
+  const moLabel=ym=>parse(ym+'-01').toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  function totals(rows){
+    const W={},M={};
+    rows.forEach(r=>{const w=r.user_id+'|'+wkStart(r.work_date),m=r.user_id+'|'+r.work_date.slice(0,7);
+      (W[w]=W[w]||{who:r.who,key:wkStart(r.work_date),h:0}).h+=r.hours;(M[m]=M[m]||{who:r.who,key:r.work_date.slice(0,7),h:0}).h+=r.hours});
+    return {W,M};
+  }
+  const lowCls=(h,t)=>h+1e-9<t?'tslow':'tsok';
+  function summaryBox(rows){
+    const {W,M}=totals(rows),all=rows.reduce((s,r)=>s+r.hours,0);
+    const tbl=(title,o,lim,lab)=>`<div class="tssumcol"><h3>${title}</h3><table>${Object.values(o).sort((a,b)=>a.key<b.key?-1:a.key>b.key?1:a.who.localeCompare(b.who)).map(x=>`<tr class="${lowCls(x.h,lim)}"><td>${esc(lab(x.key))}</td><td>${esc(x.who)}</td><td class="n"><b>${hm(x.h)}</b> h</td></tr>`).join('')||'<tr><td colspan="3" class="tsdim">No time to show.</td></tr>'}</table></div>`;
+    return `<div class="tsgap"><img src="logo-v2.png" alt="" height="70"></div>
+      <div class="tssum"><div class="tssumrow">${tbl('Hours per week',W,WEEK_T,wkLabel)}${tbl('Hours per month',M,MONTH_T,moLabel)}</div>
+      <div class="tssumtot">Total hours (all shown): <b>${hm(all)}</b> h</div>
+      <div class="tsdim" style="font-size:12px;margin-top:4px"><span class="tslowt"><b>Red</b></span> = below target (week under ${WEEK_T} h, month under ${MONTH_T} h = ${WEEK_T} h x 4 weeks). <span class="tsokt"><b>Green</b></span> = target met.</div></div>`;
+  }
+  function totalsCell(r,T0){
+    const w=T0.W[r.user_id+'|'+wkStart(r.work_date)],m=T0.M[r.user_id+'|'+r.work_date.slice(0,7)];
+    return `<td class="nw tswm">Week <b class="${lowCls(w.h,WEEK_T)}">${hm(w.h)}</b> &middot; Month <b class="${lowCls(m.h,MONTH_T)}">${hm(m.h)}</b></td>`;
+  }
+  /* printable report (shown in the shared preview window: Print, Save as PDF, Download) */
+  function reportHTML(rows){
+    const {W,M}=totals(rows),all=rows.reduce((s,r)=>s+r.hours,0);
+    const col=(t,o,lim,lab)=>`<div><h3>${t}</h3><table class="s">${Object.values(o).sort((a,b)=>a.key<b.key?-1:a.key>b.key?1:a.who.localeCompare(b.who)).map(x=>`<tr><td>${esc(lab(x.key))}</td><td>${esc(x.who)}</td><td class="r" style="color:${x.h+1e-9<lim?'#d32f2f':'#2e7d32'}"><b>${hm(x.h)}</b> h</td></tr>`).join('')}</table></div>`;
+    const body=rows.slice().sort((a,b)=>a.work_date<b.work_date?1:a.work_date>b.work_date?-1:0).map(r=>`<tr><td>${esc(fd(r.work_date))}</td><td>${esc(r.project||'')}</td><td>${esc(r.cust)}</td><td><b>${esc(r.task)}</b>${r.notes?'<br>'+esc(r.notes):''}</td><td>${esc(r.who)}</td><td class="r">${hm(r.hours)}</td><td>${r.billed?'Billed':'Unbilled'}</td></tr>`).join('');
+    const logo=(window.VIRTUOSO_DOCS&&VIRTUOSO_DOCS.logoData)?'':'';
+    return '<!doctype html><html><head><meta charset="utf-8"><title>Timesheet</title><style>@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:0;color:#111}h1{font-size:20px;margin:0}h3{font-size:14px;margin:12px 0 4px}table{width:100%;border-collapse:collapse;font-size:11px}th{background:#1e3a8a;color:#fff;text-align:left;padding:5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}td{border-bottom:1px solid #ccd;padding:4px 5px;vertical-align:top}.r{text-align:right}.sum{display:flex;gap:30px;margin-top:26px;page-break-inside:avoid}.sum>div{flex:1}table.s td{font-size:12px}tr{page-break-inside:avoid}.n{font-size:11px;color:#555}</style></head><body><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><img src="logo-v2.png" height="44" alt=""><div><h1>Timesheet</h1><div class="n">Virtuous Accounting Solutions CC &middot; printed '+new Date().toLocaleDateString('en-GB')+'</div></div></div>'
+      +'<table><thead><tr><th>Date</th><th>Project</th><th>Customer</th><th>Task / notes</th><th>User</th><th class="r">Time</th><th>Billing</th></tr></thead><tbody>'+body+'</tbody></table>'
+      +'<div class="sum">'+col('Hours per week',W,WEEK_T,wkLabel)+col('Hours per month',M,MONTH_T,moLabel)+'</div><p class="r"><b>Total hours: '+hm(all)+' h</b></p><p class="n"><span style="color:#d32f2f"><b>Red</b></span> = below target (week under '+WEEK_T+' h, month under '+MONTH_T+' h).</p></body></html>';
+  }
 
   /* ---------- list ---------- */
   const IC={
@@ -363,15 +404,17 @@
   }
   function listHTML(){
     if(T.mode==='cal')return calPage();
-    const rows=filtered(),shown=rows.slice(0,T.limit),total=rows.reduce((s,r)=>s+r.hours,0),selIds=Object.keys(T.sel).filter(k=>T.sel[k]);
+    const rows=filtered(),TT=totals(rows),shown=rows.slice(0,T.limit),total=rows.reduce((s,r)=>s+r.hours,0),selIds=Object.keys(T.sel).filter(k=>T.sel[k]);
     const o=T.open?T.rows.find(r=>r.id===T.open):null,side=T.newOpen?newForm():o?drawer(o):'';
     const users=Object.entries(T.names).sort((a,b)=>a[1].localeCompare(b[1])),running=timerStart();
     const menu=T.menu==='new'?`<div class="tsmenu" role="menu"><button role="menuitem" data-act="tsNew">New Log Entry</button><button role="menuitem" data-act="tsView" data-v="customers">Add customer</button></div>`
+      :T.menu==='dl'?`<div class="tsmenu" role="menu"><button role="menuitem" data-act="tsRep" data-w="preview">Preview (PDF)</button><button role="menuitem" data-act="tsRep" data-w="pdf">Download PDF</button><button role="menuitem" data-act="tsRep" data-w="print">Print</button><button role="menuitem" data-act="tsCsv">Download CSV (Excel)</button></div>`
       :T.menu==='more'?`<div class="tsmenu" role="menu"><button role="menuitem" data-act="tsCsv">Export as CSV</button><button role="menuitem" data-act="tsView" data-v="customers">Customers</button><button role="menuitem" data-act="tsRefresh">Refresh</button></div>`:'';
     return `<div class="tsw ${side?'withpanel':''}"><div class="tsmain">
       <div class="tshead"><select class="tstitle" id="tsPreset" aria-label="Timesheet view">${opts([['all','All Timesheets'],['pending','Waiting for approval'],['unbilled','Approved, unbilled'],['billed','Billed']],T.preset)}</select>
         <div class="tsacts"><button class="lk" data-act="tsView" data-v="summary">${IC.sum} Summary</button>
           <span class="tsseg" role="group" aria-label="View"><button data-act="tsMode" data-m="list" aria-pressed="${T.mode==='list'}" aria-label="List view" title="List">${IC.list}</button><button data-act="tsMode" data-m="cal" aria-pressed="${T.mode==='cal'}" aria-label="Calendar view" title="Calendar">${IC.cal}</button></span>
+          <button class="tsb" data-act="tsMenu" data-m="dl" aria-haspopup="menu">&#11015; Download &#9662;</button>
           <button class="tsb ${running?'run':''}" data-act="tsTimer">${IC.clock} <span id="tsTimerLbl">${running?'Stop '+clock(Date.now()-running):'Start'}</span></button>
           <span class="tssplit"><button class="tsb" data-act="tsNew">${IC.plus} New Log Entry</button><button class="tsb caret" data-act="tsMenu" data-m="new" aria-haspopup="menu" aria-label="More ways to add">▾</button></span>
           <button class="tsmore" data-act="tsMenu" data-m="more" aria-haspopup="menu" aria-label="More">⋯</button>${menu}</div></div>
@@ -382,14 +425,15 @@
         <label>${IC.users}<select id="tsUser" class="${T.user?'on':''}" aria-label="User">${opts(users,T.user,'Select user')}</select></label></div>
       <div class="err" id="tsErr" role="alert" style="padding:0 16px"></div>
       ${selIds.length?`<div class="tsbulk" role="toolbar" aria-label="Bulk actions"><b>${selIds.length} selected</b><button class="btn sm" data-act="tsDecide" data-ok="1" data-ids="${esc(selIds.join(','))}">Approve</button><button class="btn sm ghost" data-act="tsDecide" data-ok="0" data-ids="${esc(selIds.join(','))}">Reject</button><button class="btn sm ghost" data-act="tsBill" data-flag="1" data-ids="${esc(selIds.join(','))}">Mark billed</button><button class="btn sm ghost" data-act="tsBill" data-flag="0" data-ids="${esc(selIds.join(','))}">Mark unbilled</button><button class="btn sm ghost" data-act="tsClear">Clear</button></div>`:''}
-      ${T.mode==='cal'?calHTML(rows):`<div class="tbl"><table class="tst" style="min-width:980px"><thead><tr><th style="width:44px"><input type="checkbox" id="tsAll" aria-label="Select all shown" ${shown.length&&shown.every(r=>T.sel[r.id])?'checked':''}></th><th>Date</th><th>Project</th><th>Customer</th><th>Task</th><th>User</th><th class="n">Time</th><th>Approvals</th><th>Billing Status</th></tr></thead><tbody>
+      ${T.mode==='cal'?calHTML(rows):`<div class="tbl"><table class="tst" style="min-width:980px"><thead><tr><th style="width:44px"><input type="checkbox" id="tsAll" aria-label="Select all shown" ${shown.length&&shown.every(r=>T.sel[r.id])?'checked':''}></th><th>Date</th><th>Project</th><th>Customer</th><th>Task</th><th>User</th><th class="n">Time</th><th>Approvals</th><th>Billing Status</th><th>Week / Month total</th></tr></thead><tbody>
       ${shown.map(r=>`<tr data-row="${esc(r.id)}" class="${T.open===r.id?'sel':''}"><td><input type="checkbox" data-tssel="${esc(r.id)}" ${T.sel[r.id]?'checked':''} aria-label="Select entry"></td>
         <td class="nw">${esc(fd(r.work_date))}</td><td>${r.project?`<button class="tslink" data-act="tsProjSet" data-p="${esc(r.project)}">${esc(r.project)}</button>`:'<span class="tsdim">--</span>'}</td><td>${esc(r.cust)}</td>
         <td><div>${esc(r.task)}</div>${r.notes?`<div class="tsnote">${esc(r.notes)}</div>`:''}</td><td>${esc(r.who)}</td>
-        <td class="n nw">${hm(r.hours)}</td><td>${apprText(r)}</td><td class="nw">${billText(r)}</td></tr>`).join('')
-        ||`<tr><td colspan="9" class="note">${T.rows.length?'No timesheet entries match these filters.':'No time has been logged yet.'}</td></tr>`}
+        <td class="n nw">${hm(r.hours)}</td><td>${apprText(r)}</td><td class="nw">${billText(r)}</td>${totalsCell(r,TT)}</tr>`).join('')
+        ||`<tr><td colspan="10" class="note">${T.rows.length?'No timesheet entries match these filters.':'No time has been logged yet.'}</td></tr>`}
       </tbody></table></div>`}
       <div class="tsfoot"><span>Total Count: <b>${rows.length}</b> &nbsp; Total time: <b>${hm(total)}</b>${T.truncated?' (latest 5,000 entries)':''}</span>${T.mode!=='cal'&&rows.length>shown.length?`<button class="btn ghost sm" data-act="tsMore">Show more (${rows.length-shown.length} left)</button>`:''}</div>
+      ${T.mode!=='cal'&&rows.length?summaryBox(rows):''}
       </div>${side}</div>`;
   }
 
@@ -477,7 +521,7 @@
   document.addEventListener('click',e=>{
     if(e.target.closest&&e.target.closest('[data-act^="ts"]')==null){
       const tr=e.target.closest&&e.target.closest('tr[data-row]');
-      if(tr&&!e.target.closest('input,button,a,select,label')&&T.rows&&document.getElementById('view').contains(tr)){e.stopImmediatePropagation();T.open=tr.dataset.row;T.newOpen=false;T.menu=null;T.edit=false;T.dTab='details';render();return}
+      if(tr&&!e.target.closest('input,button,a,select,label')&&!(window.getSelection&&String(window.getSelection()).trim())&&T.rows&&document.getElementById('view').contains(tr)){e.stopImmediatePropagation();T.open=tr.dataset.row;T.newOpen=false;T.menu=null;T.edit=false;T.dTab='details';render();return}
       if(T.menu&&!e.target.closest('.tsmenu')&&document.getElementById('view')&&document.getElementById('view').contains(e.target)){T.menu=null;render()}
       return;
     }
@@ -516,9 +560,13 @@
       case 'tsView':T.view=d.v;T.open=null;T.newOpen=false;T.edit=false;window.scrollTo(0,0);return render();
       case 'tsMore':T.limit+=100;return render();
       case 'tsClear':T.sel={};return render();
+      case 'tsRep':{const rows=filtered();if(!rows.length)return toast('Nothing to show');
+        if(!(window.VIRTUOSO_DOCS&&VIRTUOSO_DOCS.overlay))return toast('The preview is not available.');
+        T.menu=null;render();return VIRTUOSO_DOCS.overlay(reportHTML(rows),{title:'Timesheet',name:'Timesheet-'+iso(new Date())})}
       case 'tsCsv':{const rows=filtered();if(!rows.length)return toast('Nothing to export');
-        const csv=[['Date','Project','Customer','Task','User','Hours','Time','Approval','Billing','Notes'].map(csvCell).join(',')].concat(rows.map(r=>[r.work_date,r.project,r.cust,r.task,r.who,r.hours,hm(r.hours),r.status,r.status==='Approved'?(r.billed?'Billed':'Unbilled'):'',r.notes||''].map(csvCell).join(','))).join('\r\n');
-        const u=URL.createObjectURL(new Blob([csv],{type:'text/csv'})),l=document.createElement('a');l.href=u;l.download='timesheets.csv';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);return}
+        const TT=totals(rows),all=rows.reduce((a,r)=>a+r.hours,0),sw=Object.values(TT.W).sort((a,b)=>a.key<b.key?-1:1),sm=Object.values(TT.M).sort((a,b)=>a.key<b.key?-1:1);
+        const csv=[['Date','Project','Customer','Task','User','Hours','Time','Approval','Billing','Notes','Week total','Month total'].map(csvCell).join(',')].concat(rows.map(r=>[r.work_date,r.project,r.cust,r.task,r.who,r.hours,hm(r.hours),r.status,r.status==='Approved'?(r.billed?'Billed':'Unbilled'):'',r.notes||'',hm(TT.W[r.user_id+'|'+wkStart(r.work_date)].h),hm(TT.M[r.user_id+'|'+r.work_date.slice(0,7)].h)].map(csvCell).join(',')),[],['SUMMARY','Hours per week (target '+WEEK_T+' h)'].map(csvCell).join(',')).concat(sw.map(x=>[wkLabel(x.key),x.who,hm(x.h)].map(csvCell).join(',')),[''],['Hours per month (target '+MONTH_T+' h)'].map(csvCell).join(',')).concat(sm.map(x=>[moLabel(x.key),x.who,hm(x.h)].map(csvCell).join(',')),['','Total hours',hm(all)].map(csvCell).join(',')).join('\r\n');
+        const u=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'})),l=document.createElement('a');l.href=u;l.download='timesheets.csv';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);return}
       case 'tsDecide':{
         const ok=d.ok==='1',ids=d.ids.split(','),targets=T.rows.filter(r=>ids.includes(r.id)&&r.status==='Pending');
         if(!targets.length)return toast('Only entries waiting for approval can be approved or rejected.');

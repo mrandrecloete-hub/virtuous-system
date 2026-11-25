@@ -67,7 +67,7 @@
   }
   function clean(c){
     const o={};if(!c||typeof c!=='object')return o;
-    Object.keys(c).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0,40).forEach(d=>{const v=c[d]||{};const n=clip(v.note,600),m=v.mark==='y'?'y':'';if(n||m)o[d]={note:n,mark:m}});
+    Object.keys(c).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0,40).forEach(d=>{const v=c[d]||{};const n=clip(v.note,1200),m=v.mark==='y'?'y':'';if(n||m)o[d]={note:n,mark:m}});
     return o;
   }
   const repaint=()=>{if(state.tab&&state.tab[state.role]==='monthly')render()};
@@ -111,7 +111,7 @@
   .mpbody{flex:1;display:flex;flex-direction:column;gap:2px;padding:2px}
   .mpchip{font-size:10.5px;line-height:1.25;border-radius:3px;padding:1px 4px;background:#dbe7ff;border-left:3px solid #2f5597;color:#16254a;overflow-wrap:anywhere}
   .mpchip.z{background:#d9f3e4;border-left-color:#1f7a4d}.mpchip.zd{text-decoration:line-through;opacity:.7}.mpchip.zo{background:#ffe1e1;border-left-color:#c62828}
-  .mpnote{width:100%;flex:1;min-height:44px;border:0;background:transparent;font:inherit;font-size:12px;color:#16254a;resize:none;padding:2px;box-shadow:none;border-radius:0}
+  .mpnote{width:100%;flex:1 0 auto;min-height:44px;border:0;background:transparent;font:inherit;font-size:12px;color:#16254a;resize:none;padding:2px;box-shadow:none;border-radius:0;overflow:hidden;line-height:1.3}
   .mpnote:focus{outline:2px solid #1f7a4d;background:rgba(255,255,255,.7)}.mpnote[readonly]{cursor:default}
   .mpwk{border-top:1px solid #111;border-left:1px solid #111;background:#f5f7fc;font-size:11px;font-style:italic;color:#555;padding:4px;display:flex;flex-direction:column;gap:2px}
   .mpwk b{font-style:normal;color:#16254a;font-size:13px}
@@ -150,7 +150,7 @@
         const chips=inM?(byDay[ds]||[]).map(r=>`<div class="mpchip" title="From the timesheet">${esc(r.task||'Time')}${r.customer?' · '+esc(r.customer):''} · ${hfmt(r.hours)}h</div>`).join('')
           +(zByDay[ds]||[]).map(z=>`<div class="mpchip z${z.closed?' zd':(ds<t?' zo':'')}" title="Task from Zoho">${esc(z.name||'Task')}</div>`).join(''):'';
         grid+=`<div class="mpday${c>4?' we':''}${!inM?' out':''}${mk?' mk':''}${ds===t?' today':''}"><div class="mpdn">${inM&&editable?`<button type="button" data-act="mpMark" data-d="${ds}" title="Highlight this day" aria-label="Highlight day ${d.getDate()}">${d.getDate()}</button>`:`<span>${d.getDate()}</span>`}</div>
-          <div class="mpbody">${chips}${inM?`<textarea class="mpnote" data-mpn="${ds}" maxlength="600" aria-label="Notes for ${ds}" ${editable?'':'readonly'}>${esc(cell.note||'')}</textarea>`:''}</div></div>`;
+          <div class="mpbody">${chips}${inM?`<textarea class="mpnote" data-mpn="${ds}" maxlength="1200" aria-label="Notes for ${ds}" ${editable?'':'readonly'}>${esc(cell.note||'')}</textarea>`:''}</div></div>`;
       }
       grid+=`<div class="mpwk">Week ${w+1}<b>${hrs?hfmt(hrs)+' h':''}</b></div>`;
     }
@@ -174,7 +174,7 @@
     const title=(c.querySelector('.mpmon')||{}).textContent||'Monthly to do list';
     const html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+css.textContent+
       '@page{size:A4 landscape;margin:6mm}*{box-sizing:border-box}html,body{margin:0;background:#fff;font:12px Arial,Helvetica,sans-serif}.mpcard{border:2px solid #111;width:100%}'+
-      '.mpscroll{overflow:visible}.mpgrid{min-width:0;grid-template-columns:repeat(7,1fr) 60px}.mpday{min-height:0;height:26mm}.mpnote{white-space:pre-wrap;overflow:hidden;font-size:9px;padding:2px;flex:1}.mpchip{font-size:8.5px}'+
+      '.mpscroll{overflow:visible}.mpgrid{min-width:0;grid-template-columns:repeat(7,1fr) 60px}.mpday{min-height:26mm;height:auto;overflow:visible}.mpbody{overflow:visible}.mpnote{white-space:pre-wrap;overflow:visible;font-size:9px;padding:2px;flex:1;height:auto}.mpday,.mpcard{break-inside:avoid}.mpchip{font-size:8.5px}'+
       '</style></head><body>'+c.outerHTML+'</body></html>';
     if(window.VIRTUOSO_DOCS&&VIRTUOSO_DOCS.overlay)return VIRTUOSO_DOCS.overlay(html,{title:title,name:'Monthly-to-do-list-'+M.month});
     toast('The print preview is not available.');
@@ -200,12 +200,17 @@
   document.addEventListener('change',e=>{
     const t=e.target;if(!t||!t.dataset||!t.dataset.mpn||t.readOnly)return;
     const d=t.dataset.mpn;if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!(isAdm()||M.who===mine()))return;
-    const c=M.cells[d]||{note:'',mark:''};c.note=clip(t.value,600);
+    const c=M.cells[d]||{note:'',mark:''};c.note=clip(t.value,1200);
     if(!c.note&&!c.mark)delete M.cells[d];else M.cells[d]=c;
     save();
   },true);
 
-  VIEWS.monthly=vMonthly;
+  /* every day box grows to show ALL its text (screen, print preview and PDF), also while typing */
+  const fitOne=t=>{t.style.height='auto';t.style.height=(t.scrollHeight+3)+'px'};
+  const fitAll=()=>document.querySelectorAll('textarea.mpnote').forEach(fitOne);
+  document.addEventListener('input',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('mpnote'))fitOne(t)},true);
+  window.addEventListener('resize',()=>{clearTimeout(fitAll._t);fitAll._t=setTimeout(fitAll,120)});
+  VIEWS.monthly=function(){const h=vMonthly();setTimeout(fitAll,30);setTimeout(fitAll,350);return h};
   ICON.monthly='<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 13h2M12 13h2M16 13h2M8 17h2M12 17h2"/>';
   [NAV.adm,NAV.emp].forEach(nav=>{const g=nav.find(x=>x[0]==='Overview');if(g&&!g[1].some(x=>x[0]==='monthly'))g[1].splice(1,0,['monthly','Monthly to do list'])});
   window.VIRTUOSO_MONTHLY={state:()=>M};

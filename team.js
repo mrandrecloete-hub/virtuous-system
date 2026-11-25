@@ -87,9 +87,9 @@
     return `<tr class="tmedit"><td colspan="6"><form id="tmEditForm" class="form" data-id="${esc(u.id)}" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));align-items:end" novalidate>
       <label>Full name<input id="tmEName" value="${esc(u.name)}" required maxlength="100" autocomplete="off"></label>
       <label>Job title<input id="tmETitle" value="${esc(u.title)}" maxlength="80" autocomplete="off"></label>
-      <label>Account type<select id="tmERole" ${self?'disabled title="You cannot change your own account type."':''}>
+      <label>Account type<select id="tmERole">
         <option value="emp" ${u.admin?'':'selected'}>Employee (own dashboard, time, leave, requests)</option>
-        <option value="admin" ${u.admin?'selected':''}>Administrator (full access)</option></select>${self?'<div class="note">You cannot change your own account type here.</div>':''}</label>
+        <option value="admin" ${u.admin?'selected':''}>Administrator (full access)</option></select>${self?'<div class="note">This is your own account. If you change it you are asked to confirm first.</div>':''}</label>
       <div class="note" style="grid-column:1/-1">Email cannot be changed here; use Delete and re-add if it must change.</div>
       <div class="err" role="alert" style="grid-column:1/-1">${esc(TM.editErr)}</div>
       <div class="row" style="grid-column:1/-1"><button class="btn" type="submit" ${TM.busy?'disabled':''}>Save changes</button><button class="btn ghost" type="button" data-act="tmEditCancel" data-id="${esc(u.id)}" ${TM.busy?'disabled':''}>Cancel</button></div>
@@ -117,22 +117,24 @@
       if(!isAdm()||TM.busy)return;
       const id=e.target.dataset.id,u=(TM.users||[]).find(x=>x.id===id);
       if(!u)return;
-      const name=$('#tmEName').value.trim(),title=$('#tmETitle').value.trim(),self=id===state.user.id,role=self?(u.admin?'admin':'emp'):$('#tmERole').value;
+      const name=$('#tmEName').value.trim(),title=$('#tmETitle').value.trim(),self=id===state.user.id,role=$('#tmERole').value;
       TM.editErr='';
       if(name.length<2){TM.editErr='Enter the full name.';return render()}
-      if(role==='emp'&&u.admin&&!self){
+      if(role==='emp'&&u.admin){
         const others=(TM.users||[]).filter(x=>x.admin&&x.access&&x.id!==id).length;
         if(!others){TM.editErr='You cannot remove the only active admin. Make someone else an admin first.';return render()}
+        if(self&&!confirm('Change YOUR OWN account to Employee? You will lose administrator access (including this Team page). Only another administrator can give it back.'))return;
       }
       if(!LIVE){
-        const t=state.users.find(x=>x.id===id);t.name=name;t.title=title;if(!self)t.type=role==='admin'?'admin':'emp';
+        const t=state.users.find(x=>x.id===id);t.name=name;t.title=title;t.type=role==='admin'?'admin':'emp';if(self){state.role=t.type==='admin'?'adm':'emp';state.tab.adm='dash';state.tab.emp='dash'}
         logA('Team member updated',name);toast(name+' updated');TM.edit=null;reload();return render();
       }
       return act(async()=>{
-        const patch={name,title};if(!self)patch.role=role;
+        const patch={name,title};if(role!==(u.admin?'admin':'emp'))patch.role=role;
         const r=await sb().from('profiles').update(patch).eq('id',id);
         if(r.error)throw new Error(/row-level|policy|permission|not permitted/i.test(r.error.message)?'You are not allowed to make that change.':r.error.message||'Could not save. Try again.');
         TM.edit=null;toast(name+' updated');
+        if(self&&window.VIRTUOSO_ROLECHECK)setTimeout(window.VIRTUOSO_ROLECHECK,300);
       });
     }
     if(e.target.id!=='tmForm')return;

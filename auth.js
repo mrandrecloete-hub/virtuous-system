@@ -48,6 +48,28 @@
       lastSeen:new Date(),lastLogin:new Date(),beat:Date.now()});
     return u;
   }
+  /* Keep the menu and permissions in step with the database: if an administrator changes this person's account type
+     (or switches the access off) the open session follows within a minute, without signing out and in again. */
+  let roleTimer=null;
+  async function roleCheck(uid){
+    if(!state.user||state.user.id!==uid)return;
+    try{
+      const {data:p}=await sb.from('profiles').select('role,access_enabled,perms').eq('id',uid).single();
+      if(!p)return;
+      if(!p.access_enabled){await sb.auth.signOut();location.reload();return}
+      const t=p.role==='admin'?'admin':'emp';
+      state.user.perms=Array.isArray(p.perms)?p.perms:[];
+      if(t!==state.user.type){
+        state.user.type=t;state.role=t==='admin'?'adm':'emp';state.tab=Object.assign({emp:'dash',adm:'dash'},state.tab||{});state.tab.adm='dash';state.tab.emp='dash';
+        toast('Your account type is now '+(t==='admin'?'Administrator':'Employee')+'.');render();
+      }
+    }catch(e){}
+  }
+  function watchRole(uid){
+    clearInterval(roleTimer);roleTimer=setInterval(()=>{if(!document.hidden)roleCheck(uid)},45000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)roleCheck(uid)});
+  }
+  window.VIRTUOSO_ROLECHECK=()=>state.user&&roleCheck(state.user.id);
   async function enter(session){
     const {data:p,error}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
     if(error||!p)throw new Error('Your account is not set up yet. Contact your administrator.');
@@ -55,7 +77,7 @@
     const u=userFromProfile(p);
     /* Keep the sample users so pages not yet connected still render their sample data. */
     state.users=[u,...DEMO_USERS];state.data[u.id]={entries:[],leaveBal:DEF_BAL(),leaves:[],loans:[]};
-    signIn(u);
+    signIn(u);watchRole(u.id);
     sb.rpc('record_login').then(()=>{},()=>{});
     return u;
   }

@@ -181,7 +181,7 @@ body::before{display:none}
 #side{top:0;height:100vh;height:100dvh;padding:18px 14px 22px;background:linear-gradient(180deg,#071a52 0%,#06143d 55%,#040d2b 100%);border-right:0;box-shadow:6px 0 24px rgba(5,15,60,.25);color:#e8eeff;position:sticky}
 #side::after{display:none}
 #side .brand{text-align:center}
-#side .brand small{color:#9fb2e6;margin-top:6px}
+#side .brand small{color:#fff;margin-top:6px;font-size:17px;font-weight:800;letter-spacing:.3px}
 #side .logo{mix-blend-mode:normal;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45));background:none;border-radius:0;padding:0;margin:0 auto;max-width:210px}
 .ng{color:#f3d36f;text-transform:uppercase;letter-spacing:.12em;font-size:11px;margin:16px 10px 4px}
 .nv{color:#cfd9f7;border-radius:12px;padding:10px 12px;font-weight:600}
@@ -190,7 +190,13 @@ body::before{display:none}
 .nv .badge{background:#e5412d;color:#fff}
 .sidefoot{color:#9fb2e6;border-top:1px solid rgba(255,255,255,.14)}
 .sidefoot b{color:#fff}
-.sidefoot::before{content:"Smart Accounting.\A Greater Insights.";white-space:pre;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:17px;line-height:1.25;color:var(--gold1);text-align:center;display:block;margin-bottom:4px}
+.sidefoot .tagline{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:700;font-size:10.5px;line-height:1.25;color:var(--gold1);white-space:nowrap;text-align:center}
+@media(min-width:821px){.sidefoot{display:grid;grid-template-columns:46px 1fr;align-items:center;column-gap:8px;row-gap:6px}
+.sidefoot .pxav{grid-column:1;grid-row:1;margin:0!important}.sidefoot .tagline{grid-column:2;grid-row:1;text-align:left}
+.sidefoot:not(:has(.pxav)) .tagline{grid-column:1/-1;text-align:center}
+.sidefoot>div:not(.pxav):not(.tagline){grid-column:1/-1;grid-row:2}.sidefoot>button{grid-column:1/-1;grid-row:3;justify-self:start}}
+/* text in the pages can be selected and copied (row by row, cell by cell) */
+main,main *{-webkit-user-select:text;user-select:text}button,select{-webkit-user-select:none;user-select:none}
 .sidefoot .btn.ghost{color:#fff;border-color:rgba(255,255,255,.4)}
 .col{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
 header{background:transparent;border-bottom:0;padding:16px 28px 4px;backdrop-filter:none}
@@ -289,7 +295,7 @@ body.auth-out #login .lcard::after{content:"";position:absolute;top:14px;left:16
 <div id="login"><div class="lcard" id="lcard"></div></div>
 <div class="shell">
   <aside id="side" aria-label="Main navigation">
-    <div class="brand"><img class="logo v2" src="logo-v2.png" alt="Virtuous Accounting Solutions CC System"><small>Preview with example data, Oct 2026 (FY2027)</small></div>
+    <div class="brand"><img class="logo v2" src="logo-v2.png" alt="Virtuous Accounting Solutions CC System"><small>Incredible Software 2026</small></div>
     <div id="tabs"></div>
     <div class="sidefoot" id="who"></div>
   </aside>
@@ -511,7 +517,7 @@ function paintTabs(){
   $('#pageTitle').textContent=title;
   {const bn=unreadCount(),b=$('#bellN');b.textContent=bn;b.hidden=!bn}
   const u=state.user;
-  $('#who').innerHTML=`<div>Signed in as <b>${esc(u.name)}</b><br>${esc(u.title)}</div><button class="btn ghost sm" data-act="signout">Sign out</button>`;
+  $('#who').innerHTML=`<div class="tagline">Smart Accounting.<br>Greater Insights.</div><div>Signed in as <b>${esc(u.name)}</b><br>${esc(u.title)}</div><button class="btn ghost sm" data-act="signout">Sign out</button>`;
 }
 
 const pill=(t,c='')=>`<span class="pill ${c}">${esc(t)}</span>`;

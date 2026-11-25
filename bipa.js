@@ -10,7 +10,7 @@
   const NL=/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g;
   const clip=(s,n)=>String(s==null?'':s).replace(NL,' ').slice(0,n||300);
   const KEY=id=>'vx_bipa_'+id;
-  const B={id:null,V:{},X:{pages:1,owners:1,notes:true},msg:'',cat:'all',t:null};
+  const B={id:null,V:{},X:{pages:1,owners:1,notes:true},msg:'',cat:'all',t:null,note:null};
   let MODE='edit';
   const g=k=>B.V[k]==null?'':String(B.V[k]);
 
@@ -231,13 +231,171 @@
   const hasDraft=id=>{try{return !!localStorage.getItem(KEY(id))}catch(e){return false}};
   function docHTML(t){
     MODE='print';let body='';try{body=t.build()}finally{MODE='edit'}
-    return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(t.code+' '+t.name)}</title><style>body{margin:0;background:#e9ecf3;padding:12px 0}@media print{body{background:#fff;padding:0}}${CSS}</style></head><body><div class="bp${t.font==='sans'?' sans':''}">${body}</div></body></html>`;
+    let blob='';try{blob=btoa(unescape(encodeURIComponent(JSON.stringify({v:1,id:t.id,V:B.V,X:B.X}))))}catch(e){}
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(t.code+' '+t.name)}</title><style>body{margin:0;background:#e9ecf3;padding:12px 0}@media print{body{background:#fff;padding:0}}${CSS}</style></head><body><div class="bp${t.font==='sans'?' sans':''}">${body}</div><!--vx-bipa:${blob}--></body></html>`;
   }
   const fname=t=>(t.code+' '+t.name).replace(/[^A-Za-z0-9]+/g,'-').replace(/-+$/,'')+(g('corp')||g('ent')||g('cname')?'-'+(g('corp')||g('ent')||g('cname')).replace(/[^A-Za-z0-9]+/g,'-').slice(0,40):'');
   function preview(){const t=tpl(B.id);if(!t)return;if(window.VIRTUOSO_DOCS&&VIRTUOSO_DOCS.overlay)return VIRTUOSO_DOCS.overlay(docHTML(t),{title:t.code+' – '+t.name,name:fname(t)});toast('The print preview is not available.')}
   function dlWord(){const t=tpl(B.id);if(!t)return;
     const html=docHTML(t).replace('<html>','<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+html],{type:'application/msword'}));a.download=fname(t)+'.doc';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Downloaded as a Word document.')}
+
+
+  /* ---------- UPDATE FROM A PREVIOUS DOCUMENT ----------
+     Upload last year's form: files saved from this app (HTML / Word .doc download) carry their data and load exactly;
+     PDFs (typed or scanned), Word .docx and images are read by labels (best effort, always check). The year is moved on,
+     signing dates, dates of change and event-specific entries are cleared, everything else is carried over. */
+  const L=(re,keys,o)=>({re,keys:[].concat(keys),next:!o||o.next!==false,num:o&&o.num,first:o&&o.first});
+  const seq=(pre,post,n,m)=>{const a=[];for(let i=1;i<=n;i++)for(let j=1;j<=(m||1);j++)a.push(pre+i+(m?'_'+j:'')+post);return a};
+  const CT=(n)=>[L(/^\s*\d?\.?\s*name\s*[:_]*\s*$/i,seq('ct','_n',n)),L(/land-?line number of applicant \(if available\)\s*;?/i,seq('ct','_l',n)),L(/mobile number \(compulsory\)\s*;?/i,seq('ct','_m',n)),L(/fax number \(if available\)\s*;?/i,seq('ct','_f',n)),L(/e-?mail address \(if available\)\s*;?/i,seq('ct','_e',n))];
+  const BOP=[['o#_fn',/first name/i],['o#_sn',/\bsurname/i],['o#_pn',/previous name/i],['o#_dob',/date of birth/i],['o#_pb',/place of birth/i],['o#_nat',/nationality/i],['o#_ra',/residential address/i],['o#_ba',/business address/i],['o#_tin',/tax identification number/i],['o#_tel',/telephone\/mobile/i],['o#_em',/email address/i],['o#_idt',/primary identification type/i],['o#_idn',/primary identification number/i],['o#_idc',/issuing country/i],['o#_pw',/place of work/i]];
+  const bo=()=>[L(/full legal name of entity/i,'ent'),L(/tin of entity/i,'tin'),L(/entity registration number/i,'regno'),L(/country of incorporation/i,'country'),
+    L(/name of director\/shareholder/i,'d1n'),L(/name of accountable institution/i,'d2i'),L(/name of authori[sz]ed staff/i,'d2n'),L(/\bposition\s*:/i,'d2p')];
+  const RULES={
+    cc3:[L(/registration number of corporation/i,'reg'),L(/full name of corporation/i,'corp'),L(/^\s*i\/we\b/i,'who'),L(/in my\/our capacity as/i,'cap'),L(/^\s*name\s*[:_]/i,'cname'),L(/postal address/i,'cpost1'),L(/e-?mail address/i,'cmail')],
+    cc7:[L(/^\s*registration number/i,'reg'),L(/name and postal address of corporation/i,'addr'),L(/name of corporation/i,'cname'),L(/^\s*postal address/i,'cpost')].concat(CT(6)),
+    cc2:[L(/registration number of corporation/i,'reg'),L(/^\s*full name of corporation/i,'corp'),L(/previous name of corporation/i,'prev'),L(/literal translation/i,'lit'),L(/shortened form/i,'short'),L(/description of principal business/i,'biz'),L(/date of end of financial year/i,'fye'),
+      L(/^\s*postal address/i,'post'),L(/^\s*email address\s*:/i,['mail']),L(/address of registered office/i,'reg1'),L(/name and address of accounting officer/i,'ao'),L(/association or body/i,'aoBody'),L(/membership\/practice/i,'aoNo'),
+      L(/^\s*full names and surname\s*[:_]*\s*$/i,['m1_1_n','m1_2_n','m2_1_n','m2_2_n','m3_1_n','m3_2_n','m4_1_n','m4_2_n']),L(/^\s*percentage of interest\s*[:_]*\s*$/i,['m1_1_pc','m1_2_pc','m2_1_pc','m2_2_pc','m3_1_pc','m3_2_pc','m4_1_pc','m4_2_pc']),
+      L(/^\s*particulars of contribution\s*[:_]*\s*$/i,['m1_1_pt','m1_2_pt','m2_1_pt','m2_2_pt','m3_1_pt','m3_2_pt','m4_1_pt','m4_2_pt'])].concat(CT(6)),
+    bo1:bo().concat(BOP.map(([k,re])=>L(re,[1,2,3,4,5,6].map(i=>k.replace('#',i))))),
+    bo2:bo()
+  };
+  const ALLRE=()=>Object.values(RULES).flat().map(r=>r.re);
+  const JUNK=/^\(|^\/|^of\b|^to\b|^no\.?$|^number\b|\(if |\(e\.g|\(see |\(dd|\(tin\)|state and country|street name|if available|if juristic|fee payable|date and initials|apply in terms|attach written|which accounting officer|post office box|for the space|a member$|^name$|^date\b|^signature|^position\b|^city and|^country\)|^instructions\)|^address\b|^\(?compulsory|^\d\.\s|date beneficial|local manager|^\[|^trust\)|^(on|of)$/i;
+  const cleanVal=(v,num)=>{v=String(v||'');
+    const c=v.indexOf(':');if(c>=0&&c<60&&!/\d/.test(v.slice(0,c)))v=v.slice(c+1);
+    v=v.replace(/^\s*\([^)]*\)\s*[*:;.]?\s*/,'').replace(/^[\s:;_\-*.]+/,'').replace(/[\s_]+$/,'').replace(/\s{2,}/g,' ').trim();
+    if(!v||/^[_\-.\s*]*$/.test(v)||JUNK.test(v)||v.length>110)return '';return num?v.replace(/[^0-9]/g,''):v.slice(0,300)};
+  function extractLines(tid,rows){   /* rows: [[{t,x}]] */
+    const rules=RULES[tid]||[],V={},seen=new Map(),all=ALLRE();
+    const isLabel=t=>all.some(r=>r.test(t))||/^\s*(part\s+[a-c]|members?|declaration|official use|return received|stamp of business|for office use)\b/i.test(t);
+    rows.forEach((row,ri)=>row.forEach((seg,si)=>{
+      for(const r of rules){
+        const m=r.re.exec(seg.t);if(!m)continue;
+        const n=(seen.get(r)||0);if(n>=r.keys.length)continue;
+        let val=cleanVal(seg.t.slice(m.index+m[0].length),r.num);
+        if(!val){   /* value in the next cell of the same row (table layouts) */
+          const nx=row[si+1];if(nx&&!isLabel(nx.t))val=cleanVal(nx.t,r.num);
+        }
+        if(!val){   /* value sits below the label: the segment of the next rows nearest to the label's column */
+          for(let d=1;d<=2&&!val&&ri+d<rows.length;d++){
+            const cand=rows[ri+d].filter(c=>!isLabel(c.t));if(!cand.length)continue;
+            cand.sort((a,b)=>Math.abs(a.x-seg.x)-Math.abs(b.x-seg.x));
+            const c=cand[0];if(seg.x!==0&&Math.abs(c.x-seg.x)>90)continue;
+            val=cleanVal(c.t,r.num);
+          }
+        }
+        seen.set(r,n+1);if(val)V[r.keys[n]]=val;break;
+      }
+    }));
+    /* CC 7 member lines "1. Name 60 %" and the financial year end */
+    if(tid==='cc7'){
+      rows.forEach(row=>[{t:row.map(c=>c.t).join(' ')}].forEach(seg=>{let m;const re=/(?:^|\s)(\d{1,2})\s*[.)]\s*([^%\d][^%]*?)\s+(\d{1,3}(?:[.,]\d+)?)\s*%/g;while((m=re.exec(seg.t))){const i=+m[1];if(i>=1&&i<=10&&!/annual|duty|section/i.test(m[2])){V['mn'+i]=cleanVal(m[2]);V['mp'+i]=m[3]}}}));
+      for(let i=0;i<rows.length;i++){const t=rows[i].map(c=>c.t).join(' '),am=/financial year\s*20\s*(\d{2})\b/i.exec(t+' '+(rows[i+1]?rows[i+1].map(c=>c.t).join(' '):''));if(am&&/annual duty/i.test(t)){V.ayr=am[1];break}}
+      for(let i=0;i<rows.length;i++){const t=rows[i].map(c=>c.t).join(' ');if(/end of financial year/i.test(t)){
+        const nums=[];for(let d=0;d<=2&&i+d<rows.length;d++)rows[i+d].forEach(c=>c.t.split(/\s+/).forEach(w=>{if(/^\d{1,4}$/.test(w))nums.push(w)}));
+        const y=nums.find(n=>/^\d{4}$/.test(n)),dm=nums.filter(n=>/^\d{1,2}$/.test(n));if(y&&dm.length>=2){V.fyD=dm[0].padStart(2,'0');V.fyM=dm[1].padStart(2,'0');V.fyY=y;break}break}}
+    }
+    return V;
+  }
+  const textToRows=txt=>String(txt).split(/\r?\n/).map(t=>t.replace(/\t+/g,'    ').trim()).filter(Boolean).map(t=>[{t,x:0}]);
+  async function inflateRaw(u8){const ds=new DecompressionStream('deflate-raw'),w=ds.writable.getWriter();w.write(u8);w.close();return new Uint8Array(await new Response(ds.readable).arrayBuffer())}
+  async function docxText(file){
+    const u=new Uint8Array(await file.arrayBuffer()),dv=new DataView(u.buffer);let e=-1;
+    for(let i=u.length-22;i>=Math.max(0,u.length-70000);i--)if(dv.getUint32(i,true)===0x06054b50){e=i;break}
+    if(e<0)throw new Error('This does not look like a Word .docx file.');
+    let p=dv.getUint32(e+16,true);const n=dv.getUint16(e+10,true);
+    for(let k=0;k<n;k++){
+      if(dv.getUint32(p,true)!==0x02014b50)break;
+      const meth=dv.getUint16(p+10,true),csz=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true);
+      const name=new TextDecoder().decode(u.subarray(p+46,p+46+nl));
+      if(name==='word/document.xml'){
+        const ln=dv.getUint16(lo+26,true),lx=dv.getUint16(lo+28,true),st=lo+30+ln+lx,raw=u.subarray(st,st+csz);
+        const xml=new TextDecoder().decode(meth===0?raw:await inflateRaw(raw));
+        return xml.replace(/<w:tab\/>/g,'    ').replace(/<\/w:p>/g,'\n').replace(/<w:br\/>/g,'\n').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+      }
+      p+=46+nl+xl+cl;
+    }
+    throw new Error('The Word file has no readable text.');
+  }
+  async function readPrevious(file,tid){
+    const name=file.name||'file',lower=name.toLowerCase();
+    if(file.size>25*1024*1024)throw new Error('That file is too large (25 MB at most).');
+    const head=new Uint8Array(await file.slice(0,8).arrayBuffer());
+    if(head[0]===0xD0&&head[1]===0xCF&&head[2]===0x11&&head[3]===0xE0)throw new Error('Old binary Word (.doc) files cannot be read here. Open it in Word and save it as .docx or PDF, then upload that.');
+    if(/\.(html?|doc|json|txt)$/.test(lower)||file.type==='text/html'||file.type==='application/json'||file.type==='text/plain'){
+      const txt=await file.text();
+      let data=null;const m=/<!--vx-bipa:([A-Za-z0-9+\/=]+)-->/.exec(txt);
+      try{if(m)data=JSON.parse(decodeURIComponent(escape(atob(m[1]))));else if(/\.json$/.test(lower))data=JSON.parse(txt)}catch(e){data=null}
+      if(data&&typeof data==='object'&&data.V&&typeof data.V==='object')return {kind:'data',id:String(data.id||''),V:data.V,X:data.X||{},via:'exact'};
+      if(/\.json$/.test(lower))throw new Error('That JSON file is not a BIPA form from this app.');
+      let plain=txt;if(/<\s*(html|body|table|div|p)\b/i.test(txt)){const d=new DOMParser().parseFromString(txt,'text/html');d.querySelectorAll('script,style,head').forEach(x=>x.remove());d.body.querySelectorAll('br,p,div,tr,li,h1,h2,h3,h4').forEach(x=>x.append('\n'));d.body.querySelectorAll('td,th').forEach(x=>x.append('    '));plain=d.body.textContent}
+      return {kind:'text',rows:textToRows(plain),via:'text'};
+    }
+    if(/\.docx$/.test(lower))return {kind:'text',rows:textToRows(await docxText(file)),via:'text'};
+    if(/\.pdf$/.test(lower)||file.type==='application/pdf'||/^image\//.test(file.type)||/\.(png|jpe?g)$/.test(lower)){
+      if(!window.VIRTUOSO_OCR||!VIRTUOSO_OCR.readFileWords)throw new Error('Reading PDFs and images is not available.');
+      toast('Reading the document…');
+      const r=await VIRTUOSO_OCR.readFileWords(file,{progress:()=>{}});const rows=[];
+      r.pages.forEach(words=>{const rr=VIRTUOSO_OCR.toRows(words),Hs=words.map(w=>w.y1-w.y0).sort((a,b)=>a-b),H=Hs[Math.floor(Hs.length/2)]||10;
+        rr.rows.forEach(row=>{const ws=row.w.slice().sort((a,b)=>a.x0-b.x0),segs=[];
+          ws.forEach(w=>{const last=segs[segs.length-1];if(last&&w.x0-last.x1<=H*1.1){last.t+=' '+w.t;last.x1=w.x1}else segs.push({t:w.t,x:w.x0,x1:w.x1})});rows.push(segs)})});
+      return {kind:'text',rows,via:r.mode==='ocr'?'ocr':'text'};
+    }
+    throw new Error('Upload a PDF, a Word .docx, a picture, or a form downloaded from this app (.html or .doc).');
+  }
+  const CLEAR=/^(sdate|wd|w\d+_wd|wc_wd|d1d|d2d|c\d+_dc|dc_.*)$/;
+  const EVENT={cc3:['dereg','gaz','gazOf','reasons','amended'],cc2:['cs1_n','cs1_i','cs2_n','cs2_i','cs3_n','cs3_i','cs4_n','cs4_i','cs5_n','cs5_i','cs6_n','cs6_i','cs7_n','cs7_i','cs8_n','cs8_i','cs9_n','cs9_i','cs10_n','cs10_i','cs11_n','cs11_i','cs12_n','cs12_i'],cc7:[],bo1:[],bo2:[]};
+  const lastDay=(y,m)=>new Date(y,m,0).getDate();
+  function rollForward(id,V,Y){
+    const out={},ch=[];let cleared=0;
+    Object.keys(V).forEach(k=>{if(!/^[A-Za-z0-9_]+$/.test(k))return;let v=V[k];if(v!==true)v=clip(v,800);if(v===''||v==null||v===false)return;out[k]=v});
+    Object.keys(out).forEach(k=>{if(CLEAR.test(k)||(EVENT[id]||[]).includes(k)){delete out[k];cleared++}});
+    if(cleared)ch.push('Cleared '+cleared+' entr'+(cleared===1?'y':'ies')+' that belong to the old document (signing dates, dates of change, one-off details).');
+    if(id==='cc7'&&Y){
+      const old=out.fyY||(out.ayr?'20'+out.ayr:'');
+      out.fyY=String(Y);out.ayr=String(Y).slice(-2);
+      if(out.fyD&&out.fyM&&/^0?2$/.test(String(out.fyM))&&/^(28|29)$/.test(String(out.fyD))){const d=String(lastDay(Y,2));if(d!==out.fyD){ch.push('Financial year end day set to '+d+' February '+Y+'.');out.fyD=d}}
+      ch.push('Financial year '+(old?old+' → ':'')+Y+' (end of financial year and "Annual duty for financial year").');
+    }
+    return {V:out,changes:ch};
+  }
+  function yearOf(id,V){if(id!=='cc7')return null;const y=parseInt(V.fyY,10)||(V.ayr?2000+parseInt(V.ayr,10):0);return y>2000&&y<2100?y:null}
+  function yearDialog(prev,cb){
+    const old=document.getElementById('srYr');if(old)old.remove();
+    const w=document.createElement('div');w.id='srYr';w.setAttribute('role','dialog');w.setAttribute('aria-modal','true');
+    w.style.cssText='position:fixed;inset:0;z-index:99997;background:rgba(10,20,50,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    const def=prev?prev+1:new Date().getFullYear();
+    w.innerHTML=`<div style="background:#fff;color:#16254a;border-radius:14px;max-width:440px;width:100%;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4);font:14px system-ui,sans-serif"><h3 style="margin:0 0 6px;font-size:18px">Create the updated form</h3><p style="margin:0 0 10px;color:#5a6685">${prev?'The previous document is for financial year <b>'+prev+'</b>.':'No year was found in the previous document.'} Choose the year for the new form. Everything else is carried over.</p>
+      <label>Year of the new form<input id="srYrIn" type="number" min="2000" max="2099" value="${def}" style="width:100%"></label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button type="button" class="btn ghost" id="srYrNo">Cancel</button><button type="button" class="btn" id="srYrGo">Create</button></div></div>`;
+    document.body.appendChild(w);const close=()=>w.remove();
+    w.querySelector('#srYrNo').onclick=close;w.addEventListener('mousedown',e=>{if(e.target===w)close()});
+    w.querySelector('#srYrGo').onclick=()=>{const y=parseInt(w.querySelector('#srYrIn').value,10);if(!(y>=2000&&y<2100))return;close();cb(y)};
+    w.querySelector('#srYrIn').focus();
+  }
+  async function handleUpload(file,tid){
+    const t=tpl(tid);if(!t)return;
+    let res;try{res=await readPrevious(file,tid)}catch(e){return toast(e.message||'That file could not be read.')}
+    let V={},X={pages:1,owners:1,notes:true};
+    if(res.kind==='data'){
+      if(res.id&&res.id!==tid){const o=tpl(res.id);return toast('That file is a '+(o?o.code+' ('+o.name+')':'different form')+', not '+t.code+'. Upload it on the matching form.')}
+      V=res.V;X=Object.assign(X,res.X||{});
+    }else V=extractLines(tid,res.rows);
+    const n=Object.keys(V).filter(k=>V[k]!==''&&V[k]!==false&&V[k]!=null).length;
+    if(!n)return toast('Nothing could be read from that document. Try a clearer copy, a PDF, or a form downloaded from this app.');
+    const finish=Y=>{
+      const R=rollForward(tid,V,Y);load(tid);B.V=R.V;
+      B.X.pages=Math.max(1,Math.min(4,+X.pages||1));B.X.owners=Math.max(1,Math.min(6,+X.owners||1));B.X.notes=X.notes!==false;
+      const how=res.via==='exact'?'read exactly (it was downloaded from this app)':res.via==='ocr'?'read from a scan (check every value carefully)':'read from the text of the document (check every value)';
+      B.note={file:file.name,how,count:Object.keys(R.V).length,changes:R.changes};
+      save(true);rerender();
+    };
+    if(tid==='cc7')yearDialog(yearOf(tid,V),finish);else finish(null);
+  }
+  const up=document.createElement('input');up.type='file';up.hidden=true;up.id='srUp';up.accept='.pdf,.png,.jpg,.jpeg,.docx,.doc,.html,.htm,.json,.txt,application/pdf,image/*';document.body.appendChild(up);
+  up.addEventListener('change',()=>{const f=up.files&&up.files[0],tid=up.dataset.t;up.value='';if(f&&tid)handleUpload(f,tid)});
 
   /* ---------- page ---------- */
   const css=document.createElement('style');
@@ -251,7 +409,7 @@
   function view(){
     if(B.id&&tpl(B.id))return editor();
     const rows=TEMPLATES.filter(t=>B.cat==='all'||t.category.startsWith(B.cat)).map(t=>`<tr><td><span class="bpcode">${esc(t.code)}</span></td><td><b>${esc(t.name)}</b><div class="note">${esc(t.pages)}</div></td><td><span class="bpcat">${esc(t.category)}</span></td>
-      <td>${hasDraft(t.id)?'<span class="pill warn">Draft saved</span>':''}</td><td style="white-space:nowrap"><button class="btn sm" data-act="srOpen" data-id="${t.id}">Fill in</button> <button class="btn sm ghost" data-act="srBlank" data-id="${t.id}">Blank copy</button> <button class="btn sm ghost" data-act="srDel" data-id="${t.id}" aria-label="Delete what is filled in on ${esc(t.code)}" title="${hasDraft(t.id)?'Delete the filled-in form and make it blank again':'Nothing is filled in'}" style="color:var(--bad)"${hasDraft(t.id)?'':' disabled'}>Delete</button></td></tr>`).join('');
+      <td>${hasDraft(t.id)?'<span class="pill warn">Draft saved</span>':''}</td><td style="white-space:nowrap"><button class="btn sm" data-act="srOpen" data-id="${t.id}">Fill in</button> <button class="btn sm ghost" data-act="srUpload" data-id="${t.id}" title="Upload last year's document and create the updated one">Update from previous</button> <button class="btn sm ghost" data-act="srBlank" data-id="${t.id}">Blank copy</button> <button class="btn sm ghost" data-act="srDel" data-id="${t.id}" aria-label="Delete what is filled in on ${esc(t.code)}" title="${hasDraft(t.id)?'Delete the filled-in form and make it blank again':'Nothing is filled in'}" style="color:var(--bad)"${hasDraft(t.id)?'':' disabled'}>Delete</button></td></tr>`).join('');
     return `<div class="panel bpl"><div class="ph"><h3>BIPA forms</h3></div><p class="note" style="margin:0 0 10px">Business and Intellectual Property Authority templates. Open one to fill it in on screen, then preview, print or download it. Drafts stay on this device.</p>
       <div class="bpbar"><label>Category <select id="srCat" aria-label="Category"><option value="all">All</option><option value="Close Corporations"${B.cat==='Close Corporations'?' selected':''}>Close Corporations</option><option value="Beneficial Ownership"${B.cat==='Beneficial Ownership'?' selected':''}>Beneficial Ownership</option></select></label></div>
       <div class="tbl"><table class="bpt"><thead><tr><th></th><th>Name</th><th>Category</th><th></th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="note">No templates in this category.</td></tr>'}</tbody></table></div></div>`;
@@ -260,8 +418,9 @@
     const t=tpl(B.id);MODE='edit';let body='';try{body=t.build()}catch(e){console.error(e);body='<p>This form could not be shown.</p>'}
     return `<div class="panel bpl"><div class="ph"><h3>${esc(t.code)} – ${esc(t.name)}</h3><span class="pill">${esc(t.category)}</span></div>
       <div class="bpbar"><button class="btn ghost sm" data-act="srBack">‹ All BIPA forms</button><span class="grow"></span>
-        <button class="btn sm" data-act="srPreview">Preview and print</button><button class="btn sm ghost" data-act="srWord">Download Word (.doc)</button><button class="btn sm ghost" data-act="srSave">Save draft</button><button class="btn sm ghost" data-act="srClear" style="color:var(--bad)">Delete filled form</button></div>
+        <button class="btn sm ghost" data-act="srUpload" data-id="${t.id}" title="Upload last year's document and create the updated one">Update from previous document</button><button class="btn sm" data-act="srPreview">Preview and print</button><button class="btn sm ghost" data-act="srWord">Download Word (.doc)</button><button class="btn sm ghost" data-act="srSave">Save draft</button><button class="btn sm ghost" data-act="srClear" style="color:var(--bad)">Delete filled form</button></div>
       <div class="bpmsg" id="srMsg" role="status">${esc(B.msg)}</div>
+      ${B.note?`<div class="banner ok" role="status" style="margin:8px 0"><b>Created from ${esc(B.note.file)}.</b> ${B.note.count} field${B.note.count===1?'':'s'} filled in, ${esc(B.note.how)}.${B.note.changes.length?'<ul style="margin:4px 0 0 18px">'+B.note.changes.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':''}<div>Check every detail before you print. Signatures stay blank.</div></div>`:''}
       <div class="bpx">${t.extra==='pages'?`<span>Members pages (Part C): <b>${B.X.pages}</b></span><button class="btn sm ghost" data-act="srAddP" ${B.X.pages>=4?'disabled':''}>Add a members page</button><button class="btn sm ghost" data-act="srRemP" ${B.X.pages<=1?'disabled':''}>Remove the last one</button>`:''}
         ${t.extra==='owners'?`<span>Beneficial owners (Part B): <b>${B.X.owners}</b></span><button class="btn sm ghost" data-act="srAddO" ${B.X.owners>=6?'disabled':''}>Add a beneficial owner</button><button class="btn sm ghost" data-act="srRemO" ${B.X.owners<=1?'disabled':''}>Remove the last one</button>`:''}
         ${t.extra?`<label class="ckl"><input type="checkbox" data-srnotes ${B.X.notes?'checked':''}> Include the notes pages when printing</label>`:''}
@@ -275,7 +434,8 @@
   document.addEventListener('click',e=>{
     const b=e.target.closest&&e.target.closest('[data-act^="sr"]');if(!b)return;
     const a=b.dataset.act;e.stopImmediatePropagation();
-    if(a==='srOpen'){load(b.dataset.id);return rerender()}
+    if(a==='srOpen'){load(b.dataset.id);B.note=null;return rerender()}
+    if(a==='srUpload'){up.dataset.t=b.dataset.id;up.click();return}
     if(a==='srBlank'){load(b.dataset.id);B.V={};const t=tpl(b.dataset.id);B.id=b.dataset.id;preview();B.id=null;return}
     if(a==='srDel'){const t=tpl(b.dataset.id);if(!t)return;
       if(!confirm('Delete what is filled in on '+t.code+' ('+t.name+')? The form stays in the list and becomes blank again. Nothing is kept as a draft.'))return;
@@ -284,7 +444,7 @@
     if(a==='srPreview'){save(true);return preview()}
     if(a==='srWord'){save(true);return dlWord()}
     if(a==='srSave'){save();B.msg=B.msg;const m=document.getElementById('srMsg');if(m)m.textContent=B.msg;return toast('Draft saved on this device')}
-    if(a==='srClear'){if(!confirm('Delete everything filled in on this form and make it blank again? Nothing is kept as a draft.'))return;clearTimeout(tm);B.V={};B.X={pages:1,owners:1,notes:true};try{localStorage.removeItem(KEY(B.id))}catch(x){}B.msg='Form is blank again.';return rerender()}
+    if(a==='srClear'){if(!confirm('Delete everything filled in on this form and make it blank again? Nothing is kept as a draft.'))return;clearTimeout(tm);B.V={};B.note=null;B.X={pages:1,owners:1,notes:true};try{localStorage.removeItem(KEY(B.id))}catch(x){}B.msg='Form is blank again.';return rerender()}
     if(a==='srAddP'){B.X.pages=Math.min(4,B.X.pages+1);save(true);return rerender()}
     if(a==='srRemP'){if(B.X.pages>1&&confirm('Remove the last members page and what is typed on it?')){const p=B.X.pages;Object.keys(B.V).filter(k=>k.startsWith('m'+p+'_')||k.startsWith('c'+p+'_')||k.startsWith('w'+p+'_')).forEach(k=>delete B.V[k]);B.X.pages--;save(true);rerender()}return}
     if(a==='srAddO'){B.X.owners=Math.min(6,B.X.owners+1);save(true);return rerender()}
@@ -307,5 +467,5 @@
     if(t.dataset&&'srnotes' in t.dataset){B.X.notes=!!t.checked;later()}
   },true);
 
-  window.VIRTUOSO_BIPA={view,templates:()=>TEMPLATES.map(t=>({id:t.id,code:t.code,name:t.name,category:t.category})),_html:(id,v,x)=>{const t=tpl(id);B.id=id;B.V=v||{};B.X=Object.assign({pages:1,owners:1,notes:true},x||{});return docHTML(t)}};
+  window.VIRTUOSO_BIPA={_extract:extractLines,_roll:rollForward,view,templates:()=>TEMPLATES.map(t=>({id:t.id,code:t.code,name:t.name,category:t.category})),_html:(id,v,x)=>{const t=tpl(id);B.id=id;B.V=v||{};B.X=Object.assign({pages:1,owners:1,notes:true},x||{});return docHTML(t)}};
 })();

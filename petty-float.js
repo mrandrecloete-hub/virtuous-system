@@ -82,14 +82,17 @@
   }
 
   /* cash counted in the drawer, compared with what the ledger says should be there on that date */
-  function countCalc(c){
-    const ev=ledger(),d=c.date,at=ev.filter(e=>e.date<=d).slice(-1)[0],exp=at?at.bal:0,counted=r2(c.amount),over=r2(counted-exp);
-    const fillsTo=r2((F.fills||[]).filter(x=>x.date<=d).reduce((t,x)=>t+x.amount,0));
-    const tk=(F.adv||[]).filter(a=>isoD(a.at)<=d),by=a=>a.status!=='Open'&&isoD(a.settledAt||a.at)<=d;
+  function countCalc(c,upto){
+    const ev=ledger(),d=c.date,u=upto&&upto>d?upto:d;
+    const balAt=x=>{const e=ev.filter(v=>v.date<=x).slice(-1)[0];return e?e.bal:0};
+    const expD=balAt(d),exp=balAt(u),counted=r2(c.amount),over=r2(counted-expD),drawer=r2(exp+over);
+    const fillsTo=r2((F.fills||[]).filter(x=>x.date<=u).reduce((t,x)=>t+x.amount,0));
+    const tk=(F.adv||[]).filter(a=>isoD(a.at)<=u),by=a=>a.status!=='Open'&&isoD(a.settledAt||a.at)<=u;
     const set=tk.filter(by),open=tk.filter(a=>!by(a));
     const spent=r2(set.reduce((t,a)=>t+(a.spent||0),0)),diff=r2(set.reduce((t,a)=>t+(a.diff||0),0)),out=r2(open.reduce((t,a)=>t+a.amount,0));
-    const total=r2(out-diff-over),direct=r2(fillsTo-counted-spent);
-    return {exp,counted,over,out,shortSet:r2(-diff),shortDrawer:r2(-over),total,direct,nOpen:open.length,ok:Math.abs(total-direct)<0.005};
+    const takenTo=r2(tk.reduce((t,a)=>t+a.amount,0)),retTo=r2(set.reduce((t,a)=>t+(a.returned||0),0));
+    const total=r2(out-diff-over),direct=r2(fillsTo-drawer-spent);
+    return {exp,counted,drawer,over,out,shortSet:r2(-diff),shortDrawer:r2(-over),total,direct,nOpen:open.length,fillsTo,takenTo,retTo,ok:Math.abs(total-direct)<0.005};
   }
 
   /* ---------- page ---------- */
@@ -212,16 +215,21 @@
 
   /* one calm layout: tiles, one entry card (fill-up or drawer count), one statement card (balance sheet / ledger / counts) */
   function latestCount(){const cs=(F.counts||[]).slice().sort((x,y)=>x.date.localeCompare(y.date));return cs[cs.length-1]||null}
-  function outstandingRows(last,K){
-    return `<tr class="sub"><td colspan="2">Drawer count and what is outstanding – as at ${esc(dLabel(last.date))}</td><td class="n">N$</td></tr>
-      <tr><td colspan="2">Cash counted in the drawer</td><td class="n">${num(K.counted)}</td></tr>
-      <tr><td colspan="2">Cash that should be in the drawer on that date</td><td class="n">${num(K.exp)}</td></tr>
-      <tr><td colspan="2">Drawer over (+) / short (−)</td><td class="n ${K.over<0?'neg':''}">${num(K.over)}</td></tr>
-      <tr><td colspan="2">Still out with staff, not yet reported (${K.nOpen})</td><td class="n">${num(K.out)}</td></tr>
-      <tr><td colspan="2">Short (+) / over (−) on settled entries: change returned less than due</td><td class="n">${num(K.shortSet)}</td></tr>
-      <tr><td colspan="2">Short (+) / over (−) in the drawer count</td><td class="n">${num(K.shortDrawer)}</td></tr>
-      <tr class="tot"><td colspan="2">Total outstanding to be accounted for</td><td class="n ${K.total>0?'neg':''}">${num(K.total)}</td></tr>
-      <tr><td colspan="2">Check: money put in less cash counted less cash spent (${num(K.direct)}) equals the total outstanding</td><td class="n">${K.ok?'<span class="okp">Balanced ✓</span>':'<span class="badp">Does not agree ✗</span>'}</td></tr>`;
+  function outstandingRows(last,K,N){
+    const both=(f)=>`<td class="n">${f(K)}</td><td class="n">${f(N)}</td>`,neg=(v)=>v<0?' neg':'';
+    const ok=x=>x.ok?'<span class="okp">Balanced ✓</span>':'<span class="badp">Does not agree ✗</span>';
+    return `<tr class="sub"><td>Drawer count and what is outstanding</td><td class="n">As at ${esc(dLabel(last.date))}</td><td class="n">Today</td></tr>
+      <tr><td>Money put in (opening balance and fill-ups)</td>${both(x=>num(x.fillsTo))}</tr>
+      <tr><td>Less: cash taken</td>${both(x=>'('+num(x.takenTo)+')')}</tr>
+      <tr><td>Add: change returned</td>${both(x=>num(x.retTo))}</tr>
+      <tr><td>Cash that should be in the drawer (from the entries above)</td>${both(x=>num(x.exp))}</tr>
+      <tr><td>Cash in the drawer by your count (counted ${esc(dLabel(last.date))}, then moved by later entries)</td>${both(x=>num(x.drawer))}</tr>
+      <tr><td>Drawer over (+) / short (−) found at the count</td><td class="n${neg(K.over)}">${num(K.over)}</td><td class="n${neg(N.over)}">${num(N.over)}</td></tr>
+      <tr><td>Still out with staff, not yet reported</td><td class="n">${num(K.out)} (${K.nOpen})</td><td class="n">${num(N.out)} (${N.nOpen})</td></tr>
+      <tr><td>Short (+) / over (−) on settled entries: change returned less than due</td>${both(x=>num(x.shortSet))}</tr>
+      <tr><td>Short (+) / over (−) in the drawer count</td>${both(x=>num(x.shortDrawer))}</tr>
+      <tr class="tot"><td>Total outstanding to be accounted for</td><td class="n${K.total>0?' neg':''}">${num(K.total)}</td><td class="n${N.total>0?' neg':''}">${num(N.total)}</td></tr>
+      <tr><td>Check: money put in less cash in the drawer less cash spent equals the total outstanding</td><td class="n">${ok(K)}</td><td class="n">${ok(N)}</td></tr>`;
   }
   function countsTable(){
     const cs=(F.counts||[]).slice().sort((x,y)=>y.date.localeCompare(x.date)).slice(0,24);
@@ -230,10 +238,10 @@
       return `<tr><td>${esc(dLabel(c.date))}</td><td>${esc(c.by||'')}${c.note?' – '+esc(c.note):''}</td><td class="n">${num(c.amount)}</td><td class="n">${num(k.exp)}</td><td class="n ${k.over<0?'neg':''}">${num(k.over)}</td><td class="n ${k.total>0?'neg':''}">${num(k.total)}</td><td><button type="button" class="btn sm ghost" data-act="bsCDel" data-id="${esc(c.id)}" aria-label="Delete this count" style="color:var(--bad)">Delete</button></td></tr>`}).join('')}</tbody></table></div>`;
   }
   function panel(){
-    if(!LIVE||!F.fills||Date.now()-F.at>8000)load();
+    if(!LIVE||!F.fills||Date.now()-F.at>2500)load();
     const ev=F.fills?ledger():[],months=[...new Set(ev.map(e=>e.date.slice(0,7)))].sort().reverse();
     if(F.month!=='all'&&!months.includes(F.month))F.month='all';
-    const S=F.fills?sheet(ev,F.month):null,last=latestCount(),K=last&&F.fills?countCalc(last):null;
+    const S=F.fills?sheet(ev,F.month):null,last=latestCount(),K=last&&F.fills?countCalc(last):null,N=K?countCalc(last,todayISO()):null;
     const per=F.month==='all'?'all time':monLabel(F.month);
     const bf=S&&F.month!=='all'?`<tr class="bf"><td></td><td>Balance brought forward</td><td class="n"></td><td class="n"></td><td class="n"></td><td class="n">${num(S.before)}</td></tr>`:'';
     const body=S?S.rows.map(e=>`<tr><td>${esc(dLabel(e.date))}</td><td>${esc(e.desc)}${e.k==='fill'?` <button type="button" class="btn sm ghost" data-act="bsDel" data-id="${esc(e.id)}" aria-label="Delete this fill-up" style="color:var(--bad)">Delete</button>`:''}</td>
@@ -241,7 +249,7 @@
     const tile=(v,l,cls)=>`<div class="plk ${cls||''}"><b>${v}</b><span>${l}</span></div>`;
     const tiles=S?`<div class="plgrid">${tile(money(S.closing),'Should be in the box'+(F.month==='all'?' now':' at month end'),'big'+(S.closing<0?' neg':''))}
       ${tile(money(S.fills+(F.month==='all'?0:S.before)),F.month==='all'?'Put in (incl. opening)':'Brought forward + put in')}${tile(money(S.taken),'Cash taken')}${K?'':tile(money(S.ret),'Change returned')}${tile(money(S.out),'Still out, not reported ('+S.nOpen+')')}
-      ${K?tile(money(K.counted),'Counted in drawer ('+esc(dLabel(last.date))+')')+tile(money(K.total),'Total outstanding',K.total>0?'neg':''):''}</div>`:'<p class="note">Loading…</p>';
+      ${K?tile(money(K.counted),'Counted in drawer ('+esc(dLabel(last.date))+')')+tile(money(N.total),'Total outstanding now',N.total>0?'neg':''):''}</div>`:'<p class="note">Loading…</p>';
     const entry=F.entry==='count'?'count':'fill';
     const entryCard=`<div class="plcard"><div class="plseg" role="tablist" aria-label="What do you want to record?"><button type="button" role="tab" aria-selected="${entry==='fill'}" data-act="bsEntry" data-v="fill">Add a fill-up</button><button type="button" role="tab" aria-selected="${entry==='count'}" data-act="bsEntry" data-v="count">Count the drawer</button></div>
       <p class="note" style="margin:8px 0">${entry==='fill'?'Record what Barry puts into the petty cash box. The first one can be the opening balance.':'Count the cash in the drawer. The app compares it with what the balance says should be there and works out what is outstanding.'}</p>
@@ -274,7 +282,7 @@
       <tr><td colspan="2">&nbsp;&nbsp;Still out: not yet reported (${S.nOpen})</td><td class="n">${num(S.out)}</td></tr>
       <tr><td colspan="2">If all cash still out came back in full, the box would hold</td><td class="n">${num(S.closing+S.out)}</td></tr>
       <tr><td colspan="2">Check: settled cash taken (${num(S.takenSet)}) = spent + returned − difference (${num(S.spent+S.returned-S.diff)}); ledger closing = balance sheet</td><td class="n">${S.ok?'<span class="okp">Balanced ✓</span>':'<span class="badp">Does not agree ✗</span>'}</td></tr>
-      ${K?outstandingRows(last,K):''}</tbody></table></div>`;
+      ${K?outstandingRows(last,K,N):''}</tbody></table></div>`;
     else if(view==='ledger')content=`<div class="plscroll"><table class="plt" aria-label="Petty cash ledger"><thead><tr><th>Date</th><th>Description</th><th class="n">Fill-up</th><th class="n">Cash taken</th><th class="n">Change returned</th><th class="n">Balance</th></tr></thead><tbody>
       ${bf}${body||`<tr><td colspan="6" class="note">No entries yet. Add the first fill-up above.</td></tr>`}
       ${S.rows.length?`<tr class="tot"><td></td><td>Totals${F.month==='all'?'':' for the month'}</td><td class="n">${num(S.fills)}</td><td class="n">${num(S.taken)}</td><td class="n">${num(S.ret)}</td><td class="n">${num(S.closing)}</td></tr>`:''}</tbody></table></div>`;

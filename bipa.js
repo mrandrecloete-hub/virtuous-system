@@ -163,13 +163,35 @@
     if(B.X.notes){pg.push(page(BO_NOTES,'bo notes'));pg.push(page(BO_NOTES2,'bo notes'))}
     return pg.join('');
   }
+  function buildBO2(){
+    return page(`<div class="bohead"><div class="bo1"><b>BO2</b><br><br><b>ANNUAL CONFIRMATORY<br>BENEFICIAL OWNERSHIP(BO)<br>DECLARATION FORM</b></div><div class="bo2">IN ACCORDANCE WITH THE COMPANIES AMENDMENT ACT NO.4 OF 2023, CLOSE CORPORATION AMENDMENT ACT NO. 5 OF 2023 &amp; FINANCIAL INTELLIGENCE ACT 2012</div></div>
+      <p class="c b"><i>COMPLETE FORM WITH BLACK INK IN BLOCK LETTERS – NO ABBREVIATIONS</i></p>
+      <table class="grid bo"><thead><tr><th class="l">PART A – ENTITY PARTICULARS</th></tr></thead><tbody>
+      <tr><td class="q"><b>1. ENTITY INFORMATION</b></td></tr>
+      <tr><td class="q"><b>I.</b> FULL LEGAL NAME OF ENTITY:<br>${fld('ent')}</td></tr>
+      <tr><td class="q"><b>II.</b> ENTITY REGISTRATION NUMBER:<br>${fld('regno')}</td></tr></tbody></table>
+      <div class="decl" style="margin-top:34px"><p class="c b">DECLARATION</p><p>1. &nbsp;I, UNDERSIGNED, FOR AND ON BEHALF OF THE REPORTING ENTITY CONFIRM THAT, ALL INFORMATION PROVIDED PREVIOUSLY, REMAIN THE SAME AND IS ACCURATE, ADEQUATE AND UP TO DATE.</p>
+      ${row('<b>NAME OF DIRECTOR/SHAREHOLDER/MEMBER/BENEFICIAL OWNER:</b><br>[DELETE WHERE NOT APPLICABLE]',fld('d1n'))}
+      <div class="r sp"><span class="l"><b>SIGNATURE:</b></span><span class="f"><span class="v sg"></span></span><span class="l"><b>&nbsp; DATE (DDMMYYYY):</b></span><span class="f">${bx('d1d',8,{al:'Date DDMMYYYY'})}</span></div></div>
+      <p class="c b">OR</p>
+      <div class="decl"><p>2. &nbsp;I, UNDERSIGNED, FOR AND ON BEHALF OF THE REPORTING ENTITY CONFIRM THAT TO THE BEST OF MY KNOWLEDGE ALL INFORMATION PROVIDED PREVIOUSLY REMAIN THE SAME AND IS ACCURATE, ADEQUATE AND UP TO DATE.</p>
+      ${row('<b>NAME OF ACCOUNTABLE INSTITUTION:</b>',fld('d2i'))}
+      <div class="r"><span class="l"><b>NAME OF AUTHORISED STAFF:</b></span><span class="f">${fld('d2n')}</span><span class="l"><b>POSITION:</b></span><span class="f">${fld('d2p')}</span></div>
+      <div class="r sp"><span class="l"><b>SIGNATURE:</b></span><span class="f"><span class="v sg"></span></span><span class="l"><b>&nbsp; DATE (DDMMYYYY):</b></span><span class="f">${bx('d2d',8,{al:'Date DDMMYYYY'})}</span></div><p class="sm"><i><b>*IN THE CASE OF AN EXTERNAL COMPANY THE LOCAL MANAGER SHOULD SIGN.</b></i></p></div>
+      <div class="decl off"><p><b><u>OFFICIAL USE ONLY</u> [TO BE COMPLETED BY BIPA OFFICIAL]</b></p><div class="r"><span class="l"><b>NAME OF REGISTRATION OFFICER:</b></span><span class="f"><span class="v sg"></span></span></div>
+      <div class="r sp"><span class="l"><b>SIGNATURE:</b></span><span class="f"><span class="v sg"></span></span><span class="l"><b>&nbsp; DATE (DDMMYYYY):</b></span><span class="f"><span class="bx"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span></div></div>`,'bo');
+  }
 
   const TEMPLATES=[
     {id:'cc2',code:'CC 2',name:'Amended Founding Statement',category:'Close Corporations – Changes',pages:'Cover + notes + members pages',build:buildCC2,extra:'pages',font:'serif'},
     {id:'cc3',code:'CC 3',name:'Application for the Restoration of the Registration of a Corporation',category:'Close Corporations – Deregistration',pages:'1 page',build:buildCC3,font:'serif'},
     {id:'cc7',code:'CC 7',name:'Annual Duty Return',category:'Close Corporations – Annual returns',pages:'2 pages',build:buildCC7,font:'serif'},
-    {id:'bo1',code:'BO 1',name:'Beneficial Ownership Declaration Form',category:'Beneficial Ownership – Companies and Close Corporations',pages:'Form + notes',build:buildBO1,extra:'owners',font:'sans'}];
+    {id:'bo1',code:'BO 1',name:'Beneficial Ownership Declaration Form',category:'Beneficial Ownership – Companies and Close Corporations',pages:'Form + notes',build:buildBO1,extra:'owners',font:'sans'},
+    {id:'bo2',code:'BO 2',name:'Annual Confirmatory Beneficial Ownership Declaration Form',category:'Beneficial Ownership – Annual confirmation',pages:'1 page',build:buildBO2,font:'sans'}];
   const tpl=id=>TEMPLATES.find(t=>t.id===id);
+  const HKEY='vx_bipa_hidden';
+  const hidden=()=>{try{const a=JSON.parse(localStorage.getItem(HKEY)||'[]');return Array.isArray(a)?a.filter(x=>TEMPLATES.some(t=>t.id===x)):[]}catch(e){return []}};
+  const setHidden=a=>{try{localStorage.setItem(HKEY,JSON.stringify(a))}catch(e){}};
 
   /* ---------- styles (shared by the screen form and the printed document) ---------- */
   const CSS=`.bp *{box-sizing:border-box}.bp{font:11.5px 'Times New Roman',Times,serif;color:#000}.bp.sans{font-family:Arial,Helvetica,sans-serif;font-size:10.5px}
@@ -229,10 +251,11 @@
 
   function view(){
     if(B.id&&tpl(B.id))return editor();
-    const rows=TEMPLATES.filter(t=>B.cat==='all'||t.category.startsWith(B.cat)).map(t=>`<tr><td><span class="bpcode">${esc(t.code)}</span></td><td><b>${esc(t.name)}</b><div class="note">${esc(t.pages)}</div></td><td><span class="bpcat">${esc(t.category)}</span></td>
-      <td>${hasDraft(t.id)?'<span class="pill warn">Draft saved</span>':''}</td><td style="white-space:nowrap"><button class="btn sm" data-act="srOpen" data-id="${t.id}">Fill in</button> <button class="btn sm ghost" data-act="srBlank" data-id="${t.id}">Blank copy</button></td></tr>`).join('');
+    const hid=hidden();
+    const rows=TEMPLATES.filter(t=>!hid.includes(t.id)&&(B.cat==='all'||t.category.startsWith(B.cat))).map(t=>`<tr><td><span class="bpcode">${esc(t.code)}</span></td><td><b>${esc(t.name)}</b><div class="note">${esc(t.pages)}</div></td><td><span class="bpcat">${esc(t.category)}</span></td>
+      <td>${hasDraft(t.id)?'<span class="pill warn">Draft saved</span>':''}</td><td style="white-space:nowrap"><button class="btn sm" data-act="srOpen" data-id="${t.id}">Fill in</button> <button class="btn sm ghost" data-act="srBlank" data-id="${t.id}">Blank copy</button> <button class="btn sm ghost" data-act="srDel" data-id="${t.id}" aria-label="Delete ${esc(t.code)}" style="color:var(--bad)">Delete</button></td></tr>`).join('');
     return `<div class="panel bpl"><div class="ph"><h3>BIPA forms</h3></div><p class="note" style="margin:0 0 10px">Business and Intellectual Property Authority templates. Open one to fill it in on screen, then preview, print or download it. Drafts stay on this device.</p>
-      <div class="bpbar"><label>Category <select id="srCat" aria-label="Category"><option value="all">All</option><option value="Close Corporations"${B.cat==='Close Corporations'?' selected':''}>Close Corporations</option><option value="Beneficial Ownership"${B.cat==='Beneficial Ownership'?' selected':''}>Beneficial Ownership</option></select></label></div>
+      <div class="bpbar"><label>Category <select id="srCat" aria-label="Category"><option value="all">All</option><option value="Close Corporations"${B.cat==='Close Corporations'?' selected':''}>Close Corporations</option><option value="Beneficial Ownership"${B.cat==='Beneficial Ownership'?' selected':''}>Beneficial Ownership</option></select></label>${hid.length?`<span class="grow"></span><button class="btn sm ghost" data-act="srRestore">Restore deleted templates (${hid.length})</button>`:''}</div>
       <div class="tbl"><table class="bpt"><thead><tr><th></th><th>Name</th><th>Category</th><th></th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="note">No templates in this category.</td></tr>'}</tbody></table></div></div>`;
   }
   function editor(){
@@ -256,6 +279,9 @@
     const a=b.dataset.act;e.stopImmediatePropagation();
     if(a==='srOpen'){load(b.dataset.id);return rerender()}
     if(a==='srBlank'){load(b.dataset.id);B.V={};const t=tpl(b.dataset.id);B.id=b.dataset.id;preview();B.id=null;return}
+    if(a==='srDel'){const t=tpl(b.dataset.id);if(!t)return;if(!confirm('Delete '+t.code+' ('+t.name+') from this list? Any saved draft of it is deleted too. You can bring deleted templates back with "Restore deleted templates".'))return;
+      try{localStorage.removeItem(KEY(t.id))}catch(x){}const h=hidden();if(!h.includes(t.id))h.push(t.id);setHidden(h);toast(t.code+' deleted from the list');return rerender()}
+    if(a==='srRestore'){setHidden([]);toast('Deleted templates restored');return rerender()}
     if(a==='srBack'){if(B.id)save(true);B.id=null;return rerender()}
     if(a==='srPreview'){save(true);return preview()}
     if(a==='srWord'){save(true);return dlWord()}

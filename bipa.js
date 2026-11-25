@@ -227,7 +227,7 @@
       if(s.X){B.X.pages=Math.max(1,Math.min(4,+s.X.pages||1));B.X.owners=Math.max(1,Math.min(6,+s.X.owners||1));B.X.notes=s.X.notes!==false}}}catch(e){}
   }
   const filled=()=>Object.keys(B.V).some(k=>B.V[k]!==''&&B.V[k]!==false&&B.V[k]!=null)||B.X.pages>1||B.X.owners>1;
-  function save(quiet){try{if(!filled()){localStorage.removeItem(KEY(B.id));if(!quiet)B.msg='Nothing is filled in, so no draft was kept.';return true}localStorage.setItem(KEY(B.id),JSON.stringify({V:B.V,X:B.X,at:Date.now()}));if(!quiet){B.msg='Draft saved on this device.'}return true}catch(e){B.msg='Could not save the draft (browser storage is not available).';return false}}
+  function save(quiet){try{if(!filled()){localStorage.removeItem(KEY(B.id));if(!quiet)B.msg='Nothing is filled in, so no draft was kept.';return true}localStorage.setItem(KEY(B.id),JSON.stringify({V:B.V,X:B.X,at:Date.now()}));putProfile(B.id,B.V,(tpl(B.id)||{}).code,B.keepSrc);if(!quiet){B.msg='Draft saved on this device.'}return true}catch(e){B.msg='Could not save the draft (browser storage is not available).';return false}}
   const hasDraft=id=>{try{return !!localStorage.getItem(KEY(id))}catch(e){return false}};
   function docHTML(t){
     MODE='print';let body='';try{body=t.build()}finally{MODE='edit'}
@@ -297,6 +297,14 @@
         const nums=[];for(let d=0;d<=2&&i+d<rows.length;d++)rows[i+d].forEach(c=>c.t.split(/\s+/).forEach(w=>{if(/^\d{1,4}$/.test(w))nums.push(w)}));
         const y=nums.find(n=>/^\d{4}$/.test(n)),dm=nums.filter(n=>/^\d{1,2}$/.test(n));if(y&&dm.length>=2){V.fyD=dm[0].padStart(2,'0');V.fyM=dm[1].padStart(2,'0');V.fyY=y;break}break}}
     }
+    /* pattern fallbacks for the details every form shares */
+    const nameKey={cc3:'corp',cc7:'cname',cc2:'corp',bo1:'ent',bo2:'ent'}[tid],regKey={cc3:'reg',cc7:'reg',cc2:'reg',bo1:'regno',bo2:'regno'}[tid];
+    const flat=rows.map(r=>r.map(c=>c.t).join(' ')),txt=flat.join('\n');
+    if(regKey&&!V[regKey]){const m=/\b((?:CC|[A-Z]{1,2})\/\d{4}\/\d{3,6}|\d{4}\/\d{3,6})\b/.exec(txt);if(m)V[regKey]=m[1]}
+    if(nameKey&&!V[nameKey]){const re=/^[A-Z0-9][A-Z0-9&.,'’ -]{2,60}\s(?:CC|C\.C\.|\(PTY\)\s*LTD|PTY\s*LTD|LTD|LIMITED|TRUST|CLOSE CORPORATION)\.?$/i;
+      for(const r of rows){const seg=r.find(c=>!/:/.test(c.t)&&re.test(c.t.trim())&&!isLabel(c.t));if(seg){V[nameKey]=seg.t.trim().slice(0,120);break}}}
+    const em=/[\w.+-]+@[\w-]+\.[\w.-]+/.exec(txt);if(em){const k=tid==='cc2'?'mail':tid==='cc3'?'cmail':'';if(k&&!V[k])V[k]=em[0]}
+    if(tid==='cc2'||tid==='cc7'){const ph=/(?:\+264\s?|\b0)\d{2}\s?\d{3}\s?\d{4}\b/.exec(txt);if(ph&&!V.ct1_m)V.ct1_m=ph[0]}
     return V;
   }
   const textToRows=txt=>String(txt).split(/\r?\n/).map(t=>t.replace(/\t+/g,'    ').trim()).filter(Boolean).map(t=>[{t,x:0}]);
@@ -390,10 +398,74 @@
       B.X.pages=Math.max(1,Math.min(4,+X.pages||1));B.X.owners=Math.max(1,Math.min(6,+X.owners||1));B.X.notes=X.notes!==false;
       const how=res.via==='exact'?'read exactly (it was downloaded from this app)':res.via==='ocr'?'read from a scan (check every value carefully)':'read from the text of the document (check every value)';
       B.note={file:file.name,how,count:Object.keys(R.V).length,changes:R.changes};
+      putProfile(tid,R.V,t.code+' – '+file.name);
       save(true);rerender();
     };
     if(tid==='cc7')yearDialog(yearOf(tid,V),finish);else finish(null);
   }
+
+  /* ---------- SAVED COMPANY DETAILS: every form pulls what is already known ----------
+     Whatever is read from an uploaded old document, or typed into any form, is kept (on this device) as one set of company details.
+     A form that is opened fresh is filled in from it automatically (entity name, registration number, addresses, members, contacts,
+     beneficial owners, declarants). Signing dates and signatures are never carried. */
+  const PKEY='vx_bipa_profile';
+  const range=(a,b)=>{const r=[];for(let i=a;i<=b;i++)r.push(i);return r};
+  function pairs(tid){   /* [formKey, canonicalKey] */
+    const P=[];const add=(k,c)=>P.push([k,c]);
+    const ct=()=>range(1,6).forEach(i=>['n','l','m','f','e'].forEach(x=>add('ct'+i+'_'+x,'ct'+i+'_'+x)));
+    if(tid==='cc3'){add('corp','name');add('cname','name');add('reg','reg');add('cpost1','post');add('cmail','mail')}
+    if(tid==='cc7'){add('cname','name');add('reg','reg');add('cpost','post');range(1,10).forEach(i=>{add('mn'+i,'mem'+i+'n');add('mp'+i,'mem'+i+'p')});add('fyD','fyD');add('fyM','fyM');ct()}
+    if(tid==='cc2'){add('corp','name');add('reg','reg');add('post','post');add('mail','mail');add('reg1','regoffice');add('biz','biz');add('fye','fye');add('ao','ao');add('aoBody','aoBody');add('aoNo','aoNo');
+      range(1,4).forEach(p=>range(1,2).forEach(j=>{const n=(p-1)*2+j;['n:n','id:id','rg:rg','pc:p','pt:pt','ra:ra','pa:pa','em:em'].forEach(z=>{const [a,b]=z.split(':');add('m'+p+'_'+j+'_'+a,'mem'+n+b)})}));ct()}
+    if(tid==='bo1'||tid==='bo2'){add('ent','name');add('regno','reg');['d1n','d2i','d2n','d2p'].forEach(k=>add(k,k))}
+    if(tid==='bo1'){add('tin','tin');add('country','country');range(1,10).forEach(i=>add('b'+i+'_n','mem'+i+'n'));
+      range(1,6).forEach(i=>['fn','sn','pn','dob','pb','nat','ra','ba','tin','tel','em','idt','idn','idc','pw'].forEach(x=>add('o'+i+'_'+x,'o'+i+'_'+x)));
+      range(1,10).forEach(i=>range(1,8).forEach(t=>add('b'+i+'_t'+t,'bt'+i+'_'+t)))}
+    return P;
+  }
+  const getProfile=()=>{try{const o=JSON.parse(localStorage.getItem(PKEY)||'null');return o&&typeof o==='object'&&o.P&&typeof o.P==='object'?o:{P:{},src:{}}}catch(e){return {P:{},src:{}}}};
+  function putProfile(tid,V,from,keep){
+    const pr=getProfile(),cnt=Object.keys(pr.P).length;let n=0;
+    pairs(tid).forEach(([k,c])=>{const v=V[k];if(v===''||v==null||v===false)return;if(v===true||String(v).trim()!==''){pr.P[c]=v===true?true:clip(v,800);n++}});
+    if(!n)return 0;
+    if(!keep)pr.src=Object.assign({},pr.src,{at:Date.now(),from:from||(tpl(tid)||{}).code||tid});
+    try{localStorage.setItem(PKEY,JSON.stringify(pr))}catch(e){}
+    return n;
+  }
+  function applyProfile(tid,V){
+    const pr=getProfile(),out={};let n=0;
+    pairs(tid).forEach(([k,c])=>{if(V[k]!=null&&V[k]!==''&&V[k]!==false)return;const v=pr.P[c];if(v===''||v==null||v===false)return;out[k]=v;n++});
+    return {V:out,n,src:pr.src};
+  }
+  const profileSummary=()=>{const pr=getProfile(),P=pr.P;if(!Object.keys(P).length)return null;return {name:P.name||'',reg:P.reg||'',count:Object.keys(P).length,from:(pr.src||{}).from||'',at:(pr.src||{}).at||0}};
+  /* which BIPA form is this text? */
+  function detectForm(rows){
+    const t=rows.map(r=>r.map(c=>c.t).join(' ')).join(' \n ').toLowerCase();
+    if(/annual confirmatory/.test(t))return 'bo2';
+    if(/beneficial ownership.{0,40}declaration|declaration form.{0,40}beneficial|\bbo\s*declaration/.test(t))return 'bo1';
+    if(/amended founding statement/.test(t))return 'cc2';
+    if(/restoration of the registration/.test(t))return 'cc3';
+    if(/annual duty/.test(t)&&/close corporations act|registration number/.test(t))return 'cc7';
+    return '';
+  }
+  async function handleMany(files){
+    let docs=0,fields=0,fail=[];
+    for(const file of files){
+      try{
+        const res=await readPrevious(file,'');let tid='',V={};
+        if(res.kind==='data'){tid=res.id;V=res.V}
+        else{tid=detectForm(res.rows);if(!tid){fail.push(file.name+' (could not tell which BIPA form it is)');continue}V=extractLines(tid,res.rows)}
+        if(!tpl(tid)){fail.push(file.name+' (not a BIPA form from this app)');continue}
+        const R=rollForward(tid,V,null),n=putProfile(tid,R.V,(tpl(tid).code)+' – '+file.name);
+        if(n){docs++;fields+=n}else fail.push(file.name+' (nothing could be read)');
+      }catch(e){fail.push(file.name+' ('+(e&&e.message||'unreadable')+')')}
+    }
+    B.msg=docs?'Read '+docs+' document'+(docs===1?'':'s')+' ('+fields+' details saved). New forms now fill themselves in from these details.'+(fail.length?' Not used: '+fail.join('; ')+'.':''):'Nothing could be used. '+fail.join('; ');
+    toast(docs?'Saved details from '+docs+' document'+(docs===1?'':'s'):'Nothing could be read');rerender();
+  }
+  const upAll=document.createElement('input');upAll.type='file';upAll.multiple=true;upAll.hidden=true;upAll.id='srUpAll';upAll.accept='.pdf,.png,.jpg,.jpeg,.docx,.doc,.html,.htm,.json,.txt,application/pdf,image/*';document.body.appendChild(upAll);
+  upAll.addEventListener('change',()=>{const fs=[...(upAll.files||[])];upAll.value='';if(fs.length)handleMany(fs)});
+
   const up=document.createElement('input');up.type='file';up.hidden=true;up.id='srUp';up.accept='.pdf,.png,.jpg,.jpeg,.docx,.doc,.html,.htm,.json,.txt,application/pdf,image/*';document.body.appendChild(up);
   up.addEventListener('change',()=>{const f=up.files&&up.files[0],tid=up.dataset.t;up.value='';if(f&&tid)handleUpload(f,tid)});
 
@@ -411,6 +483,8 @@
     const rows=TEMPLATES.filter(t=>B.cat==='all'||t.category.startsWith(B.cat)).map(t=>`<tr><td><span class="bpcode">${esc(t.code)}</span></td><td><b>${esc(t.name)}</b><div class="note">${esc(t.pages)}</div></td><td><span class="bpcat">${esc(t.category)}</span></td>
       <td>${hasDraft(t.id)?'<span class="pill warn">Draft saved</span>':''}</td><td style="white-space:nowrap"><button class="btn sm" data-act="srOpen" data-id="${t.id}">Fill in</button> <button class="btn sm ghost" data-act="srUpload" data-id="${t.id}" title="Upload last year's document and create the updated one">Update from previous</button> <button class="btn sm ghost" data-act="srBlank" data-id="${t.id}">Blank copy</button> <button class="btn sm ghost" data-act="srDel" data-id="${t.id}" aria-label="Delete what is filled in on ${esc(t.code)}" title="${hasDraft(t.id)?'Delete the filled-in form and make it blank again':'Nothing is filled in'}" style="color:var(--bad)"${hasDraft(t.id)?'':' disabled'}>Delete</button></td></tr>`).join('');
     return `<div class="panel bpl"><div class="ph"><h3>BIPA forms</h3></div><p class="note" style="margin:0 0 10px">Business and Intellectual Property Authority templates. Open one to fill it in on screen, then preview, print or download it. Drafts stay on this device.</p>
+      ${(()=>{const p=profileSummary();return `<div class="bpx"><span>${p?'<b>Saved company details:</b> '+esc(p.name||'(no name yet)')+(p.reg?' · '+esc(p.reg):'')+' · '+p.count+' details'+(p.from?' · from '+esc(p.from):''):'<b>No company details saved yet.</b>'}</span><button class="btn sm" data-act="srUploadAll" title="Upload old BIPA documents (any form, several at once). New forms then fill themselves in.">Upload old documents</button>${p?'<button class="btn sm ghost" data-act="srForget" style="color:var(--bad)">Forget saved details</button>':''}<span class="note">Upload last year\'s documents once. Every new form then fills itself in; typing in any form also updates these details.</span></div>`})()}
+      <div class="bpmsg" id="srMsg0" role="status" style="margin-bottom:8px">${esc(B.msg)}</div>
       <div class="bpbar"><label>Category <select id="srCat" aria-label="Category"><option value="all">All</option><option value="Close Corporations"${B.cat==='Close Corporations'?' selected':''}>Close Corporations</option><option value="Beneficial Ownership"${B.cat==='Beneficial Ownership'?' selected':''}>Beneficial Ownership</option></select></label></div>
       <div class="tbl"><table class="bpt"><thead><tr><th></th><th>Name</th><th>Category</th><th></th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="note">No templates in this category.</td></tr>'}</tbody></table></div></div>`;
   }
@@ -420,7 +494,7 @@
       <div class="bpbar"><button class="btn ghost sm" data-act="srBack">‹ All BIPA forms</button><span class="grow"></span>
         <button class="btn sm ghost" data-act="srUpload" data-id="${t.id}" title="Upload last year's document and create the updated one">Update from previous document</button><button class="btn sm" data-act="srPreview">Preview and print</button><button class="btn sm ghost" data-act="srWord">Download Word (.doc)</button><button class="btn sm ghost" data-act="srSave">Save draft</button><button class="btn sm ghost" data-act="srClear" style="color:var(--bad)">Delete filled form</button></div>
       <div class="bpmsg" id="srMsg" role="status">${esc(B.msg)}</div>
-      ${B.note?`<div class="banner ok" role="status" style="margin:8px 0"><b>Created from ${esc(B.note.file)}.</b> ${B.note.count} field${B.note.count===1?'':'s'} filled in, ${esc(B.note.how)}.${B.note.changes.length?'<ul style="margin:4px 0 0 18px">'+B.note.changes.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':''}<div>Check every detail before you print. Signatures stay blank.</div></div>`:''}
+      ${B.note?`<div class="banner ok" role="status" style="margin:8px 0"><b>${B.note.auto?'Filled in from ':'Created from '}${esc(B.note.file)}.</b> ${B.note.count} field${B.note.count===1?'':'s'} filled in, ${esc(B.note.how)}.${B.note.changes.length?'<ul style="margin:4px 0 0 18px">'+B.note.changes.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':''}<div>Check every detail before you print. Signatures stay blank.</div></div>`:''}
       <div class="bpx">${t.extra==='pages'?`<span>Members pages (Part C): <b>${B.X.pages}</b></span><button class="btn sm ghost" data-act="srAddP" ${B.X.pages>=4?'disabled':''}>Add a members page</button><button class="btn sm ghost" data-act="srRemP" ${B.X.pages<=1?'disabled':''}>Remove the last one</button>`:''}
         ${t.extra==='owners'?`<span>Beneficial owners (Part B): <b>${B.X.owners}</b></span><button class="btn sm ghost" data-act="srAddO" ${B.X.owners>=6?'disabled':''}>Add a beneficial owner</button><button class="btn sm ghost" data-act="srRemO" ${B.X.owners<=1?'disabled':''}>Remove the last one</button>`:''}
         ${t.extra?`<label class="ckl"><input type="checkbox" data-srnotes ${B.X.notes?'checked':''}> Include the notes pages when printing</label>`:''}
@@ -434,7 +508,11 @@
   document.addEventListener('click',e=>{
     const b=e.target.closest&&e.target.closest('[data-act^="sr"]');if(!b)return;
     const a=b.dataset.act;e.stopImmediatePropagation();
-    if(a==='srOpen'){load(b.dataset.id);B.note=null;return rerender()}
+    if(a==='srOpen'){load(b.dataset.id);B.note=null;B.keepSrc=false;
+      if(!hasDraft(b.dataset.id)){const A=applyProfile(b.dataset.id,B.V);if(A.n){Object.assign(B.V,A.V);B.keepSrc=true;const S=A.src||{};B.note={file:S.from||'your saved details',how:'filled in automatically from details you entered or uploaded earlier',count:A.n,changes:['Signing dates and signatures are never carried over. Check every detail, then preview and print.'],auto:true};save(true)}}
+      return rerender()}
+    if(a==='srUploadAll'){upAll.click();return}
+    if(a==='srForget'){if(!confirm('Forget the saved company details? Forms you already filled in are not changed.'))return;try{localStorage.removeItem(PKEY)}catch(x){}B.msg='Saved company details forgotten.';return rerender()}
     if(a==='srUpload'){up.dataset.t=b.dataset.id;up.click();return}
     if(a==='srBlank'){load(b.dataset.id);B.V={};const t=tpl(b.dataset.id);B.id=b.dataset.id;preview();B.id=null;return}
     if(a==='srDel'){const t=tpl(b.dataset.id);if(!t)return;
@@ -452,6 +530,7 @@
   },true);
   document.addEventListener('input',e=>{
     const t=e.target;if(!t||!B.id)return;
+    if(t.dataset&&(t.dataset.sr||t.dataset.srb))B.keepSrc=false;
     if(t.dataset&&t.dataset.sr){const k=t.dataset.sr;if(!/^[A-Za-z0-9_]+$/.test(k))return;B.V[k]=clip(t.value,t.tagName==='TEXTAREA'?800:300);
       document.querySelectorAll('[data-sr="'+k+'"]').forEach(x=>{if(x!==t&&x.value!==t.value)x.value=t.value});later();return}
     if(t.dataset&&t.dataset.srb){const k=t.dataset.srb,i=+t.dataset.i,n=+t.dataset.n;if(!/^[A-Za-z0-9_]+$/.test(k))return;
@@ -463,7 +542,7 @@
     const t=e.target;if(!t)return;
     if(t.id==='srCat'){B.cat=t.value;return rerender()}
     if(!B.id)return;
-    if(t.dataset&&t.dataset.srck){const k=t.dataset.srck;if(/^[A-Za-z0-9_]+$/.test(k)){B.V[k]=!!t.checked;later()}return}
+    if(t.dataset&&t.dataset.srck){B.keepSrc=false;const k=t.dataset.srck;if(/^[A-Za-z0-9_]+$/.test(k)){B.V[k]=!!t.checked;later()}return}
     if(t.dataset&&'srnotes' in t.dataset){B.X.notes=!!t.checked;later()}
   },true);
 

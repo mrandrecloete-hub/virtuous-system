@@ -301,6 +301,7 @@ ${paras}
   }
   document.addEventListener('change',e=>{
     const t=e.target;if(!t||!/^lt/.test(t.id||''))return;
+    if(t.closest&&t.closest('#ltEntryForm,#ltClientForm'))return;   /* those ids belong to the Timesheet page (live-time.js) */
     e.stopImmediatePropagation();
     if(t.id==='ltSub'){L.sub=t.value;readForm();if(t.value)fromSub(t.value);L.body=null;return render()}
     if(t.id==='ltBody')return readForm();

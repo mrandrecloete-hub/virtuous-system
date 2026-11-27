@@ -241,6 +241,9 @@ h2{font-size:34px;font-weight:700;letter-spacing:-.01em}
 input,select,textarea{border-radius:10px;background:#fff;border:1px solid var(--line)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) input,:root:not([data-theme="light"]) select,:root:not([data-theme="light"]) textarea{background:#0b1438}}
 :root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{background:#0b1438}
+/* dark mode: outline buttons were pale on pale (e.g. "Open" in the Month-end checklist) */
+@media (prefers-color-scheme: dark){:where(:root:not([data-theme="light"])) .btn.ghost{background:rgba(255,255,255,.08);color:#d6e4ff;border-color:rgba(150,180,255,.55)}}
+:where(:root[data-theme="dark"]) .btn.ghost{background:rgba(255,255,255,.08);color:#d6e4ff;border-color:rgba(150,180,255,.55)}
 th{background:rgba(11,63,181,.07);color:var(--fg)}
 .pill{border-radius:999px}
 .bar2{height:10px;border-radius:6px}.bar2 i{background:linear-gradient(90deg,var(--gold2),var(--gold1))}

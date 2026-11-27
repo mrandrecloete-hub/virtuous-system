@@ -56,7 +56,9 @@
   async function loadContacts(){
     if(!state.user){M.contacts=[];return}
     if(!LIVE){M.contacts=state.users.filter(u=>u.id!==state.user.id&&u.access!==false).map(u=>({id:u.id,name:u.name,title:u.title,admin:u.type==='admin'}));return}
-    const r=await sb().from('profiles').select('id,name,title,role').eq('access_enabled',true).neq('id',state.user.id).order('name');
+    /* dm_contacts() (migration 0040) works for staff, who cannot read other profiles; the table read is the fallback. */
+    let r=await sb().rpc('dm_contacts');
+    if(r.error||!Array.isArray(r.data))r=await sb().from('profiles').select('id,name,title,role').eq('access_enabled',true).neq('id',state.user.id).order('name');
     M.contacts=(r.data||[]).map(u=>({id:u.id,name:u.name,title:u.title,admin:u.role==='admin'}));
   }
   async function loadThreads(){
@@ -360,6 +362,8 @@
       catch(e){fail=/not permitted|policy/i.test(e.message||'')?'You are not allowed to send that.':/does not exist|schema cache|dm_ensure_thread|dm_send/i.test(e.message||'')?'Messages are not set up yet (migration 0029 must be run).':'Could not send: '+(e.message||'error')}
     }
     M.busy=false;
+    /* the Send button was disabled for this send: switch it back on, otherwise the next click does nothing */
+    document.querySelectorAll('[data-act=mgSend][data-k=chat]').forEach(b=>b.disabled=false);
     if(fail){if(key==='nw'){M.nw.err=fail+(ok?' ('+ok+' sent)':'');modal()}else{M.err=fail;paintAll();const b=document.querySelector('[data-act=mgSend][data-k=chat]');if(b)b.disabled=false}if(!ok)return}
     files.forEach(f=>{if(LIVE&&f.blobUrl)URL.revokeObjectURL(f.blobUrl)});
     M.att[key]=[];if(ta)ta.value='';
@@ -404,8 +408,8 @@
         else{const r={message_id:id,user_id:state.user.id,emoji:b.dataset.e};list.push(r);if(!LIVE)demo().reacts.push({...r});else sb().from('dm_reactions').insert(r).then(()=>{})}
         return paintMsgs(false)}
       case 'mgDel':{if(!confirm('Delete this message for everyone?'))return;M.menu=null;
-        if(!LIVE){const m=demo().msgs.find(x=>x.id===id);if(m){m.deleted=true;m.body='';m.attachments=[]}}else await sb().rpc('dm_delete_message',{p_id:id});
-        await loadMsgs(M.active);return paintMsgs(false)}
+        if(!LIVE){const m=demo().msgs.find(x=>x.id===id);if(m){m.deleted=true;m.body='';m.attachments=[];const th=demo().threads[m.thread_key],last=demo().msgs.filter(x=>x.thread_key===m.thread_key).pop();if(th&&last===m)th.last_text='This message was deleted'}}else await sb().rpc('dm_delete_message',{p_id:id});
+        await loadThreads();await loadMsgs(M.active);return paintAll()}
     }
   },true);
   document.addEventListener('change',e=>{

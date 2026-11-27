@@ -272,12 +272,13 @@
       ${T.noProject?'':`<label>Project (optional)<input type="text" id="tsNProj" list="tsProjList" maxlength="120" value="${esc(pf.proj||'')}"><datalist id="tsProjList">${projects().map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>`}
       <label>Task<input type="text" id="tsNTask" maxlength="200" value="${esc(pf.task||'')}"></label>
       <label>Hours<input type="number" id="tsNHrs" min="0.25" max="24" step="0.25" value="${esc(pf.hours||'')}" placeholder="e.g. 1.5"></label>
-      <label>Notes<textarea id="tsNNotes" rows="3" maxlength="1000"></textarea></label>
+      <label>Notes<textarea id="tsNNotes" rows="3" maxlength="1000">${esc(pf.notes||'')}</textarea></label>
       <div class="note" style="margin:0">Entries added here are approved straight away.</div>
       <div class="err" id="tsErr" role="alert"></div>
       <div class="row"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" data-act="tsClose">Cancel</button></div></form></aside>`;
   }
   function drawer(o){
+    if(T.edit&&T.edraft&&T.edraft.id===o.id)o=Object.assign({},o,T.edraft.v);
     const done=o.status==='Approved',mins=Math.round(o.hours*60),cl=T.clients.find(x=>x.id===o.client_id);
     const head=`<div class="tsdh"><b>${esc(o.who)}'s Log Entry</b><div class="row" style="gap:6px"><button class="btn ghost sm" data-act="tsEditToggle" aria-label="Edit entry" title="Edit">✎</button><button class="btn ghost sm" data-act="tsClose" aria-label="Close" title="Close">✕</button></div></div>`;
     if(T.edit)return `<aside class="tsdrawer" aria-label="Edit log entry">${head}<form id="tsEditForm" class="form" style="grid-template-columns:1fr;padding:14px" novalidate>
@@ -497,6 +498,27 @@
     if(t.dataset.tsrate){e.stopImmediatePropagation();const v=parseFloat(t.value);if(!(v>=0)){toast('Enter a valid rate');return render()}
       return act(async()=>{const r=await sb().from('clients').update({hourly_rate:v}).eq('id',t.dataset.tsrate);if(r.error)throw new Error(rpcMsg(r.error.message))},()=>toast('Rate updated'))}
   },true);
+  /* Keep what was typed: background updates redraw the page, which used to put the date back to today. */
+  const NK={tsNDate:'date',tsNUser:'user',tsNCust:'cust',tsNProj:'proj',tsNTask:'task',tsNHrs:'hours',tsNNotes:'notes'};
+  const EK={tsEDate:'work_date',tsECust:'client_id',tsEProj:'project',tsETask:'task',tsEHrs:'hours',tsENotes:'notes'};
+  ['input','change'].forEach(ev=>document.addEventListener(ev,e=>{
+    const t=e.target;if(!t||!t.id)return;
+    if(NK[t.id]){T.prefill=T.prefill||{};T.prefill[NK[t.id]]=t.value}
+    else if(EK[t.id]){if(!T.edraft||T.edraft.id!==T.open)T.edraft={id:T.open,v:{}};T.edraft.v[EK[t.id]]=t.value}
+  },true));
+  /* After saving, loosen any filter that would hide the new (possibly backdated) entry. */
+  function reveal(r){
+    const [a,b]=periodRange(T.period);
+    if(r.work_date<a||r.work_date>b)T.period='all';
+    if(T.dayF&&T.dayF!==r.work_date)T.dayF='';
+    if(T.cust&&T.cust!==r.client_id)T.cust='';
+    if(T.user&&T.user!==r.user_id)T.user='';
+    if(T.proj&&T.proj!==r.project)T.proj='';
+    if(T.stat&&T.stat!==r.status)T.stat='';
+    if(T.preset==='pending'||T.preset==='billed')T.preset='all';
+    T.limit=Math.max(T.limit,(T.rows||[]).filter(x=>x.work_date>=r.work_date).length+2);
+    CAL.date=r.work_date;
+  }
   document.addEventListener('submit',e=>{
     const f=e.target.id;if(f!=='tsClientForm'&&f!=='tsEditForm'&&f!=='tsNewForm')return;
     e.preventDefault();e.stopImmediatePropagation();
@@ -512,11 +534,11 @@
       if(!(hrs>=0.25&&hrs<=24))return err('Hours must be between 0.25 and 24.');
       const row={user_id:usr,client_id:cust,work_date:date,task,hours:hrs,notes:$('#tsNNotes').value.trim()||null,status:'Approved',decided_by:state.user.id,decided_at:new Date().toISOString()};
       if(pr&&!T.noProject)row.project=pr;
-      return act(async()=>{const r=await sb().from('time_entries').insert(row);if(r.error)throw new Error(rpcMsg(r.error.message))},()=>{T.newOpen=false;T.prefill=null;toast('Log entry added')});
+      return act(async()=>{const r=await sb().from('time_entries').insert(row);if(r.error)throw new Error(rpcMsg(r.error.message))},()=>{T.newOpen=false;T.prefill=null;reveal(row);toast('Log entry added for '+fd(date))});
     }
     const hrs=parseFloat($('#tsEHrs').value),date=$('#tsEDate').value,task=$('#tsETask').value.trim();
     if(!(hrs>=0.25&&hrs<=24))return toast('Hours must be between 0.25 and 24');if(!date)return toast('Choose a date');if(!task)return toast('Enter the task');
-    act(async()=>{const upd={work_date:date,client_id:$('#tsECust').value,task,hours:hrs,notes:$('#tsENotes').value.trim()||null};if(!T.noProject)upd.project=($('#tsEProj').value||'').trim()||null;const r=await sb().from('time_entries').update(upd).eq('id',T.open);if(r.error)throw new Error(rpcMsg(r.error.message))},()=>{T.edit=false;toast('Entry updated')});
+    act(async()=>{const upd={work_date:date,client_id:$('#tsECust').value,task,hours:hrs,notes:$('#tsENotes').value.trim()||null};if(!T.noProject)upd.project=($('#tsEProj').value||'').trim()||null;const r=await sb().from('time_entries').update(upd).eq('id',T.open);if(r.error)throw new Error(rpcMsg(r.error.message))},()=>{T.edit=false;T.edraft=null;toast('Entry updated')});
   },true);
   document.addEventListener('click',e=>{
     if(e.target.closest&&e.target.closest('[data-act^="ts"]')==null){
@@ -555,7 +577,7 @@
         try{localStorage.removeItem('vx_ts_timer')}catch(x){}
         const hrs=Math.max(0.25,Math.round((Date.now()-t)/3600000*4)/4);
         T.prefill={hours:String(hrs),date:todayISO()};T.newOpen=true;T.open=null;T.mode='list';return render()}
-      case 'tsEditToggle':T.edit=!T.edit;return render();
+      case 'tsEditToggle':T.edit=!T.edit;T.edraft=null;return render();
       case 'tsDTab':T.dTab=d.t;return render();
       case 'tsView':T.view=d.v;T.open=null;T.newOpen=false;T.edit=false;window.scrollTo(0,0);return render();
       case 'tsMore':T.limit+=100;return render();

@@ -5,7 +5,7 @@
   const cfg=window.VIRTUOSO||{};
   if(!(cfg.supabaseUrl&&cfg.anonKey)||/[?&]demo\b/.test(location.search))return;
   const sb=()=>window.VIRTUOSO.client;
-  const fresh=()=>({clients:null,loadC:false,mine:null,loadM:false,weekOff:0,billing:null,recent:null,all:null,tsPeriod:'month',tsInc:'approved',truncated:false,loadB:false,pend:null,pendLeave:null,loadP:false,busy:false,uid:null});
+  const fresh=()=>({clients:null,loadC:false,mine:null,loadM:false,weekOff:0,draft:{},billing:null,recent:null,all:null,tsPeriod:'month',tsInc:'approved',truncated:false,loadB:false,pend:null,pendLeave:null,loadP:false,busy:false,uid:null});
   let S=fresh();
   const pad=n=>String(n).padStart(2,'0');
   const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -116,7 +116,7 @@
     if(S.mine===null)loadMine();
     const [a,b]=week(),rows=S.mine||[],total=rows.reduce((s,e)=>s+ +e.hours,0);
     const editable=rows.filter(e=>e.status==='Draft'||e.status==='Rejected');
-    const cl=S.clients||[],tod=iso(new Date());
+    const cl=S.clients||[],tod=iso(new Date()),v=S.draft;
     return `<h2>Timesheet</h2><p class="sub">${esc(state.user.name)}. Week of ${esc(lbl(a))} to ${esc(lbl(b))}.</p>
     <div class="stack">
     <div class="panel"><div class="row" style="justify-content:space-between"><div><span class="mono" style="font-size:22px">${total.toFixed(1)} h</span> <span class="note">of 40 h</span></div>
@@ -126,12 +126,12 @@
         <span class="note">${editable.length?editable.length+' entr'+(editable.length>1?'ies':'y')+' ready to submit':'Nothing to submit'}</span></div></div>
     <div class="panel"><h3>Log time</h3>
       ${cl.length?`<form class="form" id="ltEntryForm" novalidate>
-      <label>Client<select id="ltClient">${cl.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label>
-      <label>Date<input id="ltDate" type="date" value="${tod}" max="${tod}" required></label>
-      <label>Task<input id="ltTask" placeholder="e.g. Management accounts" maxlength="200" required></label>
-      <label>Project (optional)<input id="ltProj" type="text" maxlength="120" list="ltProjList" placeholder="Choose or type a project"><datalist id="ltProjList">${(window.VIRTUOSO_PROJECTS||[]).map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
-      <label>Hours<input id="ltHrs" type="number" min="0.25" max="24" step="0.25" value="1"></label>
-      <label class="wide">Notes (optional)<input id="ltNotes" type="text" maxlength="500" placeholder="Anything the approver should know"></label>
+      <label>Client<select id="ltClient">${cl.map(c=>`<option value="${esc(c.id)}" ${v.ltClient===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+      <label>Date<input id="ltDate" type="date" value="${esc(v.ltDate!==undefined?v.ltDate:tod)}" max="${tod}" required></label>
+      <label>Task<input id="ltTask" placeholder="e.g. Management accounts" maxlength="200" value="${esc(v.ltTask||'')}" required></label>
+      <label>Project (optional)<input id="ltProj" type="text" maxlength="120" list="ltProjList" value="${esc(v.ltProj||'')}" placeholder="Choose or type a project"><datalist id="ltProjList">${(window.VIRTUOSO_PROJECTS||[]).map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
+      <label>Hours<input id="ltHrs" type="number" min="0.25" max="24" step="0.25" value="${esc(v.ltHrs!==undefined?v.ltHrs:'1')}"></label>
+      <label class="wide">Notes (optional)<input id="ltNotes" type="text" maxlength="500" value="${esc(v.ltNotes||'')}" placeholder="Anything the approver should know"></label>
       <button class="btn" type="submit">Add entry</button></form><div class="err" id="ltErr" role="alert"></div>`
       :`<p class="note">${S.clients===null?'Loading…':'No clients have been set up yet. Ask your administrator to add one.'}</p>`}</div>
     <div class="panel"><div class="tbl"><table><thead><tr><th>Day</th><th>Client</th><th>Project</th><th>Task</th><th class="n">Hours</th><th>Status</th><th></th></tr></thead><tbody>
@@ -185,8 +185,16 @@
     if(!(hrs>=0.25&&hrs<=24))return err('ltErr','Hours must be between 0.25 and 24.');
     if(!date||date>iso(new Date()))return err('ltErr','Choose a date that is not in the future.');
     if(!task)return err('ltErr','Say what you worked on.');
-    act(async()=>must(await sb().from('time_entries').insert(Object.assign({client_id:client,work_date:date,task,hours:hrs,notes:($('#ltNotes').value||'').trim()||null},($('#ltProj').value||'').trim()?{project:$('#ltProj').value.trim().slice(0,120)}:{}))),()=>{S.mine=null;toast('Entry added')});
+    act(async()=>must(await sb().from('time_entries').insert(Object.assign({client_id:client,work_date:date,task,hours:hrs,notes:($('#ltNotes').value||'').trim()||null},($('#ltProj').value||'').trim()?{project:$('#ltProj').value.trim().slice(0,120)}:{}))),()=>{
+      /* show the week the entry belongs to, so a backdated entry is visible and can be submitted */
+      S.weekOff=Math.round((mondayOf(parse(date))-mondayOf(new Date()))/6048e5);
+      S.draft={ltClient:client,ltDate:date};S.mine=null;toast('Entry added for '+dayLbl(date))});
   },true);
+
+  /* Keep what was typed: background updates redraw the page, which used to put the date back to today. */
+  ['input','change'].forEach(ev=>document.addEventListener(ev,e=>{
+    const t=e.target;if(t&&t.id&&t.closest&&t.closest('#ltEntryForm'))S.draft[t.id]=t.value;
+  },true));
 
   document.addEventListener('change',e=>{
     const t=e.target;
@@ -202,7 +210,9 @@
     e.stopImmediatePropagation();
     const d=b.dataset,id=d.id;
     switch(d.act){
-      case 'ltWeek':S.weekOff=d.d==='0'?0:S.weekOff+ +d.d;S.mine=null;return render();
+      case 'ltWeek':S.weekOff=d.d==='0'?0:S.weekOff+ +d.d;S.mine=null;
+        if(S.weekOff<0)S.draft.ltDate=week()[0];else delete S.draft.ltDate;
+        return render();
       case 'ltDelEntry':return act(async()=>must(await sb().from('time_entries').delete().eq('id',id)),()=>{S.mine=null;toast('Entry removed')});
       case 'ltSubmit':{const [a,z]=week();
         return act(async()=>must(await sb().from('time_entries').update({status:'Pending'}).eq('user_id',state.user.id).in('status',['Draft','Rejected']).gte('work_date',a).lte('work_date',z)),()=>{S.mine=null;toast('Timesheet submitted for approval')})}

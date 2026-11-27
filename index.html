@@ -571,22 +571,23 @@ function vTime(){
   const d=D(),total=d.entries.reduce((s,e)=>s+e.hrs,0);
   const hasDraft=d.entries.some(e=>e.status==='Draft');
   const running=state.timer!==null;
+  const ed=d.entries.includes(state.editEntry)&&['Draft','Rejected'].includes(state.editEntry.status)?state.editEntry:null;
   return `<h2>Timesheet</h2><p class="sub">${esc(state.user.name)}. Week of 19 to 23 October.</p>
   <div class="stack">
   <div class="panel"><div class="row" style="justify-content:space-between"><div><span class="mono" style="font-size:22px">${total.toFixed(1)} h</span> <span class="note">of 40 h</span></div>
     <button class="btn" data-act="submitWeek" ${hasDraft?'':'disabled'}>Submit week for approval</button></div>
     <div class="bar2"><i style="width:${Math.min(100,total/40*100)}%"></i></div></div>
-  <div class="panel"><h3>Log time</h3>
+  <div class="panel"><h3>${ed?'Edit entry':'Log time'}</h3>
     <form class="form" id="timeForm">
-      <label>Client<select id="tClient">${state.clients.map(c=>`<option>${esc(c.name)}</option>`).join('')}</select></label>
-      <label>Task<input id="tTask" value="Management accounts" required></label>
-      <label>Hours<input id="tHrs" type="number" min="0.25" max="24" step="0.25" value="1"></label>
-      <button class="btn" type="submit">Add entry</button>
+      <label>Client<select id="tClient">${state.clients.map(c=>`<option ${ed&&ed.client===c.name?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+      <label>Task<input id="tTask" value="${esc(ed?ed.task:'Management accounts')}" required></label>
+      <label>Hours<input id="tHrs" type="number" min="0.25" max="24" step="0.25" value="${ed?ed.hrs:1}"></label>
+      <button class="btn" type="submit">${ed?'Save changes':'Add entry'}</button>${ed?'<button class="btn ghost" type="button" data-act="editEntryCancel">Cancel</button>':''}
     </form>
     <div class="row" style="margin-top:12px"><button class="btn ghost" data-act="timer">${running?'Stop timer':'Start timer'}</button>
       <span class="mono" id="timerOut">${running?'Running...':'Timer idle'}</span></div></div>
-  <div class="panel"><div class="tbl"><table><thead><tr><th>Day</th><th>Client</th><th>Task</th><th class="n">Hours</th><th>Status</th></tr></thead><tbody>
-    ${d.entries.length?d.entries.map(e=>`<tr><td>${esc(e.day)}</td><td>${esc(e.client)}</td><td>${esc(e.task)}</td><td class="n">${e.hrs.toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td></tr>`).join(''):'<tr><td colspan="5" class="note">No time logged yet. Add your first entry above.</td></tr>'}
+  <div class="panel"><div class="tbl"><table><thead><tr><th>Day</th><th>Client</th><th>Task</th><th class="n">Hours</th><th>Status</th><th></th></tr></thead><tbody>
+    ${d.entries.length?d.entries.map((e,i)=>`<tr><td>${esc(e.day)}</td><td>${esc(e.client)}</td><td>${esc(e.task)}</td><td class="n">${e.hrs.toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td><td>${['Draft','Rejected'].includes(e.status)?`<button class="btn ghost sm" data-act="editEntry" data-i="${i}">Edit</button>`:''}</td></tr>`).join(''):'<tr><td colspan="6" class="note">No time logged yet. Add your first entry above.</td></tr>'}
   </tbody></table></div></div></div>`;
 }
 function clientStats(){
@@ -1548,6 +1549,8 @@ document.addEventListener('click',async e=>{
   if(a==='resetPw'){const u=byId(id),p=genPw();u.password=p;u.mustChange=true;state.newCred={name:u.name,email:u.email,password:p,mustChange:true}}
   if(a==='withdraw'){const d=D(),l=d.leaves.find(x=>x.id===id);l.status='Withdrawn';state.approvals=state.approvals.filter(x=>x.obj!==l);queue();toast('Application withdrawn')}
   if(a==='deleteLeave'){if(!confirm('Delete this application? This cannot be undone.'))return;const d=D(),i=d.leaves.findIndex(x=>x.id===id);if(i>=0){const l=d.leaves[i];state.approvals=state.approvals.filter(x=>x.obj!==l);d.leaves.splice(i,1)}queue();toast('Application deleted')}
+  if(a==='editEntry'){state.editEntry=D().entries[+t.dataset.i];return render()}
+  if(a==='editEntryCancel'){state.editEntry=null;return render()}
   if(a==='submitWeek'){const d=D(),list=d.entries.filter(x=>x.status==='Draft');list.forEach(x=>x.status='Submitted');
     const tot=d.entries.reduce((s,x)=>s+x.hrs,0);
     state.approvals.push({id:uid(),uid:state.user.id,type:'Timesheet',who:state.user.name,detail:'Week 19-23 Oct, '+tot.toFixed(1)+' h',status:'Pending',kind:'time',list});
@@ -1658,6 +1661,8 @@ document.addEventListener('submit',e=>{
     if(state.clients.some(c=>c.name.toLowerCase()===nm.toLowerCase()))return er.textContent='That client already exists.';
     state.clients.push({id:uid(),name:nm,rate:rt,bill:$('#cBill').value==='1'});logA('Client added',nm+' at N$ '+rt+'/h');toast(nm+' added');render();return}
   if(f==='timeForm'){const h=parseFloat($('#tHrs').value);if(!(h>0))return toast('Enter hours');
+    const ed=state.editEntry;
+    if(ed&&D().entries.includes(ed)&&['Draft','Rejected'].includes(ed.status)){Object.assign(ed,{client:$('#tClient').value,task:$('#tTask').value||'Work',hrs:h,status:'Draft'});state.editEntry=null;queue();toast('Entry updated');return render()}
     D().entries.push({day:'Sat 24 Oct',client:$('#tClient').value,task:$('#tTask').value||'Work',hrs:h,status:'Draft'});queue();toast('Entry added');render()}
   if(f==='leaveForm'){
     const c=leaveCalc(),d=D(),err=$('#lErr'),reason=$('#lReason').value.trim(),file=$('#lFile').files[0];

@@ -5,7 +5,7 @@
   const cfg=window.VIRTUOSO||{};
   if(!(cfg.supabaseUrl&&cfg.anonKey)||/[?&]demo\b/.test(location.search))return;
   const sb=()=>window.VIRTUOSO.client;
-  const fresh=()=>({clients:null,loadC:false,mine:null,loadM:false,weekOff:0,draft:{},billing:null,recent:null,all:null,tsPeriod:'month',tsInc:'approved',truncated:false,loadB:false,pend:null,pendLeave:null,loadP:false,busy:false,uid:null});
+  const fresh=()=>({clients:null,loadC:false,mine:null,loadM:false,weekOff:0,draft:{},edit:null,billing:null,recent:null,all:null,tsPeriod:'month',tsInc:'approved',truncated:false,loadB:false,pend:null,pendLeave:null,loadP:false,busy:false,uid:null});
   let S=fresh();
   const pad=n=>String(n).padStart(2,'0');
   const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -124,7 +124,7 @@
       <div class="bar2"><i style="width:${Math.min(100,total/40*100)}%"></i></div>
       <div class="row" style="margin-top:12px"><button class="btn" data-act="ltSubmit" ${editable.length?'':'disabled'}>Submit week for approval</button>
         <span class="note">${editable.length?editable.length+' entr'+(editable.length>1?'ies':'y')+' ready to submit':'Nothing to submit'}</span></div></div>
-    <div class="panel"><h3>Log time</h3>
+    <div class="panel"><h3>${S.edit?'Edit entry':'Log time'}</h3>
       ${cl.length?`<form class="form" id="ltEntryForm" novalidate>
       <label>Client<select id="ltClient">${cl.map(c=>`<option value="${esc(c.id)}" ${v.ltClient===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
       <label>Date<input id="ltDate" type="date" value="${esc(v.ltDate!==undefined?v.ltDate:tod)}" max="${tod}" required></label>
@@ -132,11 +132,11 @@
       <label>Project (optional)<input id="ltProj" type="text" maxlength="120" list="ltProjList" value="${esc(v.ltProj||'')}" placeholder="Choose or type a project"><datalist id="ltProjList">${(window.VIRTUOSO_PROJECTS||[]).map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
       <label>Hours<input id="ltHrs" type="number" min="0.25" max="24" step="0.25" value="${esc(v.ltHrs!==undefined?v.ltHrs:'1')}"></label>
       <label class="wide">Notes (optional)<input id="ltNotes" type="text" maxlength="500" value="${esc(v.ltNotes||'')}" placeholder="Anything the approver should know"></label>
-      <button class="btn" type="submit">Add entry</button></form><div class="err" id="ltErr" role="alert"></div>`
+      <div class="row"><button class="btn" type="submit">${S.edit?'Save changes':'Add entry'}</button>${S.edit?'<button class="btn ghost" type="button" data-act="ltEditCancel">Cancel</button>':''}</div></form><div class="err" id="ltErr" role="alert"></div>`
       :`<p class="note">${S.clients===null?'Loading…':'No clients have been set up yet. Ask your administrator to add one.'}</p>`}</div>
     <div class="panel"><div class="tbl"><table><thead><tr><th>Day</th><th>Client</th><th>Project</th><th>Task</th><th class="n">Hours</th><th>Status</th><th></th></tr></thead><tbody>
     ${rows.length?rows.map(e=>`<tr><td>${esc(dayLbl(e.work_date))}</td><td>${esc(cname(e.client_id))}</td><td>${e.project?esc(e.project):'<span class="note">--</span>'}</td><td>${esc(e.task)}${e.notes?`<div class="note">${esc(e.notes)}</div>`:''}</td><td class="n">${(+e.hours).toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td>
-      <td>${e.status==='Draft'?`<button class="btn ghost sm" data-act="ltDelEntry" data-id="${esc(e.id)}">Remove</button>`:''}</td></tr>`).join('')
+      <td><div class="row" style="gap:6px">${e.status==='Draft'||e.status==='Rejected'?`<button class="btn ghost sm" data-act="ltEdit" data-id="${esc(e.id)}">Edit</button>`:''}${e.status==='Draft'?`<button class="btn ghost sm" data-act="ltDelEntry" data-id="${esc(e.id)}">Remove</button>`:''}</div></td></tr>`).join('')
       :`<tr><td colspan="7" class="note">${S.mine===null?'Loading…':'No time logged for this week. Add your first entry above.'}</td></tr>`}
     </tbody></table></div></div></div>`;
   }
@@ -185,6 +185,17 @@
     if(!(hrs>=0.25&&hrs<=24))return err('ltErr','Hours must be between 0.25 and 24.');
     if(!date||date>iso(new Date()))return err('ltErr','Choose a date that is not in the future.');
     if(!task)return err('ltErr','Say what you worked on.');
+    if(S.edit){
+      const row=(S.mine||[]).find(x=>x.id===S.edit),proj=($('#ltProj').value||'').trim().slice(0,120);
+      /* a rejected entry goes back to Draft, so it can be submitted again */
+      const upd={client_id:client,work_date:date,task,hours:hrs,notes:($('#ltNotes').value||'').trim()||null,status:'Draft'};
+      if(proj||(row&&'project' in row))upd.project=proj||null;
+      const eid=S.edit;
+      return act(async()=>{const r=await sb().from('time_entries').update(upd).eq('id',eid).select();must(r);
+        if(!r.data||!r.data.length){S.mine=null;throw new Error('This entry can no longer be changed. It may already be submitted or approved.')}},()=>{
+        S.weekOff=Math.round((mondayOf(parse(date))-mondayOf(new Date()))/6048e5);
+        S.edit=null;S.draft={};S.mine=null;toast('Entry updated')});
+    }
     act(async()=>must(await sb().from('time_entries').insert(Object.assign({client_id:client,work_date:date,task,hours:hrs,notes:($('#ltNotes').value||'').trim()||null},($('#ltProj').value||'').trim()?{project:$('#ltProj').value.trim().slice(0,120)}:{}))),()=>{
       /* show the week the entry belongs to, so a backdated entry is visible and can be submitted */
       S.weekOff=Math.round((mondayOf(parse(date))-mondayOf(new Date()))/6048e5);
@@ -210,10 +221,14 @@
     e.stopImmediatePropagation();
     const d=b.dataset,id=d.id;
     switch(d.act){
-      case 'ltWeek':S.weekOff=d.d==='0'?0:S.weekOff+ +d.d;S.mine=null;
+      case 'ltEdit':{const r=(S.mine||[]).find(x=>String(x.id)===id);if(!r)return;
+        S.edit=r.id;S.draft={ltClient:r.client_id,ltDate:r.work_date,ltTask:r.task||'',ltProj:r.project||'',ltHrs:String(+r.hours),ltNotes:r.notes||''};
+        render();const f=$('#ltEntryForm');if(f){f.scrollIntoView({block:'center'});$('#ltTask').focus()}return}
+      case 'ltEditCancel':S.edit=null;S.draft={};return render();
+      case 'ltWeek':if(S.edit){S.edit=null;S.draft={}}S.weekOff=d.d==='0'?0:S.weekOff+ +d.d;S.mine=null;
         if(S.weekOff<0)S.draft.ltDate=week()[0];else delete S.draft.ltDate;
         return render();
-      case 'ltDelEntry':return act(async()=>must(await sb().from('time_entries').delete().eq('id',id)),()=>{S.mine=null;toast('Entry removed')});
+      case 'ltDelEntry':if(String(S.edit)===id){S.edit=null;S.draft={}}return act(async()=>must(await sb().from('time_entries').delete().eq('id',id)),()=>{S.mine=null;toast('Entry removed')});
       case 'ltSubmit':{const [a,z]=week();
         return act(async()=>must(await sb().from('time_entries').update({status:'Pending'}).eq('user_id',state.user.id).in('status',['Draft','Rejected']).gte('work_date',a).lte('work_date',z)),()=>{S.mine=null;toast('Timesheet submitted for approval')})}
       case 'ltBill':{const c=(S.clients||[]).find(x=>x.id===id);if(!c)return;

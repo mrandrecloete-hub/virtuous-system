@@ -136,7 +136,7 @@
       :`<p class="note">${S.clients===null?'Loading…':'No clients have been set up yet. Ask your administrator to add one.'}</p>`}</div>
     <div class="panel"><div class="tbl"><table><thead><tr><th>Day</th><th>Client</th><th>Project</th><th>Task</th><th class="n">Hours</th><th>Status</th><th></th></tr></thead><tbody>
     ${rows.length?rows.map(e=>`<tr><td>${esc(dayLbl(e.work_date))}</td><td>${esc(cname(e.client_id))}</td><td>${e.project?esc(e.project):'<span class="note">--</span>'}</td><td>${esc(e.task)}${e.notes?`<div class="note">${esc(e.notes)}</div>`:''}</td><td class="n">${(+e.hours).toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td>
-      <td><div class="row" style="gap:6px">${e.status==='Draft'||e.status==='Rejected'?`<button class="btn ghost sm" data-act="ltEdit" data-id="${esc(e.id)}">Edit</button>`:''}${e.status==='Draft'?`<button class="btn ghost sm" data-act="ltDelEntry" data-id="${esc(e.id)}">Remove</button>`:''}</div></td></tr>`).join('')
+      <td><div class="row" style="gap:6px">${!e.billed?`<button class="btn ghost sm" data-act="ltEdit" data-id="${esc(e.id)}">Edit</button>`:''}${e.status==='Draft'?`<button class="btn ghost sm" data-act="ltDelEntry" data-id="${esc(e.id)}">Remove</button>`:''}</div></td></tr>`).join('')
       :`<tr><td colspan="7" class="note">${S.mine===null?'Loading…':'No time logged for this week. Add your first entry above.'}</td></tr>`}
     </tbody></table></div></div></div>`;
   }
@@ -186,15 +186,19 @@
     if(!date||date>iso(new Date()))return err('ltErr','Choose a date that is not in the future.');
     if(!task)return err('ltErr','Say what you worked on.');
     if(S.edit){
-      const row=(S.mine||[]).find(x=>x.id===S.edit),proj=($('#ltProj').value||'').trim().slice(0,120);
-      /* a rejected entry goes back to Draft, so it can be submitted again */
-      const upd={client_id:client,work_date:date,task,hours:hrs,notes:($('#ltNotes').value||'').trim()||null,status:'Draft'};
-      if(proj||(row&&'project' in row))upd.project=proj||null;
-      const eid=S.edit;
-      return act(async()=>{const r=await sb().from('time_entries').update(upd).eq('id',eid).select();must(r);
-        if(!r.data||!r.data.length){S.mine=null;throw new Error('This entry can no longer be changed. It may already be submitted or approved.')}},()=>{
+      /* edit_own_time_entry (migration 0041) checks ownership and billing; approved entries go back to Pending */
+      const args={p_id:S.edit,p_client:client,p_date:date,p_task:task,p_hours:hrs,p_notes:($('#ltNotes').value||'').trim(),p_project:($('#ltProj').value||'').trim()};
+      let res='';
+      const row=(S.mine||[]).find(x=>x.id===S.edit);
+      return act(async()=>{let r=await sb().rpc('edit_own_time_entry',args);
+        /* before migration 0041, draft and rejected entries can still be saved directly */
+        if(r.error&&/edit_own_time_entry|schema cache/i.test(r.error.message||'')&&row&&(row.status==='Draft'||row.status==='Rejected')){
+          const u={client_id:client,work_date:date,task,hours:hrs,notes:args.p_notes||null,status:'Draft'};if('project' in row||args.p_project)u.project=args.p_project||null;
+          const q=await sb().from('time_entries').update(u).eq('id',row.id).select();must(q);r=q.data&&q.data.length?{data:'Draft'}:{error:{message:'not allowed to change'}}}
+        if(r.error){const m=r.error.message||'';throw new Error(/edit_own_time_entry|schema cache/i.test(m)?'Editing is not set up yet (migration 0041 must be run).':/billed|not allowed|future|Hours must|worked on/i.test(m)?m:'Could not save the change. Try again.')}
+        res=r.data},()=>{
         S.weekOff=Math.round((mondayOf(parse(date))-mondayOf(new Date()))/6048e5);
-        S.edit=null;S.draft={};S.mine=null;toast('Entry updated')});
+        S.edit=null;S.draft={};S.mine=null;toast(res==='Pending'?'Entry updated and sent for approval again':'Entry updated')});
     }
     act(async()=>must(await sb().from('time_entries').insert(Object.assign({client_id:client,work_date:date,task,hours:hrs,notes:($('#ltNotes').value||'').trim()||null},($('#ltProj').value||'').trim()?{project:$('#ltProj').value.trim().slice(0,120)}:{}))),()=>{
       /* show the week the entry belongs to, so a backdated entry is visible and can be submitted */

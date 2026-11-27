@@ -571,7 +571,7 @@ function vTime(){
   const d=D(),total=d.entries.reduce((s,e)=>s+e.hrs,0);
   const hasDraft=d.entries.some(e=>e.status==='Draft');
   const running=state.timer!==null;
-  const ed=d.entries.includes(state.editEntry)&&['Draft','Rejected'].includes(state.editEntry.status)?state.editEntry:null;
+  const ed=d.entries.includes(state.editEntry)&&!state.editEntry.billed?state.editEntry:null;
   return `<h2>Timesheet</h2><p class="sub">${esc(state.user.name)}. Week of 19 to 23 October.</p>
   <div class="stack">
   <div class="panel"><div class="row" style="justify-content:space-between"><div><span class="mono" style="font-size:22px">${total.toFixed(1)} h</span> <span class="note">of 40 h</span></div>
@@ -587,7 +587,7 @@ function vTime(){
     <div class="row" style="margin-top:12px"><button class="btn ghost" data-act="timer">${running?'Stop timer':'Start timer'}</button>
       <span class="mono" id="timerOut">${running?'Running...':'Timer idle'}</span></div></div>
   <div class="panel"><div class="tbl"><table><thead><tr><th>Day</th><th>Client</th><th>Task</th><th class="n">Hours</th><th>Status</th><th></th></tr></thead><tbody>
-    ${d.entries.length?d.entries.map((e,i)=>`<tr><td>${esc(e.day)}</td><td>${esc(e.client)}</td><td>${esc(e.task)}</td><td class="n">${e.hrs.toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td><td>${['Draft','Rejected'].includes(e.status)?`<button class="btn ghost sm" data-act="editEntry" data-i="${i}">Edit</button>`:''}</td></tr>`).join(''):'<tr><td colspan="6" class="note">No time logged yet. Add your first entry above.</td></tr>'}
+    ${d.entries.length?d.entries.map((e,i)=>`<tr><td>${esc(e.day)}</td><td>${esc(e.client)}</td><td>${esc(e.task)}</td><td class="n">${e.hrs.toFixed(2)}</td><td>${pill(e.status,stc(e.status))}</td><td>${!e.billed?`<button class="btn ghost sm" data-act="editEntry" data-i="${i}">Edit</button>`:''}</td></tr>`).join(''):'<tr><td colspan="6" class="note">No time logged yet. Add your first entry above.</td></tr>'}
   </tbody></table></div></div></div>`;
 }
 function clientStats(){
@@ -1662,7 +1662,7 @@ document.addEventListener('submit',e=>{
     state.clients.push({id:uid(),name:nm,rate:rt,bill:$('#cBill').value==='1'});logA('Client added',nm+' at N$ '+rt+'/h');toast(nm+' added');render();return}
   if(f==='timeForm'){const h=parseFloat($('#tHrs').value);if(!(h>0))return toast('Enter hours');
     const ed=state.editEntry;
-    if(ed&&D().entries.includes(ed)&&['Draft','Rejected'].includes(ed.status)){Object.assign(ed,{client:$('#tClient').value,task:$('#tTask').value||'Work',hrs:h,status:'Draft'});state.editEntry=null;queue();toast('Entry updated');return render()}
+    if(ed&&D().entries.includes(ed)&&!ed.billed){Object.assign(ed,{client:$('#tClient').value,task:$('#tTask').value||'Work',hrs:h,status:['Approved','Submitted','Pending'].includes(ed.status)?'Submitted':'Draft'});state.editEntry=null;queue();toast('Entry updated');return render()}
     D().entries.push({day:'Sat 24 Oct',client:$('#tClient').value,task:$('#tTask').value||'Work',hrs:h,status:'Draft'});queue();toast('Entry added');render()}
   if(f==='leaveForm'){
     const c=leaveCalc(),d=D(),err=$('#lErr'),reason=$('#lReason').value.trim(),file=$('#lFile').files[0];
